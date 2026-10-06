@@ -1,0 +1,185 @@
+# Fluency – Live-Übersetzer, vollständig offline
+
+Android-App (Kotlin, Jetpack Compose, Material 3) für das **Samsung Galaxy S26 Ultra**
+(arm64-v8a, minSdk 31, targetSdk 37). Spracherkennung, Übersetzung und Sprachausgabe laufen
+**komplett auf dem Handy**: kein API-Schlüssel, keine Cloud, kein ML Kit, keine Telemetrie.
+Das Internet wird nur für den einmaligen Modell-Download gebraucht, danach funktioniert alles im
+Flugmodus.
+
+| Live | Gespräch | Text | Modelle | Benchmark |
+|---|---|---|---|---|
+| ![](docs/screenshots/01_live.png) | ![](docs/screenshots/04_conversation.png) | ![](docs/screenshots/05_text.png) | ![](docs/screenshots/06_models.png) | ![](docs/screenshots/07_benchmark.png) |
+
+Die Screenshots sind Robolectric-Renderings (`ScreenshotTest`). Die Texte und Zahlen darin stammen
+aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Messungen**.
+
+## Funktionen
+
+1. **Live-Modus**: Du sprichst, Untertitel und Übersetzung wachsen mit. Etwa alle 400 ms gibt es
+   ein Teilergebnis. Sobald du eine Sprechpause machst (~160 ms), werden Erkennung und Übersetzung
+   sofort gestartet. Wenn der VAD danach das Satzende bestätigt, wird dieses Vorab-Ergebnis
+   übernommen, statt neu zu rechnen. Optional wird die Übersetzung satzweise vorgelesen (das
+   Mikrofon ist dabei stumm, damit es sich nicht selbst übersetzt).
+2. **Gesprächsmodus** für zwei Personen: geteilte Ansicht, die obere Hälfte steht für das
+   Gegenüber auf dem Kopf. Jede Seite hat ihren eigenen Mikrofon-Button. Nach 1,8 s Stille wird
+   automatisch übergeben.
+3. **Text-Übersetzung** (tippen/einfügen): Übersetzung schon beim Tippen mit dem schnellen Modell,
+   per Knopf mit dem besten installierten Modell. Lange Texte werden satz- und absatzweise übersetzt.
+4. **Modellverwaltung**: Download mit Fortschritt und Geschwindigkeit. Abgebrochene Downloads
+   werden per HTTP Range fortgesetzt, auch nach einem App-Neustart. **SHA-256-Prüfung** jeder Datei,
+   die Download-URLs sind auf einen Hugging-Face-Commit fixiert. Dazu: Löschen, Speicherbedarf und
+   freier Platz, manueller Import (Dateiauswahl) für Katalogmodelle sowie eigene GGUF- und
+   whisper.cpp-Modelle.
+5. **Latenz pro Übersetzung**: Erkennung, Übersetzung, Gesamt (vom Satzende bis zur fertigen
+   Übersetzung) und Tokens/s. Ein **Benchmark-Screen** misst alle installierten Modelle auf dem
+   Gerät: Ladezeit, ms pro Satz, Prompt- und Ausgabe-Tokens/s, mit KV-Cache, ASR-Echtzeitfaktor und
+   Piper.
+6. **„Deutsch (Schweiz)"** schreibt immer „ss" statt „ß" (Übersetzungen, Untertitel, Vorlesen).
+   Die Oberfläche ist Deutsch in Schweizer Schreibweise.
+
+Sprachen: 54 Einträge (Deutsch, Deutsch (Schweiz), Englisch, Französisch, Italienisch, Spanisch,
+Portugiesisch und alles, was Hy-MT2 und MiLMMT-46 zusätzlich können). Die App wählt automatisch ein
+installiertes Modell, das das Sprachpaar beherrscht.
+
+## Modelle
+
+Geprüft auf Hugging Face am 6.10.2026. Es gibt Nachfolger der im Auftrag genannten Modelle:
+
+| Rolle | Modell | Download | Sprachen | Lizenz |
+|---|---|---|---|---|
+| Übersetzung schnell (Standard, live + final) | **Tencent Hy-MT2-1.8B** Q4_K_M (Mai 2026, Nachfolger von HY-MT1.5) | 1.13 GB | 33 (+ Varianten) | Apache-2.0 |
+| Übersetzung Qualität (optional final/Text) | **Xiaomi MiLMMT-46-4B v1.0** Q4_K_M (Aug. 2026, Gemma-3-Basis) | 2.49 GB | 46 | Gemma Terms |
+| Übersetzung sehr schnell (optional) | Xiaomi MiLMMT-46-1B v1.0 Q4_K_M | 0.81 GB | 46 | Gemma Terms |
+| Spracherkennung live | **NVIDIA Parakeet-TDT-0.6B-v3** int8 (sherpa-onnx) | 0.67 GB | 25 europ., automatische Erkennung | CC-BY-4.0 |
+| Spracherkennung Fallback | **Whisper large-v3-turbo** int8 (sherpa-onnx) | 1.04 GB | ~100 | MIT |
+| Schweizerdeutsch (Mundart → Hochdeutsch) | Whisper-large-v3-turbo-Finetune von Flurin17, GGML q5_0 (whisper.cpp) | 0.57 GB | gsw → de | CC-BY-NC-4.0 (privat ok) |
+| Sprachaktivität | **Silero VAD v5** | 2 MB | – | MIT |
+| Sprachausgabe | Android-TTS (nur Offline-Stimmen), optional **Piper** (Thorsten de, Lessac en, Siwis fr, Paola it, Davefx es, Tugão pt) | je 63 MB + 18 MB eSpeak-Daten | 6 | CC0 / CC-BY / … |
+
+Begründung:
+
+- **Hy-MT2-1.8B** löst HY-MT1.5 ab und schneidet laut der Vergleichstabelle im MiLMMT-Paper
+  (FLORES+ en→xx: spBLEU 30.97 vs. 24.81) klar besser ab. Mit 1.8 B Parametern ist es schnell
+  genug für Teilübersetzungen während des Sprechens.
+- **MiLMMT-46-4B v1.0** erreicht in derselben Tabelle das Niveau von Hy-MT2-7B (WMT24++ XCOMET 85.5
+  vs. 86.2) und liegt deutlich vor TranslateGemma-4B (76.0). Deshalb ist TranslateGemma nicht im
+  Katalog. Es ist etwa halb so schnell wie Hy-MT2-1.8B.
+- **Parakeet-v3** ist das schnellste mehrsprachige Modell (auf x86 RTF ≈ 0.1) und erkennt die
+  Sprache selbst.
+- **Schweizerdeutsch**: Offene Whisper-Finetunes gibt es nur im whisper.cpp-Format (GGML/GGUF),
+  nicht für sherpa-onnx. Deshalb ist whisper.cpp mit eingebaut. Es nutzt dieselbe ggml-Basis wie
+  llama.cpp. Das Modell ist langsam (keine Teilergebnisse) und wird nur für die Ausgangssprache
+  „Deutsch (Schweiz)" verwendet.
+- Die Modelle sind **nicht in der APK**. Beim ersten Start lädt „Empfohlene laden" Hy-MT2, Parakeet
+  und Silero VAD (1.8 GB).
+
+Hinweis zu den Low-Bit-Varianten von Hy-MT2 (1.25/2 bit): Sie brauchen einen STQ-Kernel, der nicht
+in llama.cpp-master ist. Deshalb sind sie nicht im Katalog.
+
+## Technik
+
+```
+Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / sofort bei Sprechpause)─▶ Parakeet (Teil)
+                                                                    └─▶ Teilübersetzung, „latest wins", Hy-MT2
+                └─(Satzende: 0,4 s Stille)─▶ finale Erkennung (oder Vorab-Ergebnis) ─▶ finale Übersetzung
+                                                           (oder fertige Teilübersetzung) ─▶ Vorlesen
+```
+
+- **llama.cpp** (Submodul, Stand 6.10.2026), selbst gebaut per NDK r30 für arm64. Es gibt sieben
+  CPU-Varianten (`GGML_CPU_ALL_VARIANTS`: armv8.0 … armv9.2 mit dotprod/i8mm/SVE/SME), die passende
+  wählt die App zur Laufzeit. Dazu **KleidiAI**, Q4_K/Q6_K-Weight-Repacking für i8mm und optional das
+  **Adreno-OpenCL-Backend** (experimentell, Schalter in Optionen, `uses-native-library libOpenCL.so`).
+  Die Hexagon-NPU wird nicht genutzt, weil das Hexagon-SDK nicht frei verfügbar ist.
+- **JNI-Brücke** (`app/src/main/cpp/fluency_jni.cpp`): Das Modell bleibt warm im Speicher. Der
+  **KV-Cache wird wiederverwendet**, es wird nur der Prompt-Teil neu berechnet, der sich geändert
+  hat (bei wachsenden Teilsätzen kommen z. B. 31 von 41 Tokens aus dem Cache). Tokens werden
+  gestreamt (nur vollständige UTF-8-Zeichen), Abbruch geht jederzeit. Die Prompts sind die kürzesten
+  offiziellen Formate (Hy-MT2-Chat-Template bzw. MiLMMT-Completion), Decoding greedy.
+- **sherpa-onnx 1.13.8** (VAD, ASR, Piper) aus dem Quellcode gebaut gegen ONNX Runtime 1.28.0 (aus
+  Maven), siehe `native/build-sherpa-onnx.sh`. Die gebaute `libsherpa-onnx-jni.so` liegt in
+  `app/src/main/jniLibs`.
+- **whisper.cpp 1.9.5** für Schweizerdeutsch, statisch in `libfluency_jni.so`.
+- Native Libraries werden komprimiert in die APK gepackt (`useLegacyPackaging = true`), alle sind
+  16-KB-ausgerichtet. Release mit R8 (JNI-Klassen bleiben erhalten) und Signatur v3.
+
+## Bauen
+
+Voraussetzungen: JDK 21, Android SDK (Platform 37, Build-Tools 37.0.0, NDK 30.0.16248370, CMake
+3.31.6), Python 3, Ninja.
+
+```bash
+git clone https://github.com/MADTreasures/playground && cd playground
+git submodule update --init --depth 1        # llama.cpp, whisper.cpp, KleidiAI, OpenCL-Headers/-ICD-Loader
+cd fluency
+echo "sdk.dir=/pfad/zum/android-sdk" > local.properties
+./gradlew :app:assembleDebug                 # oder assembleRelease (siehe Signieren)
+```
+
+`libsherpa-onnx-jni.so` neu bauen (optional, nur bei einem Versionswechsel):
+`native/build-sherpa-onnx.sh android`. Die Abhängigkeiten werden in diesem Skript beschrieben; die
+GitHub-Release-Downloads werden dabei nicht benötigt.
+
+**Signieren**: `fluency/keystore.properties` (nicht im Repo) mit
+
+```
+storeFile=/pfad/fluency-release.jks
+storePassword=…
+keyAlias=fluency
+keyPassword=…
+```
+
+oder per Umgebungsvariablen `FLUENCY_KEYSTORE`, `FLUENCY_KEYSTORE_PASSWORD`, `FLUENCY_KEY_ALIAS`,
+`FLUENCY_KEY_PASSWORD`. Updates müssen mit **demselben Schlüssel** signiert werden (Zertifikat
+SHA-256 `81:05:E7:DE:…:9C:6A`), sonst verweigert Android die Installation über die alte Version.
+
+Modellkatalog aktualisieren (neue Commits/Hashes von Hugging Face): `python3 -I tools/gen_model_files.py`.
+
+## Tests
+
+```bash
+./native/build-host-jni.sh                   # llama.cpp + whisper.cpp JNI für x86-64
+./native/build-sherpa-onnx.sh host           # sherpa-onnx JNI für x86-64
+FLUENCY_MODEL_DIR=/pfad/zu/modellen ./gradlew :app:testDebugUnitTest
+```
+
+79 Tests in 16 Klassen, alle grün:
+
+- **Logik**: Schweizer Schreibweise, Satz-Segmentierung, Spracherkennung per Stoppwörtern/Schrift,
+  Prompt-Formate, Modell-Routing, Katalog (gepinnte URLs, SHA-256), **Downloader** (Fortsetzen nach
+  Verbindungsabbruch, `.part` aus früherem Lauf, Server ignoriert Range, falscher Hash), WAV,
+  **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp).
+- **Echte Modelle auf dem x86-Container über dieselbe JNI wie in der App**:
+  - Hy-MT2: Streaming, KV-Cache-Wiederverwendung, Abbruch, CJK-Ausgabe.
+  - Alle sechs Kernsprachen, Auto-Quelle, Absätze, Schweizer „ss":
+    „Die Strasse ist sehr gross. Grüsse aus der grossen Stadt!"
+  - MiLMMT 1B/4B, inkl. Schwedisch.
+  - Parakeet (de/en/fr/es) und Whisper-turbo (inkl. Spracherkennung).
+  - Silero VAD mit absoluten Segmentpositionen.
+  - Schweizerdeutsch-Whisper über whisper.cpp.
+  - Echter Download von Hugging Face inkl. SHA-256 (Silero, 355 eSpeak-Dateien, Piper).
+  - Piper spricht, Parakeet erkennt: „Guten Morgen, wie komme ich zum Bahnhof?"
+  - **Live-Pipeline Ende-zu-Ende** (Audio → VAD → Parakeet → Hy-MT2) und der App-Benchmark.
+- **Robolectric-Screenshots** aller Bildschirme (`docs/screenshots`).
+
+Messwerte auf dem Container (4 vCPU x86, nur Korrektheitsreferenz, das Handy ist schneller):
+Hy-MT2 17 Tok/s, MiLMMT-1B 23 Tok/s, MiLMMT-4B 7 Tok/s, Parakeet RTF 0.12. Live-Pipeline vom
+Satzende bis zur fertigen Übersetzung: 1.6 s.
+
+## Was nur auf dem Handy getestet werden kann
+
+- Die echte Geschwindigkeit auf dem Snapdragon 8 Elite Gen 5. Erwartet wird deutlich unter 1 s vom
+  Satzende bis zur Übersetzung; das zeigt der Benchmark-Screen.
+- Welche CPU-Variante gewählt wird (i8mm/SVE/SME) und ob KleidiAI greift.
+- Ob das Adreno-OpenCL-Backend lädt und schneller ist (experimentell, standardmässig aus).
+- Mikrofon-Aufnahme, Echo/Rückkopplung beim Vorlesen, Android-TTS-Offline-Stimmen.
+- Foreground-Service-Downloads im Hintergrund, Benachrichtigungen, SAF-Dateiimport.
+- Schweizerdeutsch-Qualität mit echter Mundart (getestet wurde nur Hochdeutsch-Audio) und dessen
+  Tempo auf dem Handy.
+- Speicherverbrauch und Wärmeentwicklung bei langen Sitzungen.
+
+## Lizenzen
+
+App-Code: privat. Komponenten: llama.cpp, whisper.cpp und ggml (MIT), sherpa-onnx (Apache-2.0),
+ONNX Runtime (MIT), KleidiAI (Apache-2.0), OpenCL-Headers/ICD-Loader (Apache-2.0), eSpeak-NG-Daten
+(GPL-3.0). Modelle: siehe Tabelle oben. Sie werden nicht mitgeliefert, sondern vom Nutzer
+heruntergeladen. Einige sind nur für die nicht-kommerzielle Nutzung freigegeben.
