@@ -53,8 +53,9 @@ class BenchmarkIntegrationTest {
         assertFalse(report.running)
         assertEquals(TestEnv.files.values.count { it.exists() }, report.mt.size)
         assertTrue(report.mt.all { it.avgMs > 0 && it.decodeTps > 0 && it.prefillTps > 0 })
-        // the KV cache makes a repeated (live partial) prompt cheaper than a cold one
-        assertTrue(report.mt.all { it.cachedMs < it.avgMs })
+        // a repeated (live partial) prompt comes from the KV cache: all tokens but the last one, which
+        // is evaluated again for its logits (checked on the mechanism; times vary on a shared host)
+        assertTrue(report.mt.all { it.cachedPromptTokens > 10 && it.cachedReusedTokens == it.cachedPromptTokens - 1 })
         assertEquals(asrModels.size, report.asr.size)
         assertTrue(report.asr.all { it.rtf in 0.0..2.0 && it.text.contains("Wurst") })
     }

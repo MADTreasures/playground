@@ -58,9 +58,9 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
    freier Platz, manueller Import (Dateiauswahl) für Katalogmodelle sowie eigene GGUF- und
    whisper.cpp-Modelle.
 5. **Latenz pro Übersetzung**: Erkennung, Übersetzung, Gesamt (vom Satzende bis zur fertigen
-   Übersetzung) und Tokens/s. Ein **Benchmark-Screen** misst alle installierten Modelle auf dem
-   Gerät: Ladezeit, ms pro Satz, Prompt- und Ausgabe-Tokens/s, mit KV-Cache, ASR-Echtzeitfaktor und
-   Piper.
+   Übersetzung), Tokens/s und ob CPU oder GPU gerechnet hat. Ein **Benchmark-Screen** misst alle
+   installierten Modelle auf dem Gerät, die Übersetzungsmodelle je auf CPU und GPU: Ladezeit, ms pro
+   Satz, Prompt- und Ausgabe-Tokens/s, mit KV-Cache, ASR-Echtzeitfaktor und Piper.
 6. **„Deutsch (Schweiz)"** schreibt immer „ss" statt „ß" (Übersetzungen, Untertitel, Vorlesen).
    Die Oberfläche ist Deutsch in Schweizer Schreibweise.
 7. **GPU (Adreno) für die Übersetzung**: Optionen → Leistung → „Rechenwerk für die Übersetzung“.
@@ -210,12 +210,26 @@ Tests laufen immer. Erwartete Ordnerstruktur (Standard: `test-models/` im Projek
 `llm/` (die drei GGUF-Dateien), `parakeet-v3/` (encoder/decoder/joiner.int8.onnx, tokens.txt,
 test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_vad_v5.onnx`.
 
-79 Tests in 16 Klassen, alle grün:
+100 Tests in 20 Klassen, alle grün:
 
 - **Logik**: Schweizer Schreibweise, Satz-Segmentierung, Spracherkennung per Stoppwörtern/Schrift,
   Prompt-Formate, Modell-Routing, Katalog (gepinnte URLs, SHA-256), **Downloader** (Fortsetzen nach
   Verbindungsabbruch, `.part` aus früherem Lauf, Server ignoriert Range, falscher Hash), WAV,
   **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp).
+- **CPU/GPU-Wahl** mit simulierten CPU- und GPU-Modellen (im Container gibt es keine Adreno-GPU).
+  Getestet wird dieselbe Engine-Logik wie auf dem Handy:
+  - Die schnellere GPU übernimmt ohne Pause, eine langsamere GPU wird nicht genommen, ebenso eine
+    GPU mit falscher Ausgabe.
+  - Die Messung wartet, solange übersetzt wird.
+  - Eine gespeicherte Entscheidung lädt das Modell direkt auf der GPU.
+  - „Nur CPU“ berührt die GPU nie.
+  - Ein GPU-Fehler beantwortet dieselbe Anfrage auf der CPU; ein fehlgeschlagenes GPU-Laden wird
+    genau einmal versucht.
+  - Eine gesperrte GPU bleibt aus, bis man sie wieder zulässt.
+  - Ein Wechsel der Einstellung wirkt ohne Neustart.
+  - Der Benchmark kann CPU und GPU erzwingen.
+  - Dazu die Absturz-Markierung, das Speichern der Entscheidungen (inkl. Zurücksetzen nach einem
+    Update) und der Textvergleich.
 - **Echte Modelle auf dem x86-Container über dieselbe JNI wie in der App**:
   - Hy-MT2: Streaming, KV-Cache-Wiederverwendung, Abbruch, CJK-Ausgabe.
   - Alle sechs Kernsprachen, Auto-Quelle, Absätze, Schweizer „ss":
@@ -226,7 +240,9 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
   - Schweizerdeutsch-Whisper über whisper.cpp.
   - Echter Download von Hugging Face inkl. SHA-256 (Silero, 355 eSpeak-Dateien, Piper).
   - Piper spricht, Parakeet erkennt: „Guten Morgen, wie komme ich zum Bahnhof?"
-  - **Live-Pipeline Ende-zu-Ende** (Audio → VAD → Parakeet → Hy-MT2) und der App-Benchmark.
+  - **Live-Pipeline Ende-zu-Ende** (Audio → VAD → Parakeet → Hy-MT2) und der App-Benchmark
+    (prüft u. a., dass ein wiederholter Prompt bis auf das letzte Token aus dem KV-Cache kommt).
+  - Die echte JNI meldet auf x86 „kein GPU-Backend“, der Automatikmodus bleibt dann auf der CPU.
 - **Robolectric-Screenshots** aller Bildschirme (`docs/screenshots`).
 
 Messwerte auf dem Container (4 vCPU x86, nur Korrektheitsreferenz, das Handy ist schneller):

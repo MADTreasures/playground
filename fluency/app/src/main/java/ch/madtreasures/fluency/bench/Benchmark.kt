@@ -26,6 +26,9 @@ data class MtBench(
     val processor: Processor = Processor.CPU,
     /** set if the model could not run on [processor] */
     val error: String? = null,
+    /** prompt tokens of the repeated sentence, and how many of them came from the KV cache */
+    val cachedPromptTokens: Int = 0,
+    val cachedReusedTokens: Int = 0,
 ) {
     val title: String get() = "$name · $processor"
 }
@@ -66,7 +69,8 @@ data class BenchReport(
             } else {
                 appendLine(
                     "- ${it.title}: Laden ${it.loadMs} ms, Ø ${"%.0f".format(it.avgMs)} ms/Satz, Prompt ${"%.0f".format(it.prefillTps)} Tok/s, " +
-                        "Ausgabe ${"%.1f".format(it.decodeTps)} Tok/s, mit KV-Cache ${"%.0f".format(it.cachedMs)} ms",
+                        "Ausgabe ${"%.1f".format(it.decodeTps)} Tok/s, mit KV-Cache ${"%.0f".format(it.cachedMs)} ms " +
+                        "(${it.cachedReusedTokens}/${it.cachedPromptTokens} Prompt-Tokens aus dem Cache)",
                 )
             }
         }
@@ -237,6 +241,7 @@ class Benchmark(
             if (prefillMs > 0) prefillTok * 1000 / prefillMs else 0.0,
             if (decodeMs > 0) genTok * 1000 / decodeMs else 0.0,
             cached.wallMs.toDouble(), sample, p,
+            cachedPromptTokens = cached.promptTokens, cachedReusedTokens = cached.reusedTokens,
         )
         return bench to texts
     }
