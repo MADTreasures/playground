@@ -15,8 +15,9 @@ aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Mes
 
 ## Downloads
 
-- **Fertige App**: [`dist/Fluency-1.0.0.apk`](../dist/Fluency-1.0.0.apk) (arm64, signiert)
-- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.0.0.zip`](../dist/Fluency-AndroidStudio-1.0.0.zip)
+- **Fertige App**: [`dist/Fluency-1.1.0.apk`](../dist/Fluency-1.1.0.apk) (arm64, signiert). Sie
+  installiert sich als Update über 1.0.0, die heruntergeladenen Modelle bleiben erhalten.
+- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.1.0.zip`](../dist/Fluency-AndroidStudio-1.1.0.zip)
   (13 MB, enthält alle nativen Quellen, keine Submodule)
 
 ## In Android Studio bauen
