@@ -5,7 +5,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Release signing: keystore.properties (not in git) or environment variables.
+// Release signing: keystore.properties (not in git, see keystore.properties.example) or
+// environment variables. Without it, release builds are signed with the debug key.
 val keystoreProps = Properties().apply {
     val f = rootProject.file("keystore.properties")
     if (f.exists()) f.inputStream().use { load(it) }
@@ -66,16 +67,20 @@ android {
     }
 
     buildTypes {
+        val release = signingConfigs.getByName("release")
+        val hasReleaseKey = release.storeFile != null
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            val release = signingConfigs.getByName("release")
-            signingConfig = if (release.storeFile != null) release else signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKey) release else signingConfigs.getByName("debug")
         }
         debug {
             // the native code is always built optimised: a debug llama.cpp is unusably slow
             externalNativeBuild { cmake { arguments += "-DCMAKE_BUILD_TYPE=Release" } }
+            // With the release key, "Run" in Android Studio updates the installed release app
+            // instead of requiring an uninstall (which would delete the downloaded models).
+            if (hasReleaseKey) signingConfig = release
         }
     }
 
@@ -117,7 +122,8 @@ android {
                 // one JVM per test class: native libraries (host JNI) and Robolectric sandboxes never mix
                 test.forkEvery = 1
                 test.systemProperty("java.library.path", hostNativeDirs)
-                test.systemProperty("fluency.modelDir", System.getenv("FLUENCY_MODEL_DIR") ?: "/home/user/models")
+                // real-model tests (integration/*) are skipped when the models are not there
+                test.systemProperty("fluency.modelDir", System.getenv("FLUENCY_MODEL_DIR") ?: rootProject.file("test-models").absolutePath)
                 test.systemProperty("fluency.screenshotDir", rootProject.file("docs/screenshots").absolutePath)
                 test.testLogging { events("passed", "skipped", "failed"); showStandardStreams = true }
             }
@@ -125,7 +131,8 @@ android {
     }
 
     lint {
-        abortOnError = true
+        // report, but never block a build on another machine/IDE version because of lint
+        abortOnError = false
         checkReleaseBuilds = true
     }
 }

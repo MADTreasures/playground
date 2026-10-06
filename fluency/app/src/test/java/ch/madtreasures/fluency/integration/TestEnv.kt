@@ -15,7 +15,8 @@ import java.io.File
  * native libraries or the model files are missing.
  */
 object TestEnv {
-    val modelDir = File(System.getProperty("fluency.modelDir") ?: "/home/user/models")
+    /** Layout: llm/ (GGUF files), parakeet-v3/, whisper-turbo/, swiss-whisper/, vad/ (see README "Tests"). */
+    val modelDir = File(System.getProperty("fluency.modelDir") ?: "test-models")
 
     val files: Map<String, File> = mapOf(
         ModelCatalog.HY_MT2 to File(modelDir, "llm/Hy-MT2-1.8B-Q4_K_M.gguf"),

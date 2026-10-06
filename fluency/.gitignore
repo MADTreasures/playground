@@ -14,3 +14,6 @@ native/build/
 keystore.properties
 *.jks
 *.keystore
+
+# local copies of the models for the real-model tests (FLUENCY_MODEL_DIR)
+test-models

@@ -34,12 +34,21 @@ if (ANDROID)
     set(GGML_CPU_KLEIDIAI      ON  CACHE BOOL "" FORCE)
     set(FETCHCONTENT_SOURCE_DIR_KLEIDIAI ${TP}/kleidiai CACHE PATH "" FORCE)
     if (FLUENCY_OPENCL)
+        # ggml embeds the OpenCL kernels with a Python script; without Python the app is built
+        # without the (optional, experimental) GPU backend instead of failing.
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if (NOT Python3_Interpreter_FOUND)
+            message(WARNING "Python 3 not found - building without the OpenCL GPU backend")
+            set(FLUENCY_OPENCL OFF)
+        endif()
+    endif()
+    if (FLUENCY_OPENCL)
         # Headers + Khronos ICD loader are only needed to *link* libggml-opencl.so. The loader is
         # excluded from the APK; at runtime the vendor's /vendor/lib64/libOpenCL.so is used.
         set(OPENCL_ICD_LOADER_HEADERS_DIR ${TP}/OpenCL-Headers CACHE PATH "" FORCE)
         set(OPENCL_ICD_LOADER_BUILD_TESTING OFF CACHE BOOL "" FORCE)
         set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-        add_subdirectory(${TP}/OpenCL-ICD-Loader opencl-icd-loader EXCLUDE_FROM_ALL)
+        add_subdirectory(${TP}/OpenCL-ICD-Loader ocl EXCLUDE_FROM_ALL)
         set(OpenCL_INCLUDE_DIR ${TP}/OpenCL-Headers CACHE PATH "" FORCE)
         set(OpenCL_LIBRARY OpenCL CACHE STRING "" FORCE)
         set(OpenCL_FOUND TRUE)
@@ -52,7 +61,7 @@ else()
     set(GGML_BACKEND_DL        OFF CACHE BOOL "" FORCE)
 endif()
 
-add_subdirectory(${TP}/llama.cpp llama.cpp)
+add_subdirectory(${TP}/llama.cpp ll)   # short binary dir: Windows path length
 
 # ---------------------------------------------------------------- whisper.cpp (uses llama.cpp's ggml)
 add_library(whisper STATIC

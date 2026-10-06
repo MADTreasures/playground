@@ -13,6 +13,32 @@ Flugmodus.
 Die Screenshots sind Robolectric-Renderings (`ScreenshotTest`). Die Texte und Zahlen darin stammen
 aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Messungen**.
 
+## Downloads
+
+- **Fertige App**: [`dist/Fluency-1.0.0.apk`](../dist/Fluency-1.0.0.apk) (arm64, signiert)
+- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.0.0.zip`](../dist/Fluency-AndroidStudio-1.0.0.zip)
+  (13 MB, enthält alle nativen Quellen, keine Submodule)
+
+## In Android Studio bauen
+
+1. ZIP herunterladen und entpacken. Unter Windows einen kurzen Pfad wählen, z. B. `C:\dev\Fluency`
+   (der native Build erzeugt tiefe Pfade). Alternativ funktioniert auch GitHubs „Code → Download
+   ZIP“ des ganzen Repos; dann den Ordner `fluency` öffnen.
+2. Android Studio (aktuelle Version mit Unterstützung für AGP 9.4) → **Open** → Ordner `Fluency`.
+3. Gradle-Sync abwarten. Android Studio lädt Gradle 9.8, AGP 9.4.1, Android SDK 37, NDK
+   30.0.16248370 und CMake 3.31.6 selbst; eventuell musst du SDK-Lizenzen bestätigen.
+4. Handy per USB/WLAN verbinden → **Run ▶**. Der erste Build dauert einige Minuten, weil
+   llama.cpp (7 CPU-Varianten, KleidiAI, OpenCL) und whisper.cpp aus dem Quellcode gebaut werden.
+5. **Empfohlen**: `fluency-release.jks` ablegen und `keystore.properties.example` als
+   `keystore.properties` kopieren und ausfüllen. Dann werden Debug- *und* Release-Builds mit deinem
+   Schlüssel signiert, und „Run“ aktualisiert die installierte App, ohne dass die heruntergeladenen
+   Modelle verloren gehen. Ohne diese Datei wird mit dem Debug-Schlüssel signiert; dann muss eine
+   vorher installierte Release-Version zuerst deinstalliert werden.
+6. Release-APK: *Build → Generate Signed App Bundle or APK* oder `./gradlew assembleRelease`
+   → `app/build/outputs/apk/release/`.
+
+Python 3 ist optional. Fehlt es, wird nur das experimentelle OpenCL-GPU-Backend weggelassen.
+
 ## Funktionen
 
 1. **Live-Modus**: Du sprichst, Untertitel und Übersetzung wachsen mit. Etwa alle 400 ms gibt es
@@ -101,27 +127,32 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
   Maven), siehe `native/build-sherpa-onnx.sh`. Die gebaute `libsherpa-onnx-jni.so` liegt in
   `app/src/main/jniLibs`.
 - **whisper.cpp 1.9.5** für Schweizerdeutsch, statisch in `libfluency_jni.so`.
-- Native Libraries werden komprimiert in die APK gepackt (`useLegacyPackaging = true`), alle sind
-  16-KB-ausgerichtet. Release mit R8 (JNI-Klassen bleiben erhalten) und Signatur v3.
+- Native Libraries werden bei der Installation entpackt (`useLegacyPackaging = true`). Das ist nötig,
+  weil die App beim Start die passende `libggml-cpu-*.so` im Bibliotheksordner sucht und lädt. Alle
+  sind 16-KB-ausgerichtet. Release mit R8 (JNI-Klassen bleiben erhalten) und Signatur v3.
 
-## Bauen
+## Bauen (Kommandozeile)
 
 Voraussetzungen: JDK 21, Android SDK (Platform 37, Build-Tools 37.0.0, NDK 30.0.16248370, CMake
-3.31.6), Python 3, Ninja.
+3.31.6), optional Python 3.
 
 ```bash
-git clone https://github.com/MADTreasures/playground && cd playground
-git submodule update --init --depth 1        # llama.cpp, whisper.cpp, KleidiAI, OpenCL-Headers/-ICD-Loader
-cd fluency
+git clone https://github.com/MADTreasures/playground && cd playground/fluency
 echo "sdk.dir=/pfad/zum/android-sdk" > local.properties
 ./gradlew :app:assembleDebug                 # oder assembleRelease (siehe Signieren)
 ```
+
+Die nativen Abhängigkeiten liegen als Kopie in `third_party/`, gekürzt auf das, was der Build
+braucht. Herkunft und Commit stehen jeweils in `VENDORED_FROM`. Aktualisieren:
+`tools/vendor-third-party.sh` (Commits im Skript anpassen). Das Android-Studio-ZIP erzeugt
+`tools/make-studio-zip.sh`.
 
 `libsherpa-onnx-jni.so` neu bauen (optional, nur bei einem Versionswechsel):
 `native/build-sherpa-onnx.sh android`. Die Abhängigkeiten werden in diesem Skript beschrieben; die
 GitHub-Release-Downloads werden dabei nicht benötigt.
 
-**Signieren**: `fluency/keystore.properties` (nicht im Repo) mit
+**Signieren**: `keystore.properties` im Projektordner (nicht im Repo, Vorlage
+`keystore.properties.example`) mit
 
 ```
 storeFile=/pfad/fluency-release.jks
@@ -143,6 +174,11 @@ Modellkatalog aktualisieren (neue Commits/Hashes von Hugging Face): `python3 -I 
 ./native/build-sherpa-onnx.sh host           # sherpa-onnx JNI für x86-64
 FLUENCY_MODEL_DIR=/pfad/zu/modellen ./gradlew :app:testDebugUnitTest
 ```
+
+Ohne diese Bibliotheken bzw. Modelle werden die Integrationstests übersprungen; die übrigen
+Tests laufen immer. Erwartete Ordnerstruktur (Standard: `test-models/` im Projekt):
+`llm/` (die drei GGUF-Dateien), `parakeet-v3/` (encoder/decoder/joiner.int8.onnx, tokens.txt,
+test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_vad_v5.onnx`.
 
 79 Tests in 16 Klassen, alle grün:
 
