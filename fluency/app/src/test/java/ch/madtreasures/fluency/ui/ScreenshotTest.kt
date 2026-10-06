@@ -10,7 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performScrollTo
 import ch.madtreasures.fluency.FluencyBottomBar
 import ch.madtreasures.fluency.Tab
 import ch.madtreasures.fluency.bench.AsrBench
@@ -18,6 +20,8 @@ import ch.madtreasures.fluency.bench.BenchReport
 import ch.madtreasures.fluency.bench.MtBench
 import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.core.Latency
+import ch.madtreasures.fluency.engine.llm.AccelMode
+import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.models.ModelCatalog
 import ch.madtreasures.fluency.models.ModelState
 import ch.madtreasures.fluency.pipeline.Utterance
@@ -33,6 +37,7 @@ import ch.madtreasures.fluency.ui.live.LiveUiState
 import ch.madtreasures.fluency.ui.models.ModelsActions
 import ch.madtreasures.fluency.ui.models.ModelsScreen
 import ch.madtreasures.fluency.ui.models.ModelsUiState
+import ch.madtreasures.fluency.ui.settings.AccelUi
 import ch.madtreasures.fluency.ui.settings.SettingsScreen
 import ch.madtreasures.fluency.ui.settings.SettingsUiState
 import ch.madtreasures.fluency.ui.text.ModelOption
@@ -63,8 +68,10 @@ class ScreenshotTest {
 
     private val outDir = File(System.getProperty("fluency.screenshotDir") ?: "build/screenshots").apply { mkdirs() }
 
-    private fun shoot(name: String, dark: Boolean = false, content: @Composable () -> Unit) {
+    private fun shoot(name: String, dark: Boolean = false, before: () -> Unit = {}, content: @Composable () -> Unit) {
         compose.setContent { FluencyTheme(darkTheme = dark, dynamicColor = false) { content() } }
+        compose.waitForIdle()
+        before()
         compose.waitForIdle()
         val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
         File(outDir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -81,7 +88,7 @@ class ScreenshotTest {
 
     private val utterances = listOf(
         Utterance(1, 0, de, en, "Alles hat ein Ende, nur die Wurst hat zwei.", "Everything has an end, only the sausage has two.", true,
-            Latency(asrMs = 816, mtMs = 799, totalMs = 1611, tokensPerSecond = 17.2, reusedAsr = true)),
+            Latency(asrMs = 816, mtMs = 799, totalMs = 1611, tokensPerSecond = 17.2, reusedAsr = true, processor = "CPU")),
         Utterance(2, 0, de, en, "Ich denke, wir sollten uns morgen am Bahnhof treffen.", "I think we should meet at the train station tomorrow.", true,
             Latency(asrMs = 294, mtMs = 0, totalMs = 702, reusedPartial = true)),
         Utterance(3, 0, de, en, "Kannst du mir sagen, wann der nächste Zug", "Can you tell me when the next train", false),
@@ -164,17 +171,25 @@ class ScreenshotTest {
         )
     }
 
-    @Test fun settings() = shoot("08_settings") {
-        Framed(Tab.SETTINGS) {
-            SettingsScreen(
-                SettingsUiState(
-                    settings = AppSettings(),
-                    translationModels = listOf(ModelOption(ModelCatalog.HY_MT2, "Hy-MT2 1.8B"), ModelOption(ModelCatalog.MILMMT_4B, "MiLMMT-46 4B")),
-                    asrModels = listOf(ModelOption(ModelCatalog.PARAKEET, "Parakeet-TDT 0.6B v3")),
-                    versionInfo = "Fluency 1.0.0",
-                ),
-                onChange = {}, onBenchmark = {},
+    private val settingsState: SettingsUiState
+        get() {
+            val models = listOf(ModelOption(ModelCatalog.HY_MT2, "Hy-MT2 1.8B"), ModelOption(ModelCatalog.MILMMT_4B, "MiLMMT-46 4B"))
+            // the state right after the first start: the measurement on the phone is still running
+            val status = TranslationEngine.AccelStatus(measuring = setOf(ModelCatalog.HY_MT2))
+            return SettingsUiState(
+                settings = AppSettings(),
+                translationModels = models,
+                asrModels = listOf(ModelOption(ModelCatalog.PARAKEET, "Parakeet-TDT 0.6B v3")),
+                versionInfo = "Fluency 1.1.0",
+                accel = AccelUi.from(status, models, AccelMode.AUTO),
             )
         }
+
+    @Test fun settings() = shoot("08_settings") {
+        Framed(Tab.SETTINGS) { SettingsScreen(settingsState, onChange = {}, onBenchmark = {}) }
+    }
+
+    @Test fun settingsGpu() = shoot("09_settings_gpu", before = { compose.onNodeWithText("Threads Übersetzung").performScrollTo() }) {
+        Framed(Tab.SETTINGS) { SettingsScreen(settingsState, onChange = {}, onBenchmark = {}) }
     }
 }

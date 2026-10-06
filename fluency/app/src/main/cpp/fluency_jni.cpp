@@ -8,6 +8,9 @@
 //   code point), so the Kotlin side can decode each chunk independently.
 // - Generation can be cancelled from any thread; the abort callback also interrupts a running
 //   prompt evaluation.
+// - The GPU backend (Adreno, OpenCL) is loaded on demand (nativeEnableGpu). A model is loaded
+//   either completely on the GPU or completely on the CPU; a CPU model gets an explicit empty
+//   device list so it never touches the OpenCL backend.
 
 #include <jni.h>
 
@@ -17,7 +20,9 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -110,6 +115,12 @@ void log_callback(ggml_log_level level, const char * text, void * /*user*/) {
 std::mutex g_backend_mutex;
 bool g_backends_ready = false;
 std::string g_backend_report;
+bool g_gpu_tried = false;
+std::string g_gpu_report;
+
+// ggml's backend registry is a plain global list: loading a backend (exclusive) must not overlap
+// with model/context creation in another thread, which iterates the list (shared).
+std::shared_mutex g_registry_mutex;
 
 #ifdef FLUENCY_BACKEND_DL
 // Same selection rule as ggml_backend_load_best(): every libggml-cpu-*.so exports a score
@@ -157,6 +168,13 @@ ggml_backend_dev_t find_gpu_device() {
         if (type == GGML_BACKEND_DEVICE_TYPE_GPU || type == GGML_BACKEND_DEVICE_TYPE_IGPU) return dev;
     }
     return nullptr;
+}
+
+std::string gpu_name() {
+    ggml_backend_dev_t gpu = find_gpu_device();
+    if (gpu == nullptr) return {};
+    const char * desc = ggml_backend_dev_description(gpu);
+    return desc != nullptr && *desc ? desc : ggml_backend_dev_name(gpu);
 }
 
 // ------------------------------------------------------------------------------------------ llama
@@ -247,9 +265,10 @@ extern "C" {
 // ---------------------------------------------------------------------------------- backends/info
 
 JNIEXPORT jstring JNICALL
-Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeInitBackends(JNIEnv * env, jobject, jstring jlibDir, jboolean loadGpu) {
+Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeInitBackends(JNIEnv * env, jobject, jstring jlibDir) {
     std::lock_guard<std::mutex> lock(g_backend_mutex);
     if (!g_backends_ready) {
+        std::unique_lock<std::shared_mutex> registry(g_registry_mutex);
         llama_log_set(log_callback, nullptr);
         whisper_log_set(log_callback, nullptr);
         std::string report;
@@ -262,14 +281,8 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeInitBackends(JNIEnv * 
         } else {
             report += "| no CPU variant found ";
         }
-        if (loadGpu) {
-            const std::string ocl = dir + "/libggml-opencl.so";
-            if (ggml_backend_load(ocl.c_str()) == nullptr) report += "| OpenCL not available ";
-            else report += "| OpenCL loaded ";
-        }
 #else
         (void) jlibDir;
-        (void) loadGpu;
         report += "static backends ";
 #endif
         llama_backend_init();
@@ -288,9 +301,44 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeSystemInfo(JNIEnv * en
     return env->NewStringUTF(info.c_str());
 }
 
-JNIEXPORT jboolean JNICALL
-Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeHasGpu(JNIEnv *, jobject) {
-    return find_gpu_device() != nullptr ? JNI_TRUE : JNI_FALSE;
+/**
+ * Loads the OpenCL backend (once per process) and reports what happened. The Adreno kernels are
+ * compiled when the first model is loaded onto the GPU; [jcacheDir] keeps the compiled binaries,
+ * so that only the very first start pays for the compilation.
+ */
+JNIEXPORT jstring JNICALL
+Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeEnableGpu(JNIEnv * env, jobject, jstring jlibDir,
+                                                                    jstring jcacheDir) {
+    std::lock_guard<std::mutex> lock(g_backend_mutex);
+    if (!g_gpu_tried) {
+        g_gpu_tried = true;
+#ifdef FLUENCY_BACKEND_DL
+        std::unique_lock<std::shared_mutex> registry(g_registry_mutex);
+        const std::string cache = jstring_to_string(env, jcacheDir);
+        if (!cache.empty()) setenv("GGML_OPENCL_KERNEL_CACHE_DIR", cache.c_str(), 1);
+        const std::string ocl = jstring_to_string(env, jlibDir) + "/libggml-opencl.so";
+        if (ggml_backend_load(ocl.c_str()) == nullptr) {
+            g_gpu_report = "OpenCL-Backend nicht ladbar (kein libOpenCL.so?)";
+        } else {
+            const std::string name = gpu_name();
+            g_gpu_report = name.empty() ? "OpenCL geladen, aber keine unterstützte GPU" : "GPU: " + name;
+        }
+#else
+        (void) jlibDir;
+        (void) jcacheDir;
+        g_gpu_report = "dieser Build hat kein GPU-Backend";
+#endif
+        LOG_I("gpu: %s", g_gpu_report.c_str());
+    }
+    return env->NewStringUTF(g_gpu_report.c_str());
+}
+
+/** Name of the GPU device that models can be loaded onto, or null. */
+JNIEXPORT jstring JNICALL
+Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeGpuName(JNIEnv * env, jobject) {
+    std::shared_lock<std::shared_mutex> registry(g_registry_mutex);
+    const std::string name = gpu_name();
+    return name.empty() ? nullptr : env->NewStringUTF(name.c_str());
 }
 
 // ----------------------------------------------------------------------------------- model/session
@@ -300,16 +348,15 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeLoad(JNIEnv * env, job
                                                                jint nBatch, jint nThreads, jint nThreadsBatch,
                                                                jboolean useGpu) {
     const std::string path = bytes_to_string(env, jpath);
+    std::shared_lock<std::shared_mutex> registry(g_registry_mutex);
 
     llama_model_params mp = llama_model_default_params();
     ggml_backend_dev_t gpu = useGpu ? find_gpu_device() : nullptr;
+    if (useGpu && gpu == nullptr) LOG_W("no GPU device - loading %s on the CPU", path.c_str());
+    // all layers on the GPU, or none: {nullptr} is an empty list (CPU only, OpenCL stays untouched)
     ggml_backend_dev_t devices[2] = {gpu, nullptr};
-    if (gpu != nullptr) {
-        mp.devices = devices;
-        mp.n_gpu_layers = 999;
-    } else {
-        mp.n_gpu_layers = 0;
-    }
+    mp.devices = devices;
+    mp.n_gpu_layers = gpu != nullptr ? 999 : 0;
     mp.load_mode = LLAMA_LOAD_MODE_MMAP;
 
     llama_model * model = llama_model_load_from_file(path.c_str(), mp);
@@ -346,6 +393,12 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeLoad(JNIEnv * env, job
     s->n_ctx = static_cast<int>(llama_n_ctx(s->ctx));
     s->n_batch = static_cast<int>(llama_n_batch(s->ctx));
     return reinterpret_cast<jlong>(s);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeUsesGpu(JNIEnv *, jobject, jlong handle) {
+    auto * s = reinterpret_cast<LlamaSession *>(handle);
+    return s != nullptr && s->gpu ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
@@ -594,6 +647,7 @@ static bool whisper_abort_cb(void * data) {
 JNIEXPORT jlong JNICALL
 Java_ch_madtreasures_fluency_engine_asr_WhisperCppNative_nativeInit(JNIEnv * env, jobject, jbyteArray jpath, jboolean useGpu) {
     const std::string path = bytes_to_string(env, jpath);
+    std::shared_lock<std::shared_mutex> registry(g_registry_mutex);
     whisper_context_params cp = whisper_context_default_params();
     cp.use_gpu = useGpu == JNI_TRUE;
     cp.flash_attn = true;

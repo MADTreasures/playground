@@ -115,7 +115,8 @@ abstract class PipelineHost(protected val c: AppContainer) : ViewModel() {
                 )
                 pipeline = p
                 p.start()
-                pipelineState.update { it.copy(status = "${asr.name} · ${live.name}") }
+                val on = c.translationEngine.processorOf(live.id)?.let { " ($it)" }.orEmpty()
+                pipelineState.update { it.copy(status = "${asr.name} · ${live.name}$on") }
                 launch {
                     // forget the pipeline once it stopped by itself (auto-stop, error)
                     pipelineState.first { !it.running }

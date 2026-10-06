@@ -95,7 +95,7 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
                             output = res.text,
                             latency = Latency(
                                 asrMs = null, mtMs = res.wallMs, totalMs = (System.nanoTime() - t0) / 1_000_000,
-                                tokensPerSecond = res.tokensPerSecond, model = res.modelName,
+                                tokensPerSecond = res.tokensPerSecond, model = res.modelName, processor = res.processor.name,
                             ),
                             modelName = res.modelName,
                             detectedSource = if (source == null) res.sourceUsed?.nameDe else null,

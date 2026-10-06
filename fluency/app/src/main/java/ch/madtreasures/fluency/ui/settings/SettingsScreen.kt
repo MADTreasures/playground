@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import ch.madtreasures.fluency.ui.components.FluencyTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,6 +35,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import ch.madtreasures.fluency.engine.llm.AccelChoice
+import ch.madtreasures.fluency.engine.llm.AccelMode
+import ch.madtreasures.fluency.engine.llm.Processor
+import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.settings.AppSettings
 import ch.madtreasures.fluency.ui.components.SectionTitle
 import ch.madtreasures.fluency.ui.text.ModelOption
@@ -44,7 +49,40 @@ data class SettingsUiState(
     val translationModels: List<ModelOption> = emptyList(),
     val asrModels: List<ModelOption> = emptyList(),
     val versionInfo: String = "",
+    val accel: AccelUi = AccelUi(),
 )
+
+/** CPU/GPU state as text lines for the settings screen. */
+data class AccelUi(
+    val gpu: String = "GPU: wird beim ersten Bedarf geprüft",
+    val problem: String? = null,
+    val blocked: Boolean = false,
+    /** model name → where it runs and why */
+    val models: List<Pair<String, String>> = emptyList(),
+) {
+    companion object {
+        fun from(status: TranslationEngine.AccelStatus, models: List<ModelOption>, mode: AccelMode): AccelUi = AccelUi(
+            gpu = status.gpuName?.let { "GPU: $it" } ?: "GPU: wird beim ersten Bedarf geprüft",
+            problem = status.problem,
+            blocked = status.blocked,
+            models = models.map { m -> m.name to modelLine(status, m.id, mode) },
+        )
+
+        private fun modelLine(status: TranslationEngine.AccelStatus, id: String, mode: AccelMode): String {
+            val d = status.decisions[id]
+            val measured = when {
+                id in status.measuring -> "wird auf CPU und GPU gemessen …"
+                d == null -> if (mode == AccelMode.AUTO) "noch nicht gemessen (geschieht beim ersten Laden)" else "nicht gemessen"
+                d.processor == Processor.GPU -> "GPU schneller: ${d.gpuMs} ms, CPU ${d.cpuMs} ms (2 Testsätze)"
+                d.gpuMs > 0 && d.note.isEmpty() -> "CPU schneller: ${d.cpuMs} ms, GPU ${d.gpuMs} ms (2 Testsätze)"
+                else -> "CPU – ${d.note.ifEmpty { "GPU nicht genutzt" }}"
+            }
+            val failed = status.failed[id]?.let { " · GPU-Fehler: $it" }.orEmpty()
+            val active = status.active[id]?.let { " · läuft jetzt auf der $it" }.orEmpty()
+            return measured + failed + active
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +91,8 @@ fun SettingsScreen(
     onChange: ((AppSettings) -> AppSettings) -> Unit,
     onBenchmark: () -> Unit,
     modifier: Modifier = Modifier,
+    onRemeasure: () -> Unit = {},
+    onUnblockGpu: () -> Unit = {},
 ) {
     val s = state.settings
     Column(modifier.fillMaxSize()) {
@@ -104,11 +144,29 @@ fun SettingsScreen(
             Toggle("Mikrofon während des Vorlesens stumm", s.muteMicWhileSpeaking) { v -> onChange { it.copy(muteMicWhileSpeaking = v) } }
 
             SectionTitle("Leistung")
+            Choice(
+                "Rechenwerk für die Übersetzung", s.accel.name,
+                listOf(
+                    ModelOption(AccelMode.AUTO.name, "Automatisch: CPU und GPU messen (empfohlen)"),
+                    ModelOption(AccelMode.GPU.name, "Immer GPU (Adreno, OpenCL)"),
+                    ModelOption(AccelMode.CPU.name, "Nur CPU"),
+                ),
+                onPick = { id -> AccelMode.parse(id)?.let { m -> onChange { it.copy(accel = m) } } },
+            )
+            AccelPanel(state.accel, onRemeasure, onUnblockGpu)
+            Text(
+                "Automatisch: Beim ersten Laden eines Modells übersetzt Fluency zwei Testsätze auf der CPU und auf der GPU. " +
+                    "Die GPU wird genommen, solange sie höchstens ${((AccelChoice.GPU_TOLERANCE - 1) * 100).roundToInt()} % langsamer ist, " +
+                    "weil die CPU dann für die gleichzeitige Spracherkennung frei bleibt. Der erste Start auf der GPU dauert einmalig länger " +
+                    "(die GPU-Programme werden übersetzt). Spracherkennung und Sprachausgabe laufen immer auf der CPU.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.size(8.dp))
             Stepper("Threads Übersetzung", s.llmThreads, 1..8, 1, "") { v -> onChange { it.copy(llmThreads = v) } }
             Stepper("Threads Spracherkennung", s.asrThreads, 1..6, 1, "") { v -> onChange { it.copy(asrThreads = v) } }
-            Toggle("GPU (Adreno, OpenCL) – experimentell", s.useGpu) { v -> onChange { it.copy(useGpu = v) } }
             Text(
-                "Änderungen an Threads und GPU gelten nach einem Neustart der App. Der Benchmark zeigt, was auf diesem Gerät schneller ist.",
+                "Threads gelten nach einem Neustart der App, ein Wechsel zwischen CPU und GPU sofort. " +
+                    "Der Benchmark misst jedes Modell auf CPU und GPU.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
@@ -125,6 +183,34 @@ fun SettingsScreen(
             Spacer(Modifier.size(8.dp))
             Text(state.versionInfo, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.size(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun AccelPanel(accel: AccelUi, onRemeasure: () -> Unit, onUnblockGpu: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(accel.gpu, style = MaterialTheme.typography.bodyMedium)
+        accel.problem?.let {
+            Text(
+                it, style = MaterialTheme.typography.bodySmall,
+                color = if (accel.blocked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        accel.models.forEach { (name, line) ->
+            Text(
+                androidx.compose.ui.text.buildAnnotatedString {
+                    pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium))
+                    append(name)
+                    pop()
+                    append(": $line")
+                },
+                style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+        Row {
+            TextButton(onClick = onRemeasure) { Text("Neu messen") }
+            if (accel.blocked) TextButton(onClick = onUnblockGpu) { Text("GPU wieder zulassen") }
         }
     }
 }

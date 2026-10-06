@@ -11,7 +11,7 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(TP ${CMAKE_CURRENT_LIST_DIR}/../../../../third_party)
-option(FLUENCY_OPENCL "Build the (experimental) Adreno OpenCL backend" ON)
+option(FLUENCY_OPENCL "Build the Adreno OpenCL (GPU) backend" ON)
 
 # ---------------------------------------------------------------- llama.cpp / ggml
 set(BUILD_SHARED_LIBS        ON  CACHE BOOL "" FORCE)
@@ -34,15 +34,9 @@ if (ANDROID)
     set(GGML_CPU_KLEIDIAI      ON  CACHE BOOL "" FORCE)
     set(FETCHCONTENT_SOURCE_DIR_KLEIDIAI ${TP}/kleidiai CACHE PATH "" FORCE)
     if (FLUENCY_OPENCL)
-        # ggml embeds the OpenCL kernels with a Python script; without Python the app is built
-        # without the (optional, experimental) GPU backend instead of failing.
-        find_package(Python3 COMPONENTS Interpreter QUIET)
-        if (NOT Python3_Interpreter_FOUND)
-            message(WARNING "Python 3 not found - building without the OpenCL GPU backend")
-            set(FLUENCY_OPENCL OFF)
-        endif()
-    endif()
-    if (FLUENCY_OPENCL)
+        # ggml embeds its OpenCL kernels with a Python script; cmake/FindPython3.cmake does the
+        # same with CMake, so no Python installation is needed.
+        list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
         # Headers + Khronos ICD loader are only needed to *link* libggml-opencl.so. The loader is
         # excluded from the APK; at runtime the vendor's /vendor/lib64/libOpenCL.so is used.
         set(OPENCL_ICD_LOADER_HEADERS_DIR ${TP}/OpenCL-Headers CACHE PATH "" FORCE)

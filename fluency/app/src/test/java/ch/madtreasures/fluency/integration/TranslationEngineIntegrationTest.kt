@@ -1,11 +1,14 @@
 package ch.madtreasures.fluency.integration
 
 import ch.madtreasures.fluency.core.Languages
+import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.engine.llm.TranslationEngine.Role
 import ch.madtreasures.fluency.models.ModelCatalog
 import ch.madtreasures.fluency.settings.AUTO
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -33,6 +36,18 @@ class TranslationEngineIntegrationTest {
         )
         println("[${r.modelName}] $src→$tgt: $text  ⇒  ${r.text}   (${r.wallMs} ms, ${"%.1f".format(r.tokensPerSecond)} tok/s)")
         r
+    }
+
+    @Test fun runsOnTheCpuAndRecordsWhyNotOnTheGpu() = runBlocking {
+        val r = t("Good morning!", "en", "de")
+        assertEquals(Processor.CPU, r.processor)
+        // automatic mode asked the real JNI for a GPU: the x86 host build has no GPU backend
+        withTimeout(30_000) { while (engine.accelStatus.value.decisions[ModelCatalog.HY_MT2] == null) delay(50) }
+        val d = engine.accelStatus.value.decisions.getValue(ModelCatalog.HY_MT2)
+        println("CPU/GPU decision on the host: $d")
+        assertEquals(Processor.CPU, d.processor)
+        assertTrue(d.note, d.note.contains("kein GPU-Backend"))
+        assertEquals(Processor.CPU, engine.processorOf(ModelCatalog.HY_MT2))
     }
 
     @Test fun swissGermanTargetNeverContainsEszett() {

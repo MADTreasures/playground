@@ -92,7 +92,7 @@ class LivePipeline(
 
     private data class FinalJob(val id: Long, val samples: FloatArray, val segmentEnd: Long, val speechEndNanos: Long)
     private data class PartialRequest(val id: Long, val text: String)
-    private data class PartialResult(val source: String, val translation: String, val modelId: String)
+    private data class PartialResult(val source: String, val translation: String, val modelId: String, val processor: String)
     private class Inflight(val req: PartialRequest, val result: CompletableDeferred<TranslationEngine.Result?>)
 
     /** A partial recognition: [endSample] is the absolute sample index where its audio ended. */
@@ -357,7 +357,7 @@ class LivePipeline(
                 if (req.id !in finalizing) updateUtterance(req.id) { if (it.final) it else it.copy(translation = partial) }
             }
             if (!res.cancelled) {
-                partialCache[req.id] = PartialResult(req.text, res.text, res.modelId)
+                partialCache[req.id] = PartialResult(req.text, res.text, res.modelId, res.processor.name)
                 if (req.id !in finalizing) updateUtterance(req.id) { if (it.final) it else it.copy(translation = res.text) }
             }
             deferred.complete(res)
@@ -393,11 +393,15 @@ class LivePipeline(
 
             val finalModel = translator.modelFor(Role.FINAL, config.source, config.target)
             val liveModel = translator.modelFor(Role.LIVE, config.source, config.target)
-            var reused: String? = partialCache[job.id]?.takeIf { it.source == text && it.modelId == finalModel }?.translation
+            val cached = partialCache[job.id]?.takeIf { it.source == text && it.modelId == finalModel }
+            var reused: String? = cached?.translation
+            var reusedOn: String? = cached?.processor
             if (reused == null) {
                 val inf = inflight
                 if (inf != null && inf.req.id == job.id && inf.req.text == text && liveModel == finalModel) {
-                    reused = inf.result.await()?.takeIf { !it.cancelled }?.text
+                    val r = inf.result.await()?.takeIf { !it.cancelled }
+                    reused = r?.text
+                    reusedOn = r?.processor?.name
                 }
             }
             val mtStart = clock()
@@ -417,6 +421,7 @@ class LivePipeline(
                 tokensPerSecond = result?.tokensPerSecond,
                 reusedPartial = reused != null,
                 model = result?.modelName,
+                processor = result?.processor?.name ?: reusedOn,
             )
             updateUtterance(job.id) { it.copy(translation = translation, final = true, latency = latency) }
             partialCache.remove(job.id)

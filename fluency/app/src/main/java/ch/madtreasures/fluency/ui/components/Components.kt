@@ -144,6 +144,7 @@ fun LatencyRow(latency: Latency, modifier: Modifier = Modifier) {
         latency.asrMs?.let { add(if (latency.reusedAsr) "Erkennung $it ms (vorab)" else "Erkennung $it ms") }
         add(if (latency.reusedPartial) "Übersetzung vorab fertig" else "Übersetzung ${latency.mtMs} ms")
         latency.tokensPerSecond?.takeIf { it > 0 }?.let { add("%.0f Tok/s".format(it)) }
+        latency.processor?.let { add(it) }
     }
     Row(modifier, verticalAlignment = Alignment.Top) {
         Icon(

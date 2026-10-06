@@ -18,12 +18,22 @@ object LlamaNative {
         }
     }
 
-    /** Loads the best CPU backend variant (and OpenCL if [loadGpu]) from [libDir]. Idempotent. */
-    external fun nativeInitBackends(libDir: String?, loadGpu: Boolean): String
+    /** Loads the best CPU backend variant from [libDir]. Idempotent. */
+    external fun nativeInitBackends(libDir: String?): String
     external fun nativeSystemInfo(): String
-    external fun nativeHasGpu(): Boolean
 
+    /**
+     * Loads the OpenCL backend from [libDir] (once per process) and returns a report. Compiled
+     * GPU kernels are cached in [kernelCacheDir].
+     */
+    external fun nativeEnableGpu(libDir: String?, kernelCacheDir: String?): String
+
+    /** The GPU device models can be loaded onto, or null. */
+    external fun nativeGpuName(): String?
+
+    /** [useGpu]: all layers on the GPU (if there is one), otherwise everything on the CPU. */
     external fun nativeLoad(path: ByteArray, nCtx: Int, nBatch: Int, nThreads: Int, nThreadsBatch: Int, useGpu: Boolean): Long
+    external fun nativeUsesGpu(handle: Long): Boolean
     external fun nativeFree(handle: Long)
     external fun nativeCancel(handle: Long)
     external fun nativeSetThreads(handle: Long, nThreads: Int, nThreadsBatch: Int)

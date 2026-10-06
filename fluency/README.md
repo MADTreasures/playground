@@ -37,7 +37,8 @@ aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Mes
 6. Release-APK: *Build → Generate Signed App Bundle or APK* oder `./gradlew assembleRelease`
    → `app/build/outputs/apk/release/`.
 
-Python 3 ist optional. Fehlt es, wird nur das experimentelle OpenCL-GPU-Backend weggelassen.
+Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
+(`app/src/main/cpp/cmake/`); es erzeugt dieselben Dateien wie das Python-Skript von llama.cpp.
 
 ## Funktionen
 
@@ -62,6 +63,19 @@ Python 3 ist optional. Fehlt es, wird nur das experimentelle OpenCL-GPU-Backend 
    Piper.
 6. **„Deutsch (Schweiz)"** schreibt immer „ss" statt „ß" (Übersetzungen, Untertitel, Vorlesen).
    Die Oberfläche ist Deutsch in Schweizer Schreibweise.
+7. **GPU (Adreno) für die Übersetzung**: Optionen → Leistung → „Rechenwerk für die Übersetzung“.
+   - **Automatisch** (Standard): Beim ersten Laden eines Modells übersetzt die App dieselben zwei
+     Testsätze auf der CPU und auf der GPU. Das passiert im Hintergrund, während die CPU schon
+     übersetzt, und nur in Sprechpausen. Danach nimmt die App die GPU, solange sie höchstens 10 %
+     langsamer ist; dann bleibt die CPU für die gleichzeitige Spracherkennung frei. Liefert die GPU
+     eine andere Übersetzung als die CPU, gilt sie als fehlerhaft, und es bleibt bei der CPU.
+   - Das Ergebnis gilt pro Modell. Nach einem App- oder Android-Update wird neu gemessen, ebenso mit
+     „Neu messen“.
+   - **Immer GPU** bzw. **Nur CPU** legen das Rechenwerk fest. Ein Wechsel gilt sofort, ohne Neustart.
+   - Die Latenzzeile jeder Übersetzung zeigt, wo sie gerechnet wurde („· GPU“ / „· CPU“). Der
+     Benchmark misst jedes Modell auf beiden.
+   - Spracherkennung (ONNX Runtime, whisper.cpp) und Sprachausgabe laufen immer auf der CPU. Die
+     Hexagon-NPU wird nicht genutzt.
 
 Sprachen: 54 Einträge (Deutsch, Deutsch (Schweiz), Englisch, Französisch, Italienisch, Spanisch,
 Portugiesisch und alles, was Hy-MT2 und MiLMMT-46 zusätzlich können). Die App wählt automatisch ein
@@ -113,11 +127,27 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
                                                            (oder fertige Teilübersetzung) ─▶ Vorlesen
 ```
 
-- **llama.cpp** (Submodul, Stand 6.10.2026), selbst gebaut per NDK r30 für arm64. Es gibt sieben
-  CPU-Varianten (`GGML_CPU_ALL_VARIANTS`: armv8.0 … armv9.2 mit dotprod/i8mm/SVE/SME), die passende
-  wählt die App zur Laufzeit. Dazu **KleidiAI**, Q4_K/Q6_K-Weight-Repacking für i8mm und optional das
-  **Adreno-OpenCL-Backend** (experimentell, Schalter in Optionen, `uses-native-library libOpenCL.so`).
-  Die Hexagon-NPU wird nicht genutzt, weil das Hexagon-SDK nicht frei verfügbar ist.
+- **llama.cpp** (Kopie in `third_party/`, Stand 6.10.2026), selbst gebaut per NDK r30 für arm64. Es
+  gibt sieben CPU-Varianten (`GGML_CPU_ALL_VARIANTS`: armv8.0 … armv9.2 mit dotprod/i8mm/SVE/SME), die
+  passende wählt die App zur Laufzeit. Dazu kommen **KleidiAI** und Q4_K/Q6_K-Weight-Repacking für i8mm.
+- **GPU**: llama.cpps **OpenCL-Backend mit den Adreno-Kernels** (`libggml-opencl.so`). Es nutzt das
+  `libOpenCL.so` des Herstellers (`uses-native-library`). Die Adreno 840 des S26 Ultra gehört zur
+  Generation A8X. Für sie rechnet llama.cpp Q4_K/Q6_K-Gewichte (alle drei Katalogmodelle sind
+  Q4_K_M) mit eigenen GEMM- und GEMV-Kernels.
+  - Ein Modell läuft ganz auf der GPU oder ganz auf der CPU. Ein CPU-Modell bekommt eine leere
+    Geräteliste und berührt OpenCL nie.
+  - Das Backend wird erst geladen, wenn es gebraucht wird.
+  - Die übersetzten GPU-Programme werden im `codeCacheDir` gespeichert (`GGML_OPENCL_KERNEL_CACHE_DIR`).
+    Nur der allererste GPU-Start zahlt die Kernel-Übersetzung.
+  - **Absturzschutz**: Vor jedem riskanten GPU-Schritt schreibt die App eine Markierung, nämlich vor
+    dem Laden des Treibers, dem Laden auf die GPU (dabei werden die Kernels übersetzt) und den ersten
+    GPU-Übersetzungen. Stirbt die App in so einem Schritt, findet der nächste Start die Markierung
+    und fragt Android nach dem Grund (`ApplicationExitInfo`). Bei einem Absturz bleibt die GPU
+    gesperrt, bis man sie in den Optionen wieder zulässt; es gibt also keine Absturzschleife.
+    Beendet Android die App nur (Wischen, Speicher, Update), wird der Schritt beim nächsten Mal
+    wiederholt.
+  - Meldet llama.cpp auf der GPU einen Fehler, wird dieselbe Anfrage auf der CPU beantwortet, und
+    das Modell bleibt dort.
 - **JNI-Brücke** (`app/src/main/cpp/fluency_jni.cpp`): Das Modell bleibt warm im Speicher. Der
   **KV-Cache wird wiederverwendet**, es wird nur der Prompt-Teil neu berechnet, der sich geändert
   hat (bei wachsenden Teilsätzen kommen z. B. 31 von 41 Tokens aus dem Cache). Tokens werden
@@ -134,7 +164,7 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
 ## Bauen (Kommandozeile)
 
 Voraussetzungen: JDK 21, Android SDK (Platform 37, Build-Tools 37.0.0, NDK 30.0.16248370, CMake
-3.31.6), optional Python 3.
+3.31.6).
 
 ```bash
 git clone https://github.com/MADTreasures/playground && cd playground/fluency
@@ -208,7 +238,12 @@ Satzende bis zur fertigen Übersetzung: 1.6 s.
 - Die echte Geschwindigkeit auf dem Snapdragon 8 Elite Gen 5. Erwartet wird deutlich unter 1 s vom
   Satzende bis zur Übersetzung; das zeigt der Benchmark-Screen.
 - Welche CPU-Variante gewählt wird (i8mm/SVE/SME) und ob KleidiAI greift.
-- Ob das Adreno-OpenCL-Backend lädt und schneller ist (experimentell, standardmässig aus).
+- **Die GPU**: Ob das Adreno-OpenCL-Backend auf dem S26 Ultra lädt, wie lange die erste
+  Kernel-Übersetzung dauert und ob GPU oder CPU schneller ist. Das misst die App beim ersten Laden
+  selbst; das Ergebnis steht unter Optionen → Leistung und im Benchmark. Im Container gibt es keine
+  Adreno-GPU. Getestet sind hier der CPU-Pfad mit echten Modellen und die gesamte
+  Auswahl-, Wechsel- und Absturzlogik mit simulierten CPU-/GPU-Modellen, nicht aber die
+  OpenCL-Kernels selbst.
 - Mikrofon-Aufnahme, Echo/Rückkopplung beim Vorlesen, Android-TTS-Offline-Stimmen.
 - Foreground-Service-Downloads im Hintergrund, Benachrichtigungen, SAF-Dateiimport.
 - Schweizerdeutsch-Qualität mit echter Mundart (getestet wurde nur Hochdeutsch-Audio) und dessen

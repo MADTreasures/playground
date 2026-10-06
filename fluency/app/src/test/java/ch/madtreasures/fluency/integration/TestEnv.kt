@@ -1,5 +1,8 @@
 package ch.madtreasures.fluency.integration
 
+import ch.madtreasures.fluency.engine.llm.AccelStore
+import ch.madtreasures.fluency.engine.llm.Acceleration
+import ch.madtreasures.fluency.engine.llm.GpuInfo
 import ch.madtreasures.fluency.engine.llm.LlamaNative
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.engine.llm.TranslationModelSource
@@ -33,7 +36,7 @@ object TestEnv {
     private val llamaOk: Boolean by lazy {
         try {
             LlamaNative.load()
-            LlamaNative.nativeInitBackends(null, false)
+            LlamaNative.nativeInitBackends(null)
             true
         } catch (e: UnsatisfiedLinkError) {
             System.err.println("libfluency_jni not available: ${e.message}")
@@ -65,5 +68,7 @@ object TestEnv {
         },
         settings = { settings },
         nativeLibDir = null,
+        // the real GPU probe: the host build has no GPU backend, so everything runs on the CPU
+        acceleration = Acceleration(AccelStore(null, "host")) { GpuInfo.openCl(null, null) },
     )
 }

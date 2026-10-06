@@ -59,6 +59,7 @@ import ch.madtreasures.fluency.ui.live.LiveViewModel
 import ch.madtreasures.fluency.ui.models.ModelsActions
 import ch.madtreasures.fluency.ui.models.ModelsScreen
 import ch.madtreasures.fluency.ui.models.ModelsViewModel
+import ch.madtreasures.fluency.ui.settings.AccelUi
 import ch.madtreasures.fluency.ui.settings.SettingsScreen
 import ch.madtreasures.fluency.ui.settings.SettingsUiState
 import ch.madtreasures.fluency.ui.text.ModelOption
@@ -316,6 +317,7 @@ private fun BenchmarkRoute(vm: BenchmarkViewModel, onBack: () -> Unit) {
 private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit) {
     val settings by c.settingsRepository.settings.collectAsStateWithLifecycle()
     val states by c.modelManager.states.collectAsStateWithLifecycle()
+    val accel by c.translationEngine.accelStatus.collectAsStateWithLifecycle()
     val translation = remember(states) { c.modelManager.installed(ModelKind.TRANSLATION).map { ModelOption(it.id, it.name) } }
     val asr = remember(states) { c.modelManager.installed(ModelKind.ASR).map { ModelOption(it.id, it.name) } }
     SettingsScreen(
@@ -324,8 +326,11 @@ private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit) {
             translationModels = translation.ifEmpty { listOf(ModelOption(ModelCatalog.HY_MT2, "Hy-MT2 1.8B (nicht installiert)")) },
             asrModels = asr,
             versionInfo = "Fluency ${BuildConfig.VERSION_NAME} · ${NativeVersions.SUMMARY}",
+            accel = AccelUi.from(accel, translation, settings.accel),
         ),
         onChange = c.settingsRepository::update,
         onBenchmark = onBenchmark,
+        onRemeasure = c.translationEngine::remeasure,
+        onUnblockGpu = c.translationEngine::unblockGpu,
     )
 }

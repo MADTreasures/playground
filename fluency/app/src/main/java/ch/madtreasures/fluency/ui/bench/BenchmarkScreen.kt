@@ -86,11 +86,12 @@ class BenchmarkViewModel(private val c: AppContainer) : ViewModel() {
         val am = c.app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val mem = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
         val backends = runCatching { c.translationEngine.ensureBackends() }.getOrElse { "Backends: ${it.message}" }
+        val accel = c.translationEngine.accelStatus.value
         return buildString {
             append("${Build.MANUFACTURER} ${Build.MODEL} · SoC ${Build.SOC_MODEL} · RAM ${mem.totalMem / 1_000_000_000} GB · Android ${Build.VERSION.RELEASE}\n")
-            append("Threads: Übersetzung ${c.settings.llmThreads}, Erkennung ${c.settings.asrThreads}")
-            append(if (c.settings.useGpu) " · GPU (OpenCL) an\n" else " · nur CPU\n")
+            append("Threads: Übersetzung ${c.settings.llmThreads}, Erkennung ${c.settings.asrThreads} · Rechenwerk: ${c.settings.accel}\n")
             append(backends)
+            accel.problem?.let { append("\n$it") }
         }
     }
 
@@ -114,7 +115,7 @@ fun BenchmarkScreen(report: BenchReport, onRun: () -> Unit, onCopy: () -> Unit, 
         ) {
             item {
                 Text(
-                    "Misst alle installierten Modelle auf diesem Gerät: Ladezeit, Übersetzungszeit pro Satz, " +
+                    "Misst alle installierten Modelle auf diesem Gerät: Ladezeit, Übersetzungszeit pro Satz auf CPU und GPU, " +
                         "Prompt- und Ausgabe-Tempo (Tokens/s), Spracherkennung (Echtzeitfaktor) und Sprachausgabe.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -140,7 +141,18 @@ fun BenchmarkScreen(report: BenchReport, onRun: () -> Unit, onCopy: () -> Unit, 
                 }
             }
             if (report.mt.isNotEmpty()) item { SectionTitle("Übersetzung") }
-            items(report.mt, key = { "mt-" + it.modelId }) { MtCard(it) }
+            items(report.mt, key = { "mt-" + it.modelId + "-" + it.processor }) { MtCard(it) }
+            if (report.choices.isNotEmpty()) {
+                item {
+                    Column {
+                        report.choices.forEach { Text("→ $it", style = MaterialTheme.typography.bodyMedium) }
+                        Text(
+                            "Die GPU wird genommen, solange sie höchstens 10 % langsamer ist (die CPU bleibt dann für die Spracherkennung frei).",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
             if (report.asr.isNotEmpty()) item { SectionTitle("Spracherkennung") }
             items(report.asr, key = { "asr-" + it.modelId }) { AsrCard(it) }
             if (report.tts.isNotEmpty()) item { SectionTitle("Sprachausgabe") }
@@ -160,7 +172,11 @@ fun BenchmarkScreen(report: BenchReport, onRun: () -> Unit, onCopy: () -> Unit, 
 private fun MtCard(m: MtBench) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
-            Text(m.name, style = MaterialTheme.typography.titleMedium)
+            Text(m.title, style = MaterialTheme.typography.titleMedium)
+            if (m.error != null) {
+                Text(m.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                return@Column
+            }
             Metric("Ø pro Satz", "%.0f ms".format(m.avgMs))
             Metric("Mit KV-Cache (Live-Teilübersetzung)", "%.0f ms".format(m.cachedMs))
             Metric("Prompt-Verarbeitung", "%.0f Tokens/s".format(m.prefillTps))

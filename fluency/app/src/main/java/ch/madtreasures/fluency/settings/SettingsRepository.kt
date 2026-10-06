@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import ch.madtreasures.fluency.engine.llm.AccelMode
 import ch.madtreasures.fluency.models.ModelCatalog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,7 +46,8 @@ data class AppSettings(
     val endSilenceMs: Int = 400,
     val llmThreads: Int = 6,
     val asrThreads: Int = 2,
-    val useGpu: Boolean = false,
+    /** CPU or GPU for the translation models (automatic: measured once per model) */
+    val accel: AccelMode = AccelMode.AUTO,
     val showLatency: Boolean = true,
     val keepScreenOn: Boolean = true,
     val muteMicWhileSpeaking: Boolean = true,
@@ -73,6 +75,9 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         val endSilenceMs = intPreferencesKey("endSilenceMs")
         val llmThreads = intPreferencesKey("llmThreads")
         val asrThreads = intPreferencesKey("asrThreads")
+        val accel = stringPreferencesKey("accel")
+
+        /** until 1.0.0: GPU on/off (off = CPU only) */
         val useGpu = booleanPreferencesKey("useGpu")
         val showLatency = booleanPreferencesKey("showLatency")
         val keepScreenOn = booleanPreferencesKey("keepScreenOn")
@@ -101,7 +106,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         endSilenceMs = p[K.endSilenceMs] ?: defaults.endSilenceMs,
         llmThreads = p[K.llmThreads] ?: defaults.llmThreads,
         asrThreads = p[K.asrThreads] ?: defaults.asrThreads,
-        useGpu = p[K.useGpu] ?: defaults.useGpu,
+        accel = AccelMode.parse(p[K.accel]) ?: if (p[K.useGpu] == true) AccelMode.GPU else defaults.accel,
         showLatency = p[K.showLatency] ?: defaults.showLatency,
         keepScreenOn = p[K.keepScreenOn] ?: defaults.keepScreenOn,
         muteMicWhileSpeaking = p[K.muteMicWhileSpeaking] ?: defaults.muteMicWhileSpeaking,
@@ -138,7 +143,8 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
                 p[K.endSilenceMs] = s.endSilenceMs
                 p[K.llmThreads] = s.llmThreads
                 p[K.asrThreads] = s.asrThreads
-                p[K.useGpu] = s.useGpu
+                p[K.accel] = s.accel.name
+                p.remove(K.useGpu)
                 p[K.showLatency] = s.showLatency
                 p[K.keepScreenOn] = s.keepScreenOn
                 p[K.muteMicWhileSpeaking] = s.muteMicWhileSpeaking

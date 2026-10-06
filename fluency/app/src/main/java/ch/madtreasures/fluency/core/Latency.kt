@@ -18,10 +18,13 @@ data class Latency(
     val model: String? = null,
     /** the recognition already ran during the speech pause (before the VAD closed the segment) */
     val reusedAsr: Boolean = false,
+    /** where the translation ran: "CPU" or "GPU" */
+    val processor: String? = null,
 ) {
     fun format(): String = buildString {
         if (asrMs != null) append(if (reusedAsr) "Erkennung ${asrMs} ms (vorab) · " else "Erkennung ${asrMs} ms · ")
         append(if (reusedPartial) "Übersetzung 0 ms (vorab)" else "Übersetzung ${mtMs} ms")
         append(" · Gesamt ${totalMs} ms")
+        if (processor != null) append(" · $processor")
     }
 }

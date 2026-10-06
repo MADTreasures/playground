@@ -5,8 +5,10 @@ import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.core.Wav
 import ch.madtreasures.fluency.engine.asr.AsrEngine
 import ch.madtreasures.fluency.engine.asr.SAMPLE_RATE
+import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.models.ModelInfo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ensureActive
 import kotlin.coroutines.coroutineContext
 
@@ -21,7 +23,12 @@ data class MtBench(
     /** same sentence again: prompt prefix comes from the KV cache (live partials) */
     val cachedMs: Double,
     val sample: String,
-)
+    val processor: Processor = Processor.CPU,
+    /** set if the model could not run on [processor] */
+    val error: String? = null,
+) {
+    val title: String get() = "$name · $processor"
+}
 
 data class AsrBench(
     val modelId: String,
@@ -43,6 +50,8 @@ data class BenchReport(
     val mt: List<MtBench> = emptyList(),
     val asr: List<AsrBench> = emptyList(),
     val tts: List<TtsBench> = emptyList(),
+    /** what automatic mode uses from now on, per model name */
+    val choices: List<String> = emptyList(),
     val running: Boolean = false,
     val step: String? = null,
     val error: String? = null,
@@ -52,11 +61,16 @@ data class BenchReport(
         appendLine(system)
         if (mt.isNotEmpty()) appendLine("\nÜbersetzung:")
         mt.forEach {
-            appendLine(
-                "- ${it.name}: Laden ${it.loadMs} ms, Ø ${"%.0f".format(it.avgMs)} ms/Satz, Prompt ${"%.0f".format(it.prefillTps)} Tok/s, " +
-                    "Ausgabe ${"%.1f".format(it.decodeTps)} Tok/s, mit KV-Cache ${"%.0f".format(it.cachedMs)} ms",
-            )
+            if (it.error != null) {
+                appendLine("- ${it.title}: ${it.error}")
+            } else {
+                appendLine(
+                    "- ${it.title}: Laden ${it.loadMs} ms, Ø ${"%.0f".format(it.avgMs)} ms/Satz, Prompt ${"%.0f".format(it.prefillTps)} Tok/s, " +
+                        "Ausgabe ${"%.1f".format(it.decodeTps)} Tok/s, mit KV-Cache ${"%.0f".format(it.cachedMs)} ms",
+                )
+            }
         }
+        choices.forEach { appendLine("→ $it") }
         if (asr.isNotEmpty()) appendLine("\nSpracherkennung:")
         asr.forEach {
             appendLine("- ${it.name}: Laden ${it.loadMs} ms, ${it.decodeMs} ms für ${"%.1f".format(it.audioSeconds)} s Audio (RTF ${"%.3f".format(it.rtf)})")
@@ -95,46 +109,55 @@ class Benchmark(
         update(report)
 
         // ------------------------------------------------------------------ translation
-        for (m in translationModels()) {
-            coroutineContext.ensureActive()
-            report = report.copy(step = "Übersetzung: ${m.name} …")
-            update(report)
-            translation.unloadAll()
-            val pairs = BenchData.sentences.filter { m.supports(it.source) && m.supports(it.target) }
-            if (pairs.isEmpty()) continue
-            val first = pairs.first()
-            val t0 = System.nanoTime()
-            // load + warm-up (not part of the sentence numbers)
-            translation.translate(req(first, m.id, "Hallo."))
-            val loadMs = translation.loadMillis(m.id) ?: ((System.nanoTime() - t0) / 1_000_000)
-            var ms = 0.0
-            var prefillTok = 0
-            var prefillMs = 0.0
-            var genTok = 0
-            var decodeMs = 0.0
-            var sample = ""
-            for (s in pairs) {
-                coroutineContext.ensureActive()
-                translation.resetCaches()
-                val r = translation.translate(req(s, m.id))
-                ms += r.wallMs
-                prefillTok += r.promptTokens - r.reusedTokens
-                prefillMs += r.prefillMs
-                genTok += r.generatedTokens
-                decodeMs += r.decodeMs
-                if (sample.isEmpty()) sample = "${s.text} → ${r.text}"
+        // background CPU/GPU measurements must not run at the same time
+        report = report.copy(step = "Warte auf laufende CPU/GPU-Messung …")
+        update(report)
+        report = translation.exclusive {
+            var r = report
+            val gpu = runCatching { translation.gpu() }.getOrNull()
+            val processors = if (gpu != null) listOf(Processor.CPU, Processor.GPU) else listOf(Processor.CPU)
+            for (m in translationModels()) {
+                val pairs = BenchData.sentences.filter { m.supports(it.source) && m.supports(it.target) }
+                if (pairs.isEmpty()) continue
+                val runs = mutableMapOf<Processor, Pair<MtBench, List<String>>>()
+                for (p in processors) {
+                    coroutineContext.ensureActive()
+                    r = r.copy(step = "Übersetzung: ${m.name} auf der $p …")
+                    update(r)
+                    translation.unloadAll()
+                    val res = try {
+                        translationBench(m, p, pairs)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        if (p == Processor.CPU) throw e
+                        MtBench(m.id, m.name, 0, 0, 0.0, 0.0, 0.0, 0.0, "", p, e.message ?: e.javaClass.simpleName) to emptyList()
+                    }
+                    runs[p] = res
+                    r = r.copy(mt = r.mt + res.first)
+                    update(r)
+                }
+                val cpu = runs[Processor.CPU]
+                val onGpu = runs[Processor.GPU]
+                if (cpu != null && onGpu != null) {
+                    val d = if (onGpu.first.error == null) {
+                        translation.rememberComparison(
+                            m.id, (cpu.first.avgMs * pairs.size).toLong(), (onGpu.first.avgMs * pairs.size).toLong(), cpu.second, onGpu.second,
+                        )
+                    } else {
+                        null
+                    }
+                    val choice = when {
+                        d == null -> "CPU (GPU-Fehler)"
+                        d.note.isNotEmpty() -> "CPU (${d.note})"
+                        else -> d.processor.name
+                    }
+                    r = r.copy(choices = r.choices + "${m.name}: Automatik nimmt $choice")
+                    update(r)
+                }
             }
-            // repeat the last sentence: the whole prompt prefix is cached
-            val cached = translation.translate(req(pairs.last(), m.id))
-            report = report.copy(
-                mt = report.mt + MtBench(
-                    m.id, m.name, loadMs, pairs.size, ms / pairs.size,
-                    if (prefillMs > 0) prefillTok * 1000 / prefillMs else 0.0,
-                    if (decodeMs > 0) genTok * 1000 / decodeMs else 0.0,
-                    cached.wallMs.toDouble(), sample,
-                ),
-            )
-            update(report)
+            translation.unloadAll()
+            r
         }
 
         // ------------------------------------------------------------------ speech recognition
@@ -182,11 +205,48 @@ class Benchmark(
         update(report.copy(running = false, step = null))
     }
 
-    private fun req(s: BenchData.Sentence, modelId: String, text: String = s.text) = TranslationEngine.Request(
+    /** Load + warm-up, every sentence from an empty KV cache, then the last one again (cached prefix). */
+    private suspend fun translationBench(m: ModelInfo, p: Processor, pairs: List<BenchData.Sentence>): Pair<MtBench, List<String>> {
+        val t0 = System.nanoTime()
+        // load + warm-up (not part of the sentence numbers)
+        translation.translate(req(pairs.first(), m.id, p, "Hallo."))
+        val loadMs = translation.loadMillis(m.id) ?: ((System.nanoTime() - t0) / 1_000_000)
+        var ms = 0.0
+        var prefillTok = 0
+        var prefillMs = 0.0
+        var genTok = 0
+        var decodeMs = 0.0
+        var sample = ""
+        val texts = ArrayList<String>()
+        for (s in pairs) {
+            coroutineContext.ensureActive()
+            translation.resetCaches()
+            val r = translation.translate(req(s, m.id, p))
+            ms += r.wallMs
+            prefillTok += r.promptTokens - r.reusedTokens
+            prefillMs += r.prefillMs
+            genTok += r.generatedTokens
+            decodeMs += r.decodeMs
+            texts += r.text
+            if (sample.isEmpty()) sample = "${s.text} → ${r.text}"
+        }
+        // repeat the last sentence: the whole prompt prefix is cached
+        val cached = translation.translate(req(pairs.last(), m.id, p))
+        val bench = MtBench(
+            m.id, m.name, loadMs, pairs.size, ms / pairs.size,
+            if (prefillMs > 0) prefillTok * 1000 / prefillMs else 0.0,
+            if (decodeMs > 0) genTok * 1000 / decodeMs else 0.0,
+            cached.wallMs.toDouble(), sample, p,
+        )
+        return bench to texts
+    }
+
+    private fun req(s: BenchData.Sentence, modelId: String, p: Processor, text: String = s.text) = TranslationEngine.Request(
         text = text,
         source = Languages.require(s.source),
         target = Languages.require(s.target),
         role = TranslationEngine.Role.TEXT,
         modelId = modelId,
+        processor = p,
     )
 }

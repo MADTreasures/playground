@@ -1,0 +1,18 @@
+# cmake -P embed_opencl_kernel.cmake -- <embed_kernel.py (ignored)> <kernel.cl> <kernel.cl.h>
+# Byte-identical output to ggml's kernels/embed_kernel.py: R"(<line>)" for every line.
+math(EXPR in_arg "${CMAKE_ARGC} - 2")
+math(EXPR out_arg "${CMAKE_ARGC} - 1")
+set(in "${CMAKE_ARGV${in_arg}}")
+set(out "${CMAKE_ARGV${out_arg}}")
+file(READ "${in}" src)
+if (src STREQUAL "")
+    file(WRITE "${out}" "")
+    return()
+endif()
+set(tail "")
+if (src MATCHES "\n$")
+    string(REGEX REPLACE "\n$" "" src "${src}")
+    set(tail "\n")
+endif()
+string(REPLACE "\n" "\n)\"\nR\"(" src "${src}")
+file(WRITE "${out}" "R\"(${src}${tail})\"\n")
