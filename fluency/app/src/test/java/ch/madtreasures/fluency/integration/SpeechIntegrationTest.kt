@@ -87,8 +87,9 @@ class SpeechIntegrationTest {
         asr.use {
             val audio = wav("de.wav")
             val r = it.transcribe(audio.samples, Languages.require("de-CH"))
-            println("Swiss Whisper (whisper.cpp) [de] ${"%.1f".format(audio.seconds)} s → ${r.millis} ms: ${r.text}")
+            println("Swiss Whisper (whisper.cpp, audio_ctx ${WhisperCppAsr.audioContext(audio.samples.size)}) [de] ${"%.1f".format(audio.seconds)} s → ${r.millis} ms: ${r.text}")
             assertEquals("de", LanguageGuesser.guess(r.text, clips))
+            assertTrue(r.text, r.text.contains("Wurst"))
         }
     }
 }

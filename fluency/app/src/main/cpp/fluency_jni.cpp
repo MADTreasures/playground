@@ -629,7 +629,8 @@ Java_ch_madtreasures_fluency_engine_asr_WhisperCppNative_nativeCancel(JNIEnv *, 
 /** Transcribes 16 kHz mono float PCM. Returns UTF-8 text or null on error. */
 JNIEXPORT jbyteArray JNICALL
 Java_ch_madtreasures_fluency_engine_asr_WhisperCppNative_nativeTranscribe(JNIEnv * env, jobject, jlong handle,
-                                                                         jfloatArray jpcm, jstring jlang, jint nThreads) {
+                                                                         jfloatArray jpcm, jstring jlang, jint nThreads,
+                                                                         jint audioCtx) {
     auto * s = reinterpret_cast<WhisperSession *>(handle);
     if (s == nullptr || jpcm == nullptr) return nullptr;
     std::lock_guard<std::mutex> lock(s->mu);
@@ -655,6 +656,9 @@ Java_ch_madtreasures_fluency_engine_asr_WhisperCppNative_nativeTranscribe(JNIEnv
     p.suppress_blank = true;
     p.suppress_nst = true;
     p.temperature_inc = 0.0f; // no fallback re-decoding: latency over robustness
+    // Whisper always encodes a 30 s window (1500 frames); a smaller context for short utterances
+    // makes the encoder several times faster. 0 = full window.
+    p.audio_ctx = audioCtx;
     p.abort_callback = whisper_abort_cb;
     p.abort_callback_user_data = s;
 

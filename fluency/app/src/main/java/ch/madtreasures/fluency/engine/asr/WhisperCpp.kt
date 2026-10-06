@@ -8,7 +8,7 @@ object WhisperCppNative {
     external fun nativeInit(path: ByteArray, useGpu: Boolean): Long
     external fun nativeFree(handle: Long)
     external fun nativeCancel(handle: Long)
-    external fun nativeTranscribe(handle: Long, pcm: FloatArray, language: String, threads: Int): ByteArray?
+    external fun nativeTranscribe(handle: Long, pcm: FloatArray, language: String, threads: Int, audioCtx: Int): ByteArray?
 }
 
 /**
@@ -30,7 +30,7 @@ class WhisperCppAsr private constructor(
         check(handle != 0L) { "closed" }
         val t0 = System.nanoTime()
         val lang = fixedLanguage ?: language?.whisper ?: "auto"
-        val bytes = WhisperCppNative.nativeTranscribe(handle, samples, lang, threads)
+        val bytes = WhisperCppNative.nativeTranscribe(handle, samples, lang, threads, audioContext(samples.size))
         val text = bytes?.toString(Charsets.UTF_8)?.trim().orEmpty()
         return AsrResult(text, (System.nanoTime() - t0) / 1_000_000, lang.takeIf { it != "auto" })
     }
@@ -47,6 +47,13 @@ class WhisperCppAsr private constructor(
     }
 
     companion object {
+        /** Encoder frames for [samples] (50 per second) plus headroom; 0 = full 30 s window. */
+        fun audioContext(samples: Int, enabled: Boolean = true): Int {
+            if (!enabled) return 0
+            val frames = samples / (SAMPLE_RATE / 50)
+            return if (frames >= 1200) 0 else (frames + 128).coerceAtLeast(384)
+        }
+
         fun load(id: String, name: String, path: String, threads: Int, fixedLanguage: String?): WhisperCppAsr? {
             LlamaNative.load()
             val h = WhisperCppNative.nativeInit(path.toByteArray(Charsets.UTF_8), false)
