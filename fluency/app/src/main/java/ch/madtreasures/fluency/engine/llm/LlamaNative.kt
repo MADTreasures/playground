@@ -28,12 +28,17 @@ object LlamaNative {
      */
     external fun nativeEnableGpu(libDir: String?, kernelCacheDir: String?): String
 
-    /** The GPU device models can be loaded onto, or null. */
-    external fun nativeGpuName(): String?
+    /** Loads the Hexagon NPU backend from [libDir] (once per process) and returns a report. */
+    external fun nativeEnableNpu(libDir: String?): String
 
-    /** [useGpu]: all layers on the GPU (if there is one), otherwise everything on the CPU. */
-    external fun nativeLoad(path: ByteArray, nCtx: Int, nBatch: Int, nThreads: Int, nThreadsBatch: Int, useGpu: Boolean): Long
-    external fun nativeUsesGpu(handle: Long): Boolean
+    /** The device models can be loaded onto for [processor] ([Processor.ordinal]), or null. */
+    external fun nativeDeviceName(processor: Int): String?
+
+    /** All layers on [processor] ([Processor.ordinal]); returns 0 if that is not possible. */
+    external fun nativeLoad(path: ByteArray, nCtx: Int, nBatch: Int, nThreads: Int, nThreadsBatch: Int, processor: Int): Long
+
+    /** Where the model runs ([Processor.ordinal]). */
+    external fun nativeProcessor(handle: Long): Int
     external fun nativeFree(handle: Long)
     external fun nativeCancel(handle: Long)
     external fun nativeSetThreads(handle: Long, nThreads: Int, nThreadsBatch: Int)

@@ -5,6 +5,7 @@ import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.core.Wav
 import ch.madtreasures.fluency.engine.asr.AsrEngine
 import ch.madtreasures.fluency.engine.asr.SAMPLE_RATE
+import ch.madtreasures.fluency.engine.llm.AccelChoice
 import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.models.ModelInfo
@@ -118,8 +119,8 @@ class Benchmark(
         update(report)
         report = translation.exclusive {
             var r = report
-            val gpu = runCatching { translation.gpu() }.getOrNull()
-            val processors = if (gpu != null) listOf(Processor.CPU, Processor.GPU) else listOf(Processor.CPU)
+            val processors = listOf(Processor.CPU) +
+                Processor.accelerators.filter { runCatching { translation.device(it) }.getOrNull() != null }
             for (m in translationModels()) {
                 val pairs = BenchData.sentences.filter { m.supports(it.source) && m.supports(it.target) }
                 if (pairs.isEmpty()) continue
@@ -141,21 +142,15 @@ class Benchmark(
                     r = r.copy(mt = r.mt + res.first)
                     update(r)
                 }
-                val cpu = runs[Processor.CPU]
-                val onGpu = runs[Processor.GPU]
-                if (cpu != null && onGpu != null) {
-                    val d = if (onGpu.first.error == null) {
-                        translation.rememberComparison(
-                            m.id, (cpu.first.avgMs * pairs.size).toLong(), (onGpu.first.avgMs * pairs.size).toLong(), cpu.second, onGpu.second,
-                        )
-                    } else {
-                        null
-                    }
-                    val choice = when {
-                        d == null -> "CPU (GPU-Fehler)"
-                        d.note.isNotEmpty() -> "CPU (${d.note})"
-                        else -> d.processor.name
-                    }
+                if (runs.size > 1 && Processor.CPU in runs) {
+                    val d = translation.rememberComparison(
+                        m.id,
+                        runs.mapValues { (_, run) ->
+                            val (bench, texts) = run
+                            AccelChoice.Run((bench.avgMs * bench.sentences).toLong(), texts, bench.error)
+                        },
+                    )
+                    val choice = d.processor.name + d.note.takeIf { it.isNotEmpty() }?.let { " ($it)" }.orEmpty()
                     r = r.copy(choices = r.choices + "${m.name}: Automatik nimmt $choice")
                     update(r)
                 }

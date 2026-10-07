@@ -48,10 +48,10 @@ fun interface SessionLoader {
  * Picks a translation model for a request, keeps loaded models warm (one thread per model) and
  * runs the translation with streaming output.
  *
- * CPU or GPU ([AppSettings.accel]): in automatic mode every model is measured once per device
- * and app version on both processors in the background ([AccelChoice]) while it keeps
- * translating on the CPU; if the GPU wins, it takes over without a pause. Risky GPU steps are
- * crash-guarded ([GpuGuard]); a GPU error moves the model back to the CPU.
+ * CPU, GPU or NPU ([AppSettings.accel]): in automatic mode every model is measured once per device
+ * and app version on every processor in the background ([AccelChoice]) while it keeps translating
+ * on the CPU; if an accelerator wins, it takes over without a pause. Risky accelerator steps are
+ * crash-guarded ([AccelGuard]); an error on an accelerator moves the model back to the CPU.
  */
 class TranslationEngine(
     private val source: TranslationModelSource,
@@ -77,7 +77,7 @@ class TranslationEngine(
         val role: Role,
         /** force a model (benchmark) */
         val modelId: String? = null,
-        /** force CPU or GPU (benchmark) */
+        /** force CPU, GPU or NPU (benchmark) */
         val processor: Processor? = null,
     )
 
@@ -98,19 +98,20 @@ class TranslationEngine(
         val tokensPerSecond: Double get() = if (decodeMs > 0) generatedTokens * 1000.0 / decodeMs else 0.0
     }
 
-    /** CPU/GPU state for the settings screen. */
+    /** CPU/GPU/NPU state for the settings screen. */
     data class AccelStatus(
-        val gpuName: String? = null,
-        /** why the GPU is not used (no GPU, blocked after a crash) */
-        val problem: String? = null,
-        val blocked: Boolean = false,
+        /** accelerators whose backend is loaded, with their device name */
+        val devices: Map<Processor, String> = emptyMap(),
+        /** why an accelerator is not used (none in this build, none found, blocked after a crash) */
+        val problems: Map<Processor, String> = emptyMap(),
+        val blocked: Set<Processor> = emptySet(),
         val decisions: Map<String, AccelStore.Decision> = emptyMap(),
-        /** models being measured on CPU and GPU right now */
+        /** models being measured right now */
         val measuring: Set<String> = emptySet(),
         /** loaded models and where they run */
         val active: Map<String, Processor> = emptyMap(),
-        /** GPU failures in this process (model id → reason); these models stay on the CPU */
-        val failed: Map<String, String> = emptyMap(),
+        /** errors in this process: model id → processor → reason; the model avoids that processor */
+        val failed: Map<String, Map<Processor, String>> = emptyMap(),
     )
 
     private class Loaded(val info: ModelInfo, @Volatile var model: LlmSession) {
@@ -119,12 +120,10 @@ class TranslationEngine(
         @Volatile var lastUsed = System.nanoTime()
         @Volatile var runningRole: Role? = null
 
-        /** the first GPU run of an instance is crash-guarded */
-        @Volatile var gpuChecked = false
-        val processor: Processor get() = if (model.usesGpu) Processor.GPU else Processor.CPU
+        /** the first run of an instance on an accelerator is crash-guarded */
+        @Volatile var checked = false
+        val processor: Processor get() = model.processor
     }
-
-    private class Measurement(val ms: Long, val texts: List<String>, val error: String? = null)
 
     private val loaded = ConcurrentHashMap<String, Loaded>()
     private val loadMutex = Mutex()
@@ -134,7 +133,9 @@ class TranslationEngine(
     private val pendingJobs: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val measuring: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val measureAttempts = ConcurrentHashMap<String, Int>()
-    private val gpuFailed = ConcurrentHashMap<String, String>()
+
+    /** "modelId/PROCESSOR" → reason: accelerators that failed for a model in this process */
+    private val failures = ConcurrentHashMap<String, String>()
 
     private val idleNanos = idleMillis * 1_000_000
     private val activity = AtomicLong()
@@ -169,10 +170,10 @@ class TranslationEngine(
         return LlamaNative.nativeSystemInfo()
     }
 
-    /** Loads the GPU backend if necessary. The GPU name, or null if there is none to use. */
-    suspend fun gpu(): String? = withContext(Dispatchers.IO) {
+    /** Loads the backend of [p] if necessary. The device name, or null if there is none to use. */
+    suspend fun device(p: Processor): String? = withContext(Dispatchers.IO) {
         ensureBackends()
-        acceleration.gpu()
+        acceleration.device(p)
     }.also { publishAccel() }
 
     /** Chooses the model for [role]; null if none installed supports the language pair. */
@@ -205,14 +206,19 @@ class TranslationEngine(
 
     // ------------------------------------------------------------------------------ loading
 
-    /** Where [info] should run now (blocking: may load the GPU backend on the first call). */
+    private fun failureKey(info: ModelInfo, p: Processor) = "${info.id}/${p.name}"
+
+    private fun failed(info: ModelInfo, p: Processor): Boolean = failures.containsKey(failureKey(info, p))
+
+    private fun markFailed(info: ModelInfo, p: Processor, reason: String) {
+        failures[failureKey(info, p)] = reason
+        publishAccel()
+    }
+
+    /** Where [info] should run now (blocking: may load an accelerator backend on the first call). */
     private fun plannedProcessor(info: ModelInfo): Processor {
-        val wantGpu = when (settings().accel) {
-            AccelMode.CPU -> false
-            AccelMode.GPU -> true
-            AccelMode.AUTO -> acceleration.store.decision(info.id)?.processor == Processor.GPU
-        }
-        return if (wantGpu && !gpuFailed.containsKey(info.id) && acceleration.gpu() != null) Processor.GPU else Processor.CPU
+        val want = settings().accel.forced ?: acceleration.store.decision(info.id)?.processor ?: Processor.CPU
+        return if (want == Processor.CPU || failed(info, want) || acceleration.device(want) == null) Processor.CPU else want
     }
 
     private suspend fun get(info: ModelInfo, forced: Processor? = null): Loaded {
@@ -230,10 +236,10 @@ class TranslationEngine(
         val current = loaded[info.id]
         if (current != null) {
             if (current.processor == want) return current
-            if (want == Processor.GPU && forced == null) {
-                // the first GPU load compiles the kernels (seconds): the CPU instance keeps
-                // translating until the GPU instance is ready
-                scheduleJob(info.id) { switchToGpu(info) }
+            if (want != Processor.CPU && forced == null) {
+                // loading onto an accelerator takes seconds (the GPU compiles its kernels, the NPU
+                // starts its program): the current instance keeps translating until it is ready
+                scheduleJob(info.id) { switchTo(info, want) }
                 return current
             }
             replace(current, loadSession(info, want) ?: throw IOException(failedOn(info, want)))
@@ -241,7 +247,7 @@ class TranslationEngine(
         }
         evictForOneMore()
         val model = loadSession(info, want)
-            ?: (if (want == Processor.GPU && forced == null) loadSession(info, Processor.CPU) else null)
+            ?: (if (want != Processor.CPU && forced == null) loadSession(info, Processor.CPU) else null)
             ?: throw IOException(failedOn(info, want))
         return Loaded(info, model).also {
             loaded[info.id] = it
@@ -250,30 +256,30 @@ class TranslationEngine(
     }
 
     private fun failedOn(info: ModelInfo, p: Processor): String =
-        if (p == Processor.GPU) "${info.name} konnte nicht auf der GPU geladen werden" +
-            (gpuFailed[info.id] ?: acceleration.problem())?.let { " ($it)" }.orEmpty()
+        if (p != Processor.CPU) "${info.name} konnte nicht auf der $p geladen werden" +
+            (failures[failureKey(info, p)] ?: acceleration.problem(p))?.let { " ($it)" }.orEmpty()
         else "${info.name} konnte nicht geladen werden"
 
-    /** Loads [info] on exactly [on]; null if that fails (a GPU failure is remembered for this process). */
+    /** Loads [info] on exactly [on]; null if that fails (an accelerator failure is remembered for this process). */
     private suspend fun loadSession(info: ModelInfo, on: Processor): LlmSession? = withContext(Dispatchers.IO) {
         ensureBackends()
         val s = settings()
         val params = LlamaModel.LoadParams(
             contextSize = 2048, batchSize = 512,
-            threads = s.llmThreads, threadsBatch = s.llmThreads, useGpu = on == Processor.GPU,
+            threads = s.llmThreads, threadsBatch = s.llmThreads, processor = on,
         )
         val path = source.modelPath(info)
         if (on == Processor.CPU) return@withContext loader.load(path, params)
-        if (acceleration.gpu() == null) return@withContext null
-        val m = acceleration.guarded("${info.name} auf die GPU laden") { loader.load(path, params) }
+        if (acceleration.device(on) == null) return@withContext null
+        val m = acceleration.guarded(on, "${info.name} auf die $on laden") { loader.load(path, params) }
         when {
             m == null -> {
-                gpuFailed[info.id] = "Laden auf der GPU fehlgeschlagen"
+                markFailed(info, on, "Laden auf der $on fehlgeschlagen")
                 null
             }
-            !m.usesGpu -> {
+            m.processor != on -> {
                 m.close()
-                gpuFailed[info.id] = "GPU nicht gefunden"
+                markFailed(info, on, "$on nicht gefunden")
                 null
             }
             else -> m
@@ -285,7 +291,7 @@ class TranslationEngine(
         withContext(l.dispatcher) {
             val old = l.model
             l.model = fresh
-            l.gpuChecked = verified
+            l.checked = verified
             old.close()
         }
         publishAccel()
@@ -327,7 +333,7 @@ class TranslationEngine(
         publishAccel()
     }
 
-    // ------------------------------------------------------------------------------ CPU or GPU
+    // ------------------------------------------------------------------------------ CPU, GPU or NPU
 
     private fun scheduleJob(modelId: String, job: suspend () -> Unit) {
         if (!pendingJobs.add(modelId)) return
@@ -347,22 +353,25 @@ class TranslationEngine(
 
     /** Automatic mode: a loaded model without a decision is measured in the background (twice per process at most). */
     private fun maybeMeasure(info: ModelInfo) {
-        if (settings().accel != AccelMode.AUTO || !acceleration.hasBackend) return
-        if (acceleration.store.decision(info.id) != null || acceleration.store.blockedReason() != null) return
-        if (gpuFailed.containsKey(info.id) || (measureAttempts[info.id] ?: 0) >= 2 || AccelChoice.probesFor(info).isEmpty()) return
+        if (settings().accel != AccelMode.AUTO) return
+        val candidates = Processor.accelerators.filter {
+            acceleration.hasBackend(it) && acceleration.store.blockedReason(it) == null && !failed(info, it)
+        }
+        if (candidates.isEmpty() || acceleration.store.decision(info.id) != null) return
+        if ((measureAttempts[info.id] ?: 0) >= 2 || AccelChoice.probesFor(info).isEmpty()) return
         scheduleJob(info.id) {
             measureAttempts.merge(info.id, 1, Int::plus)
             measure(info)
         }
     }
 
-    private suspend fun switchToGpu(info: ModelInfo) {
-        val fresh = loadSession(info, Processor.GPU) ?: return
+    private suspend fun switchTo(info: ModelInfo, to: Processor) {
+        val fresh = loadSession(info, to) ?: return
         var used = false
         try {
             loadMutex.withLock {
                 val l = loaded[info.id]
-                if (l != null && l.processor == Processor.CPU && withContext(Dispatchers.IO) { plannedProcessor(info) } == Processor.GPU) {
+                if (l != null && l.processor != to && withContext(Dispatchers.IO) { plannedProcessor(info) } == to) {
                     replace(l, fresh)
                     used = true
                 }
@@ -373,60 +382,73 @@ class TranslationEngine(
     }
 
     /**
-     * Translates the same sentences with the loaded instance of [info] and with a second one on
-     * the other processor, stores the decision ([AccelChoice.decide]) and, if the other processor
-     * wins, lets that instance take over. Measured only while no translation runs.
+     * Translates the same sentences with the loaded instance of [info] and with a temporary
+     * instance on every other usable processor (one at a time, so at most two copies are in
+     * memory), stores the decision ([AccelChoice.decide]) and lets the winner take over.
+     * Measured only while no translation runs.
      */
     private suspend fun measure(info: ModelInfo): AccelStore.Decision? {
         if (acceleration.store.decision(info.id) != null) return null
         val probes = AccelChoice.probesFor(info)
         if (probes.isEmpty()) return null
-        if (withContext(Dispatchers.IO) { acceleration.gpu() } == null) {
-            if (acceleration.store.blockedReason() != null) return null
-            return remember(info.id, AccelStore.Decision(Processor.CPU, 0, 0, acceleration.problem() ?: "keine GPU"))
+        val usable = withContext(Dispatchers.IO) {
+            Processor.accelerators.filter { !failed(info, it) && acceleration.device(it) != null }
+        }
+        if (usable.isEmpty()) {
+            // nothing to compare with; remember that unless a blocked accelerator may come back
+            if (Processor.accelerators.any { acceleration.store.blockedReason(it) != null }) return null
+            val why = Processor.accelerators.mapNotNull { acceleration.problem(it) }.joinToString("; ")
+            return remember(info.id, AccelStore.Decision(Processor.CPU, note = why.ifEmpty { "keine GPU/NPU" }))
         }
         val serving = loaded[info.id] ?: return null
         val servingOn = serving.processor
-        val otherOn = if (servingOn == Processor.GPU) Processor.CPU else Processor.GPU
         measuring += info.id
         publishAccel()
         try {
-            val other = loadSession(info, otherOn)
-                ?: return if (otherOn == Processor.GPU) remember(info.id, AccelStore.Decision(Processor.CPU, 0, 0, "Laden auf der GPU fehlgeschlagen")) else null
-            var kept = false
-            try {
-                val otherRun = whenIdle { interrupted ->
-                    withContext(Dispatchers.IO) { probeRun(info, other, probes, interrupted) }
-                } ?: return null
-                val servingRun = whenIdle { interrupted ->
-                    withContext(serving.dispatcher) {
-                        val m = serving.model
-                        if (m.isClosed || m.usesGpu != (servingOn == Processor.GPU)) return@withContext null
-                        // a final translation cancels the measurement (it is repeated when idle)
-                        serving.runningRole = Role.LIVE
-                        try {
-                            probeRun(info, m, probes, interrupted)
-                        } finally {
-                            serving.runningRole = null
-                        }
-                    }
-                } ?: return null
-                val (cpu, gpu) = if (servingOn == Processor.CPU) servingRun to otherRun else otherRun to servingRun
-                val decision = gpu.error?.let { AccelStore.Decision(Processor.CPU, cpu.ms, 0, "GPU-Test fehlgeschlagen: $it") }
-                    ?: AccelChoice.decide(cpu.ms, gpu.ms, cpu.texts, gpu.texts)
-                loadMutex.withLock {
-                    acceleration.store.put(info.id, decision)
-                    if (decision.processor == otherOn && loaded[info.id] === serving && serving.processor == servingOn &&
-                        settings().accel == AccelMode.AUTO
-                    ) {
-                        replace(serving, other, verified = true)
-                        kept = true
+            val runs = LinkedHashMap<Processor, AccelChoice.Run>()
+            runs[servingOn] = whenIdle { interrupted ->
+                withContext(serving.dispatcher) {
+                    val m = serving.model
+                    if (m.isClosed || m.processor != servingOn) return@withContext null
+                    // a final translation cancels the measurement (it is repeated when idle)
+                    serving.runningRole = Role.LIVE
+                    try {
+                        probeRun(info, m, probes, interrupted)
+                    } finally {
+                        serving.runningRole = null
                     }
                 }
-                return decision
-            } finally {
-                if (!kept) other.close()
+            } ?: return null
+            for (p in (listOf(Processor.CPU) + usable).distinct() - servingOn) {
+                val temp = loadSession(info, p)
+                if (temp == null) {
+                    if (p == Processor.CPU) return null // the reference cannot be measured
+                    runs[p] = AccelChoice.Run(0, emptyList(), failures[failureKey(info, p)] ?: "Laden fehlgeschlagen")
+                    continue
+                }
+                try {
+                    runs[p] = whenIdle { interrupted -> withContext(Dispatchers.IO) { probeRun(info, temp, probes, interrupted) } }
+                        ?: return null
+                } finally {
+                    temp.close()
+                }
             }
+            val decision = AccelChoice.decide(runs)
+            runs.forEach { (p, run) -> if (run.error != null && p != Processor.CPU) markFailed(info, p, run.error) }
+            remember(info.id, decision)
+            if (decision.processor != servingOn && settings().accel == AccelMode.AUTO) {
+                if (decision.processor == Processor.CPU) {
+                    loadSession(info, Processor.CPU)?.let { cpu ->
+                        loadMutex.withLock {
+                            val l = loaded[info.id]
+                            if (l === serving && l.processor == servingOn) replace(l, cpu) else cpu.close()
+                        }
+                    }
+                } else {
+                    switchTo(info, decision.processor)
+                }
+            }
+            return decision
         } finally {
             measuring -= info.id
             publishAccel()
@@ -440,7 +462,7 @@ class TranslationEngine(
     }
 
     /** One warm-up run, then every probe from an empty KV cache. Null if a translation interrupted it. */
-    private fun probeRun(info: ModelInfo, model: LlmSession, probes: List<AccelChoice.Probe>, interrupted: () -> Boolean): Measurement? {
+    private fun probeRun(info: ModelInfo, model: LlmSession, probes: List<AccelChoice.Probe>, interrupted: () -> Boolean): AccelChoice.Run? {
         val style = info.promptStyle ?: PromptStyle.CHAT_TEMPLATE
         fun run(p: AccelChoice.Probe): Result? {
             if (interrupted()) return null
@@ -459,16 +481,16 @@ class TranslationEngine(
                         ms += r.wallMs
                         texts += r.text
                     }
-                    Measurement(ms, texts)
+                    AccelChoice.Run(ms, texts)
                 }
             } catch (e: GenerationException) {
-                if (!model.usesGpu) throw e
-                Measurement(0, emptyList(), e.message)
+                if (model.processor == Processor.CPU) throw e
+                AccelChoice.Run(0, emptyList(), e.message)
             } finally {
                 model.resetCache()
             }
         }
-        return if (model.usesGpu) acceleration.guarded("GPU-Test (${info.name})", block) else block()
+        return acceleration.guarded(model.processor, "${model.processor}-Test (${info.name})", block)
     }
 
     /**
@@ -488,7 +510,7 @@ class TranslationEngine(
         return null
     }
 
-    /** Applies a changed CPU/GPU setting to the loaded models (in the background). */
+    /** Applies a changed processor setting to the loaded models (in the background). */
     fun refresh() {
         scope.launch {
             for (l in loaded.values.toList()) runCatching { get(l.info) }
@@ -503,32 +525,38 @@ class TranslationEngine(
         publishAccel()
     }
 
-    /** Allows the GPU again after it was blocked because the app crashed in a GPU step. */
-    fun unblockGpu() {
-        acceleration.store.unblock()
-        gpuFailed.clear()
+    /** Allows [p] again after it was blocked because the app crashed in one of its steps. */
+    fun unblock(p: Processor) {
+        acceleration.store.unblock(p)
+        failures.keys.removeAll { it.endsWith("/${p.name}") }
         measureAttempts.clear()
         loaded.values.forEach { maybeMeasure(it.info) }
         publishAccel()
     }
 
-    /** Stores the benchmark's CPU/GPU comparison of [modelId]; automatic mode follows it. */
-    fun rememberComparison(modelId: String, cpuMs: Long, gpuMs: Long, cpuTexts: List<String>, gpuTexts: List<String>): AccelStore.Decision =
-        remember(modelId, AccelChoice.decide(cpuMs, gpuMs, cpuTexts, gpuTexts))
+    /** Stores the benchmark's comparison of [modelId]; automatic mode follows it. */
+    fun rememberComparison(modelId: String, runs: Map<Processor, AccelChoice.Run>): AccelStore.Decision =
+        remember(modelId, AccelChoice.decide(runs))
 
     /** Runs [block] while no background measurement or switch runs (benchmark). */
     suspend fun <T> exclusive(block: suspend () -> T): T = jobMutex.withLock { block() }
 
     @Synchronized
     private fun publishAccel() {
+        val failed = HashMap<String, MutableMap<Processor, String>>()
+        failures.forEach { (key, reason) ->
+            val id = key.substringBeforeLast('/')
+            val p = Processor.entries.firstOrNull { it.name == key.substringAfterLast('/') } ?: return@forEach
+            failed.getOrPut(id) { LinkedHashMap() }[p] = reason
+        }
         accel.value = AccelStatus(
-            gpuName = acceleration.knownGpu,
-            problem = acceleration.problem(),
-            blocked = acceleration.store.blockedReason() != null,
+            devices = Processor.accelerators.mapNotNull { p -> acceleration.knownDevice(p)?.let { p to it } }.toMap(),
+            problems = Processor.accelerators.mapNotNull { p -> acceleration.problem(p)?.let { p to it } }.toMap(),
+            blocked = Processor.accelerators.filter { acceleration.store.blockedReason(it) != null }.toSet(),
             decisions = acceleration.store.decisions(),
             measuring = measuring.toSet(),
             active = loaded.mapValues { it.value.processor },
-            failed = gpuFailed.toMap(),
+            failed = failed,
         )
     }
 
@@ -554,15 +582,15 @@ class TranslationEngine(
                 val l = get(info, req.processor)
                 // a final translation must not wait for a stale live partial on the same model
                 if (req.role != Role.LIVE && l.runningRole == Role.LIVE) l.model.cancel()
+                val on = l.processor
                 try {
                     val r = withContext(l.dispatcher) { runOn(l, style, src, req, text, onPartial) }
                     if (r != null) return r
                     // the instance was closed meanwhile (evicted): load it again
                 } catch (e: GenerationException) {
-                    if (l.processor != Processor.GPU || req.processor != null) throw e
-                    // an error on the GPU: this model goes back to the CPU and the request is repeated there
-                    gpuFailed[info.id] = "Fehler bei der Übersetzung"
-                    publishAccel()
+                    if (on == Processor.CPU || req.processor != null) throw e
+                    // an error on an accelerator: this model goes back to the CPU and the request is repeated there
+                    markFailed(info, on, "Fehler bei der Übersetzung")
                 }
             }
         } finally {
@@ -583,10 +611,10 @@ class TranslationEngine(
         if (model.isClosed) return null
         l.runningRole = req.role
         try {
-            if (model.usesGpu && !l.gpuChecked) {
-                return acceleration.guarded("Erste GPU-Übersetzung (${l.info.name})") {
+            if (model.processor != Processor.CPU && !l.checked) {
+                return acceleration.guarded(model.processor, "Erste ${model.processor}-Übersetzung (${l.info.name})") {
                     runPieces(l.info, model, style, src, req, text, onPartial)
-                }.also { l.gpuChecked = true }
+                }.also { l.checked = true }
             }
             return runPieces(l.info, model, style, src, req, text, onPartial)
         } finally {
@@ -650,7 +678,7 @@ class TranslationEngine(
             text = final, modelId = info.id, modelName = info.name, sourceUsed = src,
             wallMs = (System.nanoTime() - t0) / 1_000_000, promptTokens = promptTokens, reusedTokens = reused,
             generatedTokens = generated, prefillMs = prefill, decodeMs = decode, cancelled = cancelled,
-            processor = if (model.usesGpu) Processor.GPU else Processor.CPU,
+            processor = model.processor,
         )
     }
 

@@ -29,8 +29,8 @@ android {
         applicationId = "ch.madtreasures.fluency"
         minSdk = 31
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
 
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
@@ -96,12 +96,15 @@ android {
 
     packaging {
         jniLibs {
-            // Compressed native libraries keep the APK below 30 MiB; they are extracted on install.
+            // Compressed native libraries keep the APK small; they are extracted on install, which the
+            // app needs: it loads the ggml backends and the NPU programs by file name.
             useLegacyPackaging = true
             // Link-time stub only; the device's libOpenCL.so is used at runtime.
             excludes += "**/libOpenCL.so"
             // Java bindings of ONNX Runtime are not used (sherpa-onnx calls the C API).
             excludes += "**/libonnxruntime4j_jni.so"
+            // the NPU programs (Hexagon, not ARM) are packaged as they are: no ARM strip on them
+            keepDebugSymbols += "**/libggml-htp-*.so"
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

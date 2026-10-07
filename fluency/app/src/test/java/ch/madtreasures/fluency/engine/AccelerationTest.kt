@@ -2,14 +2,17 @@ package ch.madtreasures.fluency.engine
 
 import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.engine.llm.AccelChoice
+import ch.madtreasures.fluency.engine.llm.AccelGuard
 import ch.madtreasures.fluency.engine.llm.AccelMode
 import ch.madtreasures.fluency.engine.llm.AccelStore
 import ch.madtreasures.fluency.engine.llm.Acceleration
-import ch.madtreasures.fluency.engine.llm.GpuGuard
-import ch.madtreasures.fluency.engine.llm.GpuInfo
+import ch.madtreasures.fluency.engine.llm.DeviceInfo
 import ch.madtreasures.fluency.engine.llm.LlamaModel
 import ch.madtreasures.fluency.engine.llm.LlmSession
 import ch.madtreasures.fluency.engine.llm.Processor
+import ch.madtreasures.fluency.engine.llm.Processor.CPU
+import ch.madtreasures.fluency.engine.llm.Processor.GPU
+import ch.madtreasures.fluency.engine.llm.Processor.NPU
 import ch.madtreasures.fluency.engine.llm.SessionLoader
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.engine.llm.TranslationEngine.Role
@@ -38,6 +41,9 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
 class AccelChoiceTest {
+    private val t = listOf("Hello there.", "The meeting was moved.")
+    private fun run(ms: Long, texts: List<String> = t, error: String? = null) = AccelChoice.Run(ms, texts, error)
+
     @Test fun similarityOfTranslations() {
         val a = "Could you please tell me the fastest way to the main station?"
         assertEquals(1.0, AccelChoice.similarity(a, a), 1e-9)
@@ -46,21 +52,32 @@ class AccelChoiceTest {
         assertTrue(AccelChoice.similarity(a, "") == 0.0)
     }
 
-    @Test fun gpuWinsWithinTolerance() {
-        val t = listOf("Hello there.", "The meeting was moved.")
-        assertEquals(Processor.GPU, AccelChoice.decide(1000, 700, t, t).processor)
-        // 8 % slower: still the GPU (the CPU stays free for speech recognition)
-        assertEquals(Processor.GPU, AccelChoice.decide(1000, 1080, t, t).processor)
+    @Test fun theFastestAcceleratorWins() {
+        val d = AccelChoice.decide(mapOf(CPU to run(1000), GPU to run(800), NPU to run(600)))
+        assertEquals(NPU, d.processor)
+        assertEquals(mapOf(CPU to 1000L, GPU to 800L, NPU to 600L), d.millis)
+        assertEquals("", d.note)
+    }
+
+    @Test fun anAcceleratorWithinToleranceStillWins() {
+        // 8 % slower than the CPU: still the accelerator (the CPU stays free for speech recognition)
+        assertEquals(GPU, AccelChoice.decide(mapOf(CPU to run(1000), GPU to run(1080))).processor)
         // 20 % slower: the CPU
-        val slow = AccelChoice.decide(1000, 1200, t, t)
-        assertEquals(Processor.CPU, slow.processor)
+        val slow = AccelChoice.decide(mapOf(CPU to run(1000), GPU to run(1200), NPU to run(1300)))
+        assertEquals(CPU, slow.processor)
         assertEquals("", slow.note)
     }
 
-    @Test fun wrongGpuOutputMeansCpu() {
-        val d = AccelChoice.decide(1000, 500, listOf("Hello there.", "The meeting was moved."), listOf("Hello there.", "!!!!!!!!"))
-        assertEquals(Processor.CPU, d.processor)
-        assertTrue(d.note.isNotEmpty())
+    @Test fun wrongOrFailedAcceleratorsAreSkipped() {
+        val d = AccelChoice.decide(
+            mapOf(CPU to run(1000), NPU to run(300, listOf("Hello there.", "!!!!!!!!")), GPU to run(900)),
+        )
+        assertEquals(GPU, d.processor)
+        assertTrue(d.note, d.note.contains("NPU-Übersetzung weicht"))
+        val e = AccelChoice.decide(mapOf(CPU to run(1000), NPU to run(0, emptyList(), "HTP error")))
+        assertEquals(CPU, e.processor)
+        assertTrue(e.note, e.note.contains("NPU-Test fehlgeschlagen: HTP error"))
+        assertEquals(setOf(CPU), e.millis.keys)
     }
 
     @Test fun probesNeedTheLanguages() {
@@ -73,72 +90,80 @@ class AccelChoiceTest {
 class AccelStoreTest {
     @get:Rule val tmp = TemporaryFolder()
 
-    @Test fun decisionsAndBlockSurviveARestart() {
+    @Test fun decisionsAndBlocksSurviveARestart() {
         val f = File(tmp.root, "accel.properties")
         AccelStore(f, "v1").apply {
-            put("m1", AccelStore.Decision(Processor.GPU, 900, 600))
-            put("m2", AccelStore.Decision(Processor.CPU, 900, 0, "note; with; semicolons"))
-            block("Absturz")
+            put("m1", AccelStore.Decision(NPU, mapOf(CPU to 900, GPU to 700, NPU to 500)))
+            put("m2", AccelStore.Decision(CPU, mapOf(CPU to 900), "note; with; semicolons"))
+            block(GPU, "Absturz")
         }
         val again = AccelStore(f, "v1")
-        assertEquals(Processor.GPU, again.decision("m1")?.processor)
-        assertEquals(600L, again.decision("m1")?.gpuMs)
+        assertEquals(NPU, again.decision("m1")?.processor)
+        assertEquals(mapOf(CPU to 900L, GPU to 700L, NPU to 500L), again.decision("m1")?.millis)
         assertEquals("note; with; semicolons", again.decision("m2")?.note)
-        assertEquals("Absturz", again.blockedReason())
+        assertEquals("Absturz", again.blockedReason(GPU))
+        assertNull(again.blockedReason(NPU))
         assertEquals(setOf("m1", "m2"), again.decisions().keys)
-        again.unblock()
-        assertNull(AccelStore(f, "v1").blockedReason())
+        again.unblock(GPU)
+        assertNull(AccelStore(f, "v1").blockedReason(GPU))
     }
 
     @Test fun anUpdateMeasuresAgain() {
         val f = File(tmp.root, "accel.properties")
         AccelStore(f, "app 1 / android A").apply {
-            put("m1", AccelStore.Decision(Processor.GPU, 900, 600))
-            block("Absturz")
+            put("m1", AccelStore.Decision(GPU, mapOf(CPU to 900, GPU to 600)))
+            block(NPU, "Absturz")
         }
         val updated = AccelStore(f, "app 2 / android A")
         assertNull(updated.decision("m1"))
-        assertNull(updated.blockedReason())
+        assertNull(updated.blockedReason(NPU))
     }
 }
 
-class GpuGuardTest {
+class AccelGuardTest {
     @get:Rule val tmp = TemporaryFolder()
 
     @Test fun markerExistsOnlyWhileAStepRuns() {
-        val marker = File(tmp.root, "gpu-step")
-        val guard = GpuGuard(marker)
+        val marker = File(tmp.root, "accel-step")
+        val guard = AccelGuard(marker)
         var inside = ""
-        val r = guard.step("Modell auf die GPU laden") {
+        val r = guard.step(NPU, "Modell auf die NPU laden") {
             inside = marker.readText()
-            guard.step("inner") { assertTrue(marker.readText().contains("inner")) }
+            guard.step(GPU, "inner") { assertTrue(marker.readText().contains("GPU|inner")) }
             // the outer step is still guarded after the inner one ended
             assertTrue(marker.exists())
             42
         }
         assertEquals(42, r)
         assertFalse(marker.exists())
-        assertTrue(inside.contains("Modell auf die GPU laden"))
-        assertNull(guard.takeLeftover())
+        assertTrue(inside.contains("NPU|Modell auf die NPU laden"))
+        assertTrue(guard.takeLeftover().isEmpty())
 
         // what the next start sees if the process died inside the step
         marker.writeText(inside)
-        val left = GpuGuard(marker).takeLeftover()
-        assertEquals("Modell auf die GPU laden", left?.name)
-        assertTrue(left!!.startedAt > 0)
+        val left = AccelGuard(marker).takeLeftover()
+        assertEquals(listOf(NPU), left.map { it.processor })
+        assertEquals("Modell auf die NPU laden", left.single().name)
+        assertTrue(left.single().startedAt > 0)
         assertFalse(marker.exists())
     }
 
     @Test fun markerIsRemovedWhenTheStepFails() {
-        val marker = File(tmp.root, "gpu-step")
-        runCatching { GpuGuard(marker).step("x") { error("driver error") } }
+        val marker = File(tmp.root, "accel-step")
+        runCatching { AccelGuard(marker).step(GPU, "x") { error("driver error") } }
         assertFalse(marker.exists())
+    }
+
+    @Test fun anUnreadableMarkerBlamesBothAccelerators() {
+        val marker = File(tmp.root, "accel-step").apply { writeText("garbage") }
+        assertEquals(Processor.accelerators, AccelGuard(marker).takeLeftover().map { it.processor })
     }
 }
 
 /**
- * The CPU/GPU logic of the translation engine with simulated models: the build host has no
- * Adreno GPU, so this is where the GPU paths are tested (the phone runs the same code).
+ * The CPU/GPU/NPU logic of the translation engine with simulated models: the build host has
+ * neither an Adreno GPU nor a Hexagon NPU, so this is where those paths are tested (the phone runs
+ * the same code).
  */
 class EngineAccelerationTest {
     @get:Rule val tmp = TemporaryFolder()
@@ -150,14 +175,14 @@ class EngineAccelerationTest {
 
     @After fun tearDown() = scope.cancel()
 
-    /** A model instance: [msPerCall] per translation, [gpu] where it runs. */
+    /** A model instance on [processor]: [msPerCall] per translation. */
     class FakeSession(
-        override val usesGpu: Boolean,
+        override val processor: Processor,
         private val msPerCall: Long,
         private val garbage: Boolean = false,
         private val failing: Boolean = false,
     ) : LlmSession {
-        override val description = if (usesGpu) "fake GPU" else "fake CPU"
+        override val description = "fake $processor"
         override val loadMillis = 1L
         @Volatile override var isClosed = false
             private set
@@ -193,26 +218,30 @@ class EngineAccelerationTest {
         }
     }
 
-    private class Env(
-        val cpuMs: Long = 40,
-        val gpuMs: Long = 20,
-        val gpuName: String? = "Adreno (fake)",
-        val gpuGarbage: Boolean = false,
-        val gpuFailing: Boolean = false,
-        /** loading onto the GPU fails (e.g. not enough GPU memory) */
-        val gpuLoadFails: Boolean = false,
-    ) {
+    /** A simulated accelerator; [name] null: the backend loads but finds no device. */
+    data class Dev(
+        val ms: Long,
+        val name: String? = "fake",
+        val garbage: Boolean = false,
+        val failing: Boolean = false,
+        val loadFails: Boolean = false,
+    )
+
+    /** [gpu]/[npu] null: this build has no backend for it. */
+    private class Env(val cpuMs: Long = 40, val gpu: Dev? = Dev(20), val npu: Dev? = Dev(15)) {
         val loads = CopyOnWriteArrayList<Processor>()
         val sessions = CopyOnWriteArrayList<FakeSession>()
         val probes = AtomicInteger()
-        var guardSeenDuringGpuLoad = false
+        val markerDuringLoad = CopyOnWriteArrayList<String>()
+
+        fun dev(p: Processor) = if (p == GPU) gpu else npu
     }
 
     private fun engine(
         env: Env,
         settings: () -> AppSettings,
         store: AccelStore = AccelStore(null, "test"),
-        guardFile: File = File(tmp.root, "gpu-step"),
+        guardFile: File = File(tmp.root, "accel-step"),
         idleMillis: Long = 20,
     ) = TranslationEngine(
         source = object : TranslationModelSource {
@@ -221,16 +250,23 @@ class EngineAccelerationTest {
         },
         settings = settings,
         nativeLibDir = null,
-        acceleration = Acceleration(store, GpuGuard(guardFile)) {
-            env.probes.incrementAndGet()
-            GpuInfo(env.gpuName, if (env.gpuName == null) "no GPU" else "GPU: ${env.gpuName}")
-        },
+        acceleration = Acceleration(
+            store, AccelGuard(guardFile),
+            Processor.accelerators.filter { env.dev(it) != null }.associateWith { p ->
+                {
+                    env.probes.incrementAndGet()
+                    val name = env.dev(p)!!.name
+                    DeviceInfo(name, if (name == null) "no $p" else "$p: $name")
+                }
+            },
+        ),
         loader = SessionLoader { _, params ->
-            val p = if (params.useGpu) Processor.GPU else Processor.CPU
-            if (p == Processor.GPU) env.guardSeenDuringGpuLoad = guardFile.exists()
+            val p = params.processor
+            if (p != CPU) env.markerDuringLoad += guardFile.takeIf { it.exists() }?.readText().orEmpty()
             env.loads += p
-            if (p == Processor.GPU && env.gpuLoadFails) return@SessionLoader null
-            val s = if (p == Processor.GPU) FakeSession(true, env.gpuMs, env.gpuGarbage, env.gpuFailing) else FakeSession(false, env.cpuMs)
+            val dev = if (p == CPU) null else env.dev(p)
+            if (dev?.loadFails == true) return@SessionLoader null
+            val s = if (dev == null) FakeSession(CPU, env.cpuMs) else FakeSession(p, dev.ms, dev.garbage, dev.failing)
             s.also { env.sessions += it }
         },
         scope = scope,
@@ -248,149 +284,161 @@ class EngineAccelerationTest {
         }
     }
 
-    @Test fun autoModeMovesToTheFasterGpu() = runBlocking {
-        val env = Env(cpuMs = 40, gpuMs = 15)
+    @Test fun autoModeMovesToTheFastestProcessor() = runBlocking {
+        val env = Env(cpuMs = 40, gpu = Dev(25), npu = Dev(10))
         val store = AccelStore(null, "test")
         val e = engine(env, { AppSettings(accel = AccelMode.AUTO) }, store)
         // first translation: on the CPU right away, the measurement follows in the background
-        assertEquals(Processor.CPU, e.translate(req()).processor)
+        assertEquals(CPU, e.translate(req()).processor)
         until("decision") { store.decision(hy.id) != null }
         val d = store.decision(hy.id)!!
-        assertEquals(Processor.GPU, d.processor)
-        assertTrue("gpu ${d.gpuMs} < cpu ${d.cpuMs}", d.gpuMs < d.cpuMs)
-        until("switch") { e.processorOf(hy.id) == Processor.GPU }
-        assertEquals(Processor.GPU, e.translate(req()).processor)
-        // the CPU instance was released, the measuring GPU instance took over (no second GPU load)
-        assertTrue(env.sessions.first { !it.usesGpu }.isClosed)
-        assertEquals(listOf(Processor.CPU, Processor.GPU), env.loads.toList())
-        assertTrue(env.guardSeenDuringGpuLoad)
-        assertFalse(File(tmp.root, "gpu-step").exists())
-        assertEquals(Processor.GPU, e.accelStatus.value.active[hy.id])
+        assertEquals(NPU, d.processor)
+        assertEquals(setOf(CPU, GPU, NPU), d.millis.keys)
+        assertTrue("$d", d.millis.getValue(NPU) < d.millis.getValue(GPU) && d.millis.getValue(GPU) < d.millis.getValue(CPU))
+        until("switch") { e.processorOf(hy.id) == NPU }
+        assertEquals(NPU, e.translate(req()).processor)
+        // serving CPU instance, one temporary instance per accelerator, then the winner
+        assertEquals(listOf(CPU, GPU, NPU, NPU), env.loads.toList())
+        assertTrue(env.sessions.first { it.processor == CPU }.isClosed)
+        assertTrue(env.sessions.first { it.processor == GPU }.isClosed)
+        // the accelerator steps were crash-guarded, and the marker is gone afterwards
+        assertTrue(env.markerDuringLoad.any { it.contains("GPU|") })
+        assertTrue(env.markerDuringLoad.any { it.contains("NPU|") })
+        assertFalse(File(tmp.root, "accel-step").exists())
+        assertEquals(NPU, e.accelStatus.value.active[hy.id])
     }
 
-    @Test fun autoModeKeepsTheCpuIfTheGpuIsSlower() = runBlocking {
-        val env = Env(cpuMs = 20, gpuMs = 60)
+    @Test fun autoModeKeepsTheCpuIfTheAcceleratorsAreSlower() = runBlocking {
+        val env = Env(cpuMs = 20, gpu = Dev(60), npu = Dev(50))
         val store = AccelStore(null, "test")
         val e = engine(env, { AppSettings(accel = AccelMode.AUTO) }, store)
         e.translate(req())
         until("decision") { store.decision(hy.id) != null }
-        assertEquals(Processor.CPU, store.decision(hy.id)!!.processor)
+        assertEquals(CPU, store.decision(hy.id)!!.processor)
         until("measurement finished") { e.accelStatus.value.measuring.isEmpty() }
-        assertEquals(Processor.CPU, e.translate(req()).processor)
-        // the measuring GPU instance is gone again
-        assertTrue(env.sessions.single { it.usesGpu }.isClosed)
+        assertEquals(CPU, e.translate(req()).processor)
+        // the temporary instances are gone again
+        assertTrue(env.sessions.filter { it.processor != CPU }.all { it.isClosed })
+        assertEquals(listOf(CPU, GPU, NPU), env.loads.toList())
     }
 
-    @Test fun autoModeDistrustsAGpuThatTranslatesWrongly() = runBlocking {
-        val env = Env(cpuMs = 40, gpuMs = 10, gpuGarbage = true)
+    @Test fun aWrongNpuDoesNotBeatACorrectGpu() = runBlocking {
+        val env = Env(cpuMs = 40, gpu = Dev(20), npu = Dev(5, garbage = true))
         val store = AccelStore(null, "test")
         val e = engine(env, { AppSettings(accel = AccelMode.AUTO) }, store)
         e.translate(req())
         until("decision") { store.decision(hy.id) != null }
         val d = store.decision(hy.id)!!
-        assertEquals(Processor.CPU, d.processor)
-        assertTrue(d.note, d.note.contains("weicht"))
+        assertEquals(GPU, d.processor)
+        assertTrue(d.note, d.note.contains("NPU-Übersetzung weicht"))
+        until("switch") { e.processorOf(hy.id) == GPU }
     }
 
     @Test fun theMeasurementWaitsWhileTheUserTranslates() = runBlocking {
-        val env = Env(cpuMs = 30, gpuMs = 10)
+        val env = Env(cpuMs = 30, gpu = null, npu = Dev(10))
         val store = AccelStore(null, "test")
         val e = engine(env, { AppSettings(accel = AccelMode.AUTO) }, store, idleMillis = 300)
         val until = System.nanoTime() + 1_000_000_000L
         while (System.nanoTime() < until) {
-            assertEquals(Processor.CPU, e.translate(req()).processor)
+            assertEquals(CPU, e.translate(req()).processor)
             assertNull("measured while busy", store.decision(hy.id))
         }
         until("decision after the user stopped") { store.decision(hy.id) != null }
-        assertEquals(Processor.GPU, store.decision(hy.id)!!.processor)
+        assertEquals(NPU, store.decision(hy.id)!!.processor)
     }
 
-    @Test fun aStoredDecisionLoadsDirectlyOnTheGpu() = runBlocking {
+    @Test fun aStoredDecisionLoadsDirectlyOnThatProcessor() = runBlocking {
         val env = Env()
-        val store = AccelStore(null, "test").apply { put(hy.id, AccelStore.Decision(Processor.GPU, 900, 500)) }
+        val store = AccelStore(null, "test").apply { put(hy.id, AccelStore.Decision(NPU, mapOf(CPU to 900, NPU to 500))) }
         val e = engine(env, { AppSettings(accel = AccelMode.AUTO) }, store)
-        assertEquals(Processor.GPU, e.translate(req()).processor)
-        assertEquals(listOf(Processor.GPU), env.loads.toList())
+        assertEquals(NPU, e.translate(req()).processor)
+        assertEquals(listOf(NPU), env.loads.toList())
     }
 
-    @Test fun cpuModeNeverTouchesTheGpu() = runBlocking {
+    @Test fun cpuModeNeverTouchesTheAccelerators() = runBlocking {
         val env = Env()
         val e = engine(env, { AppSettings(accel = AccelMode.CPU) })
-        repeat(3) { assertEquals(Processor.CPU, e.translate(req()).processor) }
+        repeat(3) { assertEquals(CPU, e.translate(req()).processor) }
         delay(100)
         assertEquals(0, env.probes.get())
-        assertEquals(listOf(Processor.CPU), env.loads.toList())
+        assertEquals(listOf(CPU), env.loads.toList())
     }
 
-    @Test fun gpuModeAndAnErrorOnTheGpu() = runBlocking {
-        val env = Env(gpuFailing = true)
-        val e = engine(env, { AppSettings(accel = AccelMode.GPU) })
-        // the GPU fails while translating: the same request is answered by the CPU
+    @Test fun anErrorOnTheNpuIsAnsweredByTheCpu() = runBlocking {
+        val env = Env(npu = Dev(10, failing = true))
+        val e = engine(env, { AppSettings(accel = AccelMode.NPU) })
+        // the NPU fails while translating: the same request is answered by the CPU
         val r = e.translate(req())
-        assertEquals(Processor.CPU, r.processor)
+        assertEquals(CPU, r.processor)
         assertTrue(r.text.startsWith("EN("))
-        assertEquals(listOf(Processor.GPU, Processor.CPU), env.loads.toList())
-        assertNotNull(e.accelStatus.value.failed[hy.id])
+        assertEquals(listOf(NPU, CPU), env.loads.toList())
+        assertNotNull(e.accelStatus.value.failed[hy.id]?.get(NPU))
         // and it stays there in this process
-        assertEquals(Processor.CPU, e.translate(req()).processor)
+        assertEquals(CPU, e.translate(req()).processor)
         assertEquals(2, env.loads.size)
     }
 
-    @Test fun aFailedGpuLoadIsTriedOnceAndTheCpuServes() = runBlocking {
-        val env = Env(gpuLoadFails = true)
-        val e = engine(env, { AppSettings(accel = AccelMode.GPU) })
-        assertEquals(Processor.CPU, e.translate(req()).processor)
-        assertEquals(Processor.CPU, e.translate(req()).processor)
-        assertEquals(listOf(Processor.GPU, Processor.CPU), env.loads.toList())
-        assertEquals("Laden auf der GPU fehlgeschlagen", e.accelStatus.value.failed[hy.id])
-        assertFalse(File(tmp.root, "gpu-step").exists())
+    @Test fun aFailedNpuLoadIsTriedOnceAndTheCpuServes() = runBlocking {
+        val env = Env(npu = Dev(10, loadFails = true))
+        val e = engine(env, { AppSettings(accel = AccelMode.NPU) })
+        assertEquals(CPU, e.translate(req()).processor)
+        assertEquals(CPU, e.translate(req()).processor)
+        assertEquals(listOf(NPU, CPU), env.loads.toList())
+        assertEquals("Laden auf der NPU fehlgeschlagen", e.accelStatus.value.failed[hy.id]?.get(NPU))
+        assertFalse(File(tmp.root, "accel-step").exists())
     }
 
-    @Test fun withoutAGpuAutoModeRemembersTheCpu() = runBlocking {
-        val env = Env(gpuName = null)
+    @Test fun withoutAcceleratorsAutoModeRemembersTheCpu() = runBlocking {
+        val env = Env(gpu = Dev(10, name = null), npu = null)
         val store = AccelStore(null, "test")
         val e = engine(env, { AppSettings(accel = AccelMode.AUTO) }, store)
-        assertEquals(Processor.CPU, e.translate(req()).processor)
+        assertEquals(CPU, e.translate(req()).processor)
         until("decision") { store.decision(hy.id) != null }
-        assertEquals(Processor.CPU, store.decision(hy.id)!!.processor)
-        assertTrue(e.accelStatus.value.problem!!.contains("no GPU"))
-        assertEquals(listOf(Processor.CPU), env.loads.toList())
+        val d = store.decision(hy.id)!!
+        assertEquals(CPU, d.processor)
+        assertTrue(d.note, d.note.contains("no GPU") && d.note.contains("kein NPU-Backend"))
+        assertEquals(listOf(CPU), env.loads.toList())
+        assertEquals(setOf(GPU, NPU), e.accelStatus.value.problems.keys)
     }
 
-    @Test fun aBlockedGpuIsNotUsedUntilAllowedAgain() = runBlocking {
+    @Test fun aBlockedNpuIsNotUsedUntilAllowedAgain() = runBlocking {
         val env = Env()
-        val store = AccelStore(null, "test").apply { block("„Hy-MT2 auf die GPU laden“ – App nativer Absturz") }
-        val e = engine(env, { AppSettings(accel = AccelMode.GPU) }, store)
-        assertEquals(Processor.CPU, e.translate(req()).processor)
-        assertEquals(0, env.probes.get())
-        assertTrue(e.accelStatus.value.blocked)
-        e.unblockGpu()
+        val store = AccelStore(null, "test").apply { block(NPU, "„Hy-MT2 auf die NPU laden“ – App nativer Absturz") }
+        val e = engine(env, { AppSettings(accel = AccelMode.NPU) }, store)
+        assertEquals(CPU, e.translate(req()).processor)
+        assertEquals(setOf(NPU), e.accelStatus.value.blocked)
+        // the GPU is not affected
+        assertEquals(GPU, e.translate(req().copy(processor = GPU)).processor)
+        e.unblock(NPU)
         e.refresh()
-        until("switch to GPU") { e.processorOf(hy.id) == Processor.GPU }
-        assertEquals(Processor.GPU, e.translate(req()).processor)
+        until("switch to the NPU") { e.processorOf(hy.id) == NPU }
+        assertEquals(NPU, e.translate(req()).processor)
     }
 
     @Test fun switchingTheSettingAppliesWithoutRestart() = runBlocking {
         val env = Env()
         var settings = AppSettings(accel = AccelMode.CPU)
         val e = engine(env, { settings })
-        assertEquals(Processor.CPU, e.translate(req()).processor)
+        assertEquals(CPU, e.translate(req()).processor)
+        settings = settings.copy(accel = AccelMode.NPU)
+        e.refresh()
+        until("NPU") { e.processorOf(hy.id) == NPU }
         settings = settings.copy(accel = AccelMode.GPU)
         e.refresh()
-        until("GPU") { e.processorOf(hy.id) == Processor.GPU }
+        until("GPU") { e.processorOf(hy.id) == GPU }
         settings = settings.copy(accel = AccelMode.CPU)
         // back to the CPU: synchronous, the next translation already runs there
-        assertEquals(Processor.CPU, e.translate(req()).processor)
+        assertEquals(CPU, e.translate(req()).processor)
     }
 
-    @Test fun benchmarkCanForceEitherProcessor() = runBlocking {
+    @Test fun theBenchmarkCanForceEveryProcessor() = runBlocking {
         val env = Env()
         val e = engine(env, { AppSettings(accel = AccelMode.CPU) })
-        val onGpu = e.translate(req().copy(processor = Processor.GPU))
-        assertEquals(Processor.GPU, onGpu.processor)
-        val onCpu = e.translate(req().copy(processor = Processor.CPU))
-        assertEquals(Processor.CPU, onCpu.processor)
-        val d = e.rememberComparison(hy.id, 1000, 600, listOf(onCpu.text), listOf(onGpu.text))
-        assertEquals(Processor.GPU, d.processor)
+        val results = Processor.entries.associateWith { p -> e.translate(req().copy(processor = p)) }
+        results.forEach { (p, r) -> assertEquals(p, r.processor) }
+        val d = e.rememberComparison(
+            hy.id, results.mapValues { (_, r) -> AccelChoice.Run(r.wallMs, listOf(r.text)) },
+        )
+        assertEquals(NPU, d.processor)
     }
 }

@@ -52,32 +52,37 @@ data class SettingsUiState(
     val accel: AccelUi = AccelUi(),
 )
 
-/** CPU/GPU state as text lines for the settings screen. */
+/** CPU/GPU/NPU state as text lines for the settings screen. */
 data class AccelUi(
-    val gpu: String = "GPU: wird beim ersten Bedarf geprüft",
-    val problem: String? = null,
-    val blocked: Boolean = false,
+    /** one line per accelerator: device or why it is not used */
+    val devices: List<String> = listOf("GPU: wird beim ersten Bedarf geprüft", "NPU: wird beim ersten Bedarf geprüft"),
+    /** accelerators blocked after a crash (shown in the error colour, with a button to allow them again) */
+    val blocked: List<Processor> = emptyList(),
     /** model name → where it runs and why */
     val models: List<Pair<String, String>> = emptyList(),
 ) {
     companion object {
         fun from(status: TranslationEngine.AccelStatus, models: List<ModelOption>, mode: AccelMode): AccelUi = AccelUi(
-            gpu = status.gpuName?.let { "GPU: $it" } ?: "GPU: wird beim ersten Bedarf geprüft",
-            problem = status.problem,
-            blocked = status.blocked,
+            devices = Processor.accelerators.map { p ->
+                status.problems[p] ?: status.devices[p]?.let { "$p: $it" } ?: "$p: wird beim ersten Bedarf geprüft"
+            },
+            blocked = status.blocked.sorted(),
             models = models.map { m -> m.name to modelLine(status, m.id, mode) },
         )
 
         private fun modelLine(status: TranslationEngine.AccelStatus, id: String, mode: AccelMode): String {
             val d = status.decisions[id]
             val measured = when {
-                id in status.measuring -> "wird auf CPU und GPU gemessen …"
+                id in status.measuring -> "wird auf CPU, GPU und NPU gemessen …"
                 d == null -> if (mode == AccelMode.AUTO) "noch nicht gemessen (geschieht beim ersten Laden)" else "nicht gemessen"
-                d.processor == Processor.GPU -> "GPU schneller: ${d.gpuMs} ms, CPU ${d.cpuMs} ms (2 Testsätze)"
-                d.gpuMs > 0 && d.note.isEmpty() -> "CPU schneller: ${d.cpuMs} ms, GPU ${d.gpuMs} ms (2 Testsätze)"
-                else -> "CPU – ${d.note.ifEmpty { "GPU nicht genutzt" }}"
+                d.millis.size > 1 -> {
+                    // fastest first, e.g. "NPU am schnellsten: NPU 480 ms, CPU 700 ms, GPU 900 ms (2 Testsätze)"
+                    val times = d.millis.entries.sortedBy { it.value }.joinToString(", ") { "${it.key} ${it.value} ms" }
+                    "${d.processor} gewählt: $times (2 Testsätze)" + d.note.takeIf { it.isNotEmpty() }?.let { " – $it" }.orEmpty()
+                }
+                else -> "CPU – ${d.note.ifEmpty { "keine GPU/NPU genutzt" }}"
             }
-            val failed = status.failed[id]?.let { " · GPU-Fehler: $it" }.orEmpty()
+            val failed = status.failed[id]?.entries?.joinToString("") { " · ${it.key}-Fehler: ${it.value}" }.orEmpty()
             val active = status.active[id]?.let { " · läuft jetzt auf der $it" }.orEmpty()
             return measured + failed + active
         }
@@ -92,7 +97,7 @@ fun SettingsScreen(
     onBenchmark: () -> Unit,
     modifier: Modifier = Modifier,
     onRemeasure: () -> Unit = {},
-    onUnblockGpu: () -> Unit = {},
+    onUnblock: (Processor) -> Unit = {},
 ) {
     val s = state.settings
     Column(modifier.fillMaxSize()) {
@@ -147,26 +152,28 @@ fun SettingsScreen(
             Choice(
                 "Rechenwerk für die Übersetzung", s.accel.name,
                 listOf(
-                    ModelOption(AccelMode.AUTO.name, "Automatisch: CPU und GPU messen (empfohlen)"),
+                    ModelOption(AccelMode.AUTO.name, "Automatisch: CPU, GPU und NPU messen (empfohlen)"),
+                    ModelOption(AccelMode.NPU.name, "Immer NPU (Hexagon)"),
                     ModelOption(AccelMode.GPU.name, "Immer GPU (Adreno, OpenCL)"),
                     ModelOption(AccelMode.CPU.name, "Nur CPU"),
                 ),
                 onPick = { id -> AccelMode.parse(id)?.let { m -> onChange { it.copy(accel = m) } } },
             )
-            AccelPanel(state.accel, onRemeasure, onUnblockGpu)
+            AccelPanel(state.accel, onRemeasure, onUnblock)
             Text(
-                "Automatisch: Beim ersten Laden eines Modells übersetzt Fluency zwei Testsätze auf der CPU und auf der GPU. " +
-                    "Die GPU wird genommen, solange sie höchstens ${((AccelChoice.GPU_TOLERANCE - 1) * 100).roundToInt()} % langsamer ist, " +
-                    "weil die CPU dann für die gleichzeitige Spracherkennung frei bleibt. Der erste Start auf der GPU dauert einmalig länger " +
-                    "(die GPU-Programme werden übersetzt). Spracherkennung und Sprachausgabe laufen immer auf der CPU.",
+                "Automatisch: Beim ersten Laden eines Modells übersetzt Fluency zwei Testsätze auf CPU, GPU und NPU. " +
+                    "Das schnellste Rechenwerk gewinnt; GPU und NPU werden auch genommen, solange sie höchstens " +
+                    "${((AccelChoice.TOLERANCE - 1) * 100).roundToInt()} % langsamer als die CPU sind, weil die CPU dann für die " +
+                    "gleichzeitige Spracherkennung frei bleibt. Der erste Start auf der GPU dauert einmalig länger (die GPU-Programme " +
+                    "werden übersetzt). Spracherkennung und Sprachausgabe laufen immer auf der CPU.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.size(8.dp))
             Stepper("Threads Übersetzung", s.llmThreads, 1..8, 1, "") { v -> onChange { it.copy(llmThreads = v) } }
             Stepper("Threads Spracherkennung", s.asrThreads, 1..6, 1, "") { v -> onChange { it.copy(asrThreads = v) } }
             Text(
-                "Threads gelten nach einem Neustart der App, ein Wechsel zwischen CPU und GPU sofort. " +
-                    "Der Benchmark misst jedes Modell auf CPU und GPU.",
+                "Threads gelten nach einem Neustart der App, ein Wechsel des Rechenwerks sofort. " +
+                    "Der Benchmark misst jedes Modell auf CPU, GPU und NPU.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
@@ -188,13 +195,13 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun AccelPanel(accel: AccelUi, onRemeasure: () -> Unit, onUnblockGpu: () -> Unit) {
+private fun AccelPanel(accel: AccelUi, onRemeasure: () -> Unit, onUnblock: (Processor) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(accel.gpu, style = MaterialTheme.typography.bodyMedium)
-        accel.problem?.let {
+        accel.devices.forEach { line ->
+            val blocked = accel.blocked.any { line.startsWith("$it ") }
             Text(
-                it, style = MaterialTheme.typography.bodySmall,
-                color = if (accel.blocked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                line, style = MaterialTheme.typography.bodyMedium,
+                color = if (blocked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
         }
         accel.models.forEach { (name, line) ->
@@ -210,7 +217,7 @@ private fun AccelPanel(accel: AccelUi, onRemeasure: () -> Unit, onUnblockGpu: ()
         }
         Row {
             TextButton(onClick = onRemeasure) { Text("Neu messen") }
-            if (accel.blocked) TextButton(onClick = onUnblockGpu) { Text("GPU wieder zulassen") }
+            accel.blocked.forEach { p -> TextButton(onClick = { onUnblock(p) }) { Text("$p wieder zulassen") } }
         }
     }
 }

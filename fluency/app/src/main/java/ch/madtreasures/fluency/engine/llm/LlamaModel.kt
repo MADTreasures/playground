@@ -7,8 +7,8 @@ interface LlmSession : Closeable {
     val description: String
     val loadMillis: Long
 
-    /** all layers run on the GPU */
-    val usesGpu: Boolean
+    /** where all layers run */
+    val processor: Processor
     val isClosed: Boolean
 
     /**
@@ -41,7 +41,7 @@ class LlamaModel private constructor(
     val path: String,
     override val description: String,
     override val loadMillis: Long,
-    override val usesGpu: Boolean,
+    override val processor: Processor,
 ) : LlmSession {
 
     data class LoadParams(
@@ -49,7 +49,7 @@ class LlamaModel private constructor(
         val batchSize: Int = 512,
         val threads: Int = 6,
         val threadsBatch: Int = 6,
-        val useGpu: Boolean = false,
+        val processor: Processor = Processor.CPU,
     )
 
     enum class StopReason { EOG, MAX_TOKENS, NEWLINE, CANCELLED, SINK, ERROR, PROMPT_TOO_LONG }
@@ -133,11 +133,12 @@ class LlamaModel private constructor(
             val t0 = System.nanoTime()
             val h = LlamaNative.nativeLoad(
                 path.toByteArray(Charsets.UTF_8), params.contextSize, params.batchSize,
-                params.threads, params.threadsBatch, params.useGpu,
+                params.threads, params.threadsBatch, params.processor.ordinal,
             )
             if (h == 0L) return null
             val ms = (System.nanoTime() - t0) / 1_000_000
-            return LlamaModel(h, path, LlamaNative.nativeDescribe(h) ?: path, ms, LlamaNative.nativeUsesGpu(h))
+            val on = Processor.entries.getOrElse(LlamaNative.nativeProcessor(h)) { Processor.CPU }
+            return LlamaModel(h, path, LlamaNative.nativeDescribe(h) ?: path, ms, on)
         }
     }
 }

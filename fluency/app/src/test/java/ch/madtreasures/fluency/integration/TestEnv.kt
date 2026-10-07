@@ -2,8 +2,9 @@ package ch.madtreasures.fluency.integration
 
 import ch.madtreasures.fluency.engine.llm.AccelStore
 import ch.madtreasures.fluency.engine.llm.Acceleration
-import ch.madtreasures.fluency.engine.llm.GpuInfo
+import ch.madtreasures.fluency.engine.llm.DeviceInfo
 import ch.madtreasures.fluency.engine.llm.LlamaNative
+import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.engine.llm.TranslationModelSource
 import ch.madtreasures.fluency.models.ModelCatalog
@@ -68,7 +69,13 @@ object TestEnv {
         },
         settings = { settings },
         nativeLibDir = null,
-        // the real GPU probe: the host build has no GPU backend, so everything runs on the CPU
-        acceleration = Acceleration(AccelStore(null, "host")) { GpuInfo.openCl(null, null) },
+        // the real GPU/NPU probes: the host build has neither backend, so everything runs on the CPU
+        acceleration = Acceleration(
+            AccelStore(null, "host"),
+            probes = mapOf(
+                Processor.GPU to { DeviceInfo.openCl(null, null) },
+                Processor.NPU to { DeviceInfo.hexagon(null) },
+            ),
+        ),
     )
 }

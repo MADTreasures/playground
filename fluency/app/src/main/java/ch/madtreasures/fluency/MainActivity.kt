@@ -331,6 +331,6 @@ private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit) {
         onChange = c.settingsRepository::update,
         onBenchmark = onBenchmark,
         onRemeasure = c.translationEngine::remeasure,
-        onUnblockGpu = c.translationEngine::unblockGpu,
+        onUnblock = c.translationEngine::unblock,
     )
 }

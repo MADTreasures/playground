@@ -91,7 +91,7 @@ class BenchmarkViewModel(private val c: AppContainer) : ViewModel() {
             append("${Build.MANUFACTURER} ${Build.MODEL} · SoC ${Build.SOC_MODEL} · RAM ${mem.totalMem / 1_000_000_000} GB · Android ${Build.VERSION.RELEASE}\n")
             append("Threads: Übersetzung ${c.settings.llmThreads}, Erkennung ${c.settings.asrThreads} · Rechenwerk: ${c.settings.accel}\n")
             append(backends)
-            accel.problem?.let { append("\n$it") }
+            accel.problems.values.forEach { append("\n$it") }
         }
     }
 
@@ -115,7 +115,7 @@ fun BenchmarkScreen(report: BenchReport, onRun: () -> Unit, onCopy: () -> Unit, 
         ) {
             item {
                 Text(
-                    "Misst alle installierten Modelle auf diesem Gerät: Ladezeit, Übersetzungszeit pro Satz auf CPU und GPU, " +
+                    "Misst alle installierten Modelle auf diesem Gerät: Ladezeit, Übersetzungszeit pro Satz auf CPU, GPU und NPU, " +
                         "Prompt- und Ausgabe-Tempo (Tokens/s), Spracherkennung (Echtzeitfaktor) und Sprachausgabe.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -147,7 +147,7 @@ fun BenchmarkScreen(report: BenchReport, onRun: () -> Unit, onCopy: () -> Unit, 
                     Column {
                         report.choices.forEach { Text("→ $it", style = MaterialTheme.typography.bodyMedium) }
                         Text(
-                            "Die GPU wird genommen, solange sie höchstens 10 % langsamer ist (die CPU bleibt dann für die Spracherkennung frei).",
+                            "GPU und NPU werden genommen, solange sie höchstens 10 % langsamer als die CPU sind (die CPU bleibt dann für die Spracherkennung frei).",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }

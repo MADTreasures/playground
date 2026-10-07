@@ -12,6 +12,10 @@ endif()
 
 set(TP ${CMAKE_CURRENT_LIST_DIR}/../../../../third_party)
 option(FLUENCY_OPENCL "Build the Adreno OpenCL (GPU) backend" ON)
+# The Hexagon NPU backend needs Qualcomm's Hexagon SDK, which is not part of this project. It is
+# built by native/build-hexagon.sh; the app build uses the resulting prebuilt libraries in
+# app/src/main/jniLibs (libggml-hexagon.so + the DSP programs libggml-htp-v*.so).
+option(FLUENCY_HEXAGON "Build the Hexagon NPU backend (needs HEXAGON_SDK_ROOT)" OFF)
 
 # ---------------------------------------------------------------- llama.cpp / ggml
 set(BUILD_SHARED_LIBS        ON  CACHE BOOL "" FORCE)
@@ -49,6 +53,9 @@ if (ANDROID)
         set(GGML_OPENCL                  ON CACHE BOOL "" FORCE)
         set(GGML_OPENCL_EMBED_KERNELS    ON CACHE BOOL "" FORCE)
         set(GGML_OPENCL_USE_ADRENO_KERNELS ON CACHE BOOL "" FORCE)
+    endif()
+    if (FLUENCY_HEXAGON)
+        set(GGML_HEXAGON ON CACHE BOOL "" FORCE)
     endif()
 else()
     set(GGML_NATIVE            ON  CACHE BOOL "" FORCE)

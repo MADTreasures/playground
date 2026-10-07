@@ -8,9 +8,13 @@
 //   code point), so the Kotlin side can decode each chunk independently.
 // - Generation can be cancelled from any thread; the abort callback also interrupts a running
 //   prompt evaluation.
-// - The GPU backend (Adreno, OpenCL) is loaded on demand (nativeEnableGpu). A model is loaded
-//   either completely on the GPU or completely on the CPU; a CPU model gets an explicit empty
-//   device list so it never touches the OpenCL backend.
+// - The GPU backend (Adreno, OpenCL) and the NPU backend (Hexagon) are loaded on demand
+//   (nativeEnableGpu / nativeEnableNpu). A model runs completely on one processor: CPU, GPU or
+//   NPU. A CPU model gets an explicit empty device list, so it never touches the other backends.
+// - Both accelerator backends report their devices as type GPU; they are told apart by the name
+//   of their registry ("OpenCL", "HTP").
+// - The backends report failures (e.g. the NPU refusing a session) with C++ exceptions; every
+//   entry point that can reach them catches those instead of letting them terminate the app.
 
 #include <jni.h>
 
@@ -117,6 +121,8 @@ bool g_backends_ready = false;
 std::string g_backend_report;
 bool g_gpu_tried = false;
 std::string g_gpu_report;
+bool g_npu_tried = false;
+std::string g_npu_report;
 
 // ggml's backend registry is a plain global list: loading a backend (exclusive) must not overlap
 // with model/context creation in another thread, which iterates the list (shared).
@@ -161,20 +167,35 @@ std::string device_list() {
     return out;
 }
 
-ggml_backend_dev_t find_gpu_device() {
+// must match engine/llm/Acceleration.kt (Processor.ordinal)
+enum Processor : int { PROC_CPU = 0, PROC_GPU = 1, PROC_NPU = 2 };
+
+const char * processor_name(int p) {
+    return p == PROC_GPU ? "GPU" : p == PROC_NPU ? "NPU" : "CPU";
+}
+
+// first device of the backend registry [reg_name]: "OpenCL" = Adreno GPU, "HTP" = Hexagon NPU
+ggml_backend_dev_t find_device(const char * reg_name) {
     for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
         ggml_backend_dev_t dev = ggml_backend_dev_get(i);
-        const auto type = ggml_backend_dev_type(dev);
-        if (type == GGML_BACKEND_DEVICE_TYPE_GPU || type == GGML_BACKEND_DEVICE_TYPE_IGPU) return dev;
+        ggml_backend_reg_t reg = ggml_backend_dev_backend_reg(dev);
+        if (reg != nullptr && std::strcmp(ggml_backend_reg_name(reg), reg_name) == 0) return dev;
     }
     return nullptr;
 }
 
-std::string gpu_name() {
-    ggml_backend_dev_t gpu = find_gpu_device();
-    if (gpu == nullptr) return {};
-    const char * desc = ggml_backend_dev_description(gpu);
-    return desc != nullptr && *desc ? desc : ggml_backend_dev_name(gpu);
+ggml_backend_dev_t device_for(int processor) {
+    if (processor == PROC_GPU) return find_device("OpenCL");
+    if (processor == PROC_NPU) return find_device("HTP");
+    return nullptr;
+}
+
+std::string device_name(int processor) {
+    ggml_backend_dev_t dev = device_for(processor);
+    if (dev == nullptr) return {};
+    if (processor == PROC_NPU) return std::string("Hexagon ") + ggml_backend_dev_name(dev);
+    const char * desc = ggml_backend_dev_description(dev);
+    return desc != nullptr && *desc ? desc : ggml_backend_dev_name(dev);
 }
 
 // ------------------------------------------------------------------------------------------ llama
@@ -198,7 +219,7 @@ struct LlamaSession {
     std::mutex mu;                  // one generation at a time per session
     int n_ctx = 0;
     int n_batch = 0;
-    bool gpu = false;
+    int processor = PROC_CPU;
 };
 
 bool abort_cb(void * data) {
@@ -248,6 +269,22 @@ struct Sink {
         if (env->ExceptionCheck()) return false;
         return keep_going == JNI_TRUE;
     }
+};
+
+struct BatchHolder {
+    llama_batch b;
+    explicit BatchHolder(int n) : b(llama_batch_init(n, 0, 1)) {}
+    ~BatchHolder() { llama_batch_free(b); }
+    BatchHolder(const BatchHolder &) = delete;
+    BatchHolder & operator=(const BatchHolder &) = delete;
+};
+
+struct SamplerHolder {
+    llama_sampler * p;
+    explicit SamplerHolder(llama_sampler * p) : p(p) {}
+    ~SamplerHolder() { llama_sampler_free(p); }
+    SamplerHolder(const SamplerHolder &) = delete;
+    SamplerHolder & operator=(const SamplerHolder &) = delete;
 };
 
 bool has_visible_text(const std::string & s) {
@@ -317,11 +354,15 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeEnableGpu(JNIEnv * env
         const std::string cache = jstring_to_string(env, jcacheDir);
         if (!cache.empty()) setenv("GGML_OPENCL_KERNEL_CACHE_DIR", cache.c_str(), 1);
         const std::string ocl = jstring_to_string(env, jlibDir) + "/libggml-opencl.so";
-        if (ggml_backend_load(ocl.c_str()) == nullptr) {
-            g_gpu_report = "OpenCL-Backend nicht ladbar (kein libOpenCL.so?)";
-        } else {
-            const std::string name = gpu_name();
-            g_gpu_report = name.empty() ? "OpenCL geladen, aber keine unterstützte GPU" : "GPU: " + name;
+        try {
+            if (ggml_backend_load(ocl.c_str()) == nullptr) {
+                g_gpu_report = "OpenCL-Backend nicht ladbar (kein libOpenCL.so?)";
+            } else {
+                const std::string name = device_name(PROC_GPU);
+                g_gpu_report = name.empty() ? "OpenCL geladen, aber keine unterstützte GPU" : "GPU: " + name;
+            }
+        } catch (const std::exception & e) {
+            g_gpu_report = std::string("OpenCL-Fehler: ") + e.what();
         }
 #else
         (void) jlibDir;
@@ -333,11 +374,47 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeEnableGpu(JNIEnv * env
     return env->NewStringUTF(g_gpu_report.c_str());
 }
 
-/** Name of the GPU device that models can be loaded onto, or null. */
+/**
+ * Loads the Hexagon NPU backend (once per process) and reports what happened. The NPU runs its own
+ * program, libggml-htp-v<NN>.so for its Hexagon version, shipped next to the app's native
+ * libraries; FastRPC finds it through ADSP_LIBRARY_PATH. The connection to the NPU is opened when
+ * the first model is loaded onto it.
+ */
 JNIEXPORT jstring JNICALL
-Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeGpuName(JNIEnv * env, jobject) {
+Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeEnableNpu(JNIEnv * env, jobject, jstring jlibDir) {
+    std::lock_guard<std::mutex> lock(g_backend_mutex);
+    if (!g_npu_tried) {
+        g_npu_tried = true;
+#ifdef FLUENCY_BACKEND_DL
+        std::unique_lock<std::shared_mutex> registry(g_registry_mutex);
+        const std::string dir = jstring_to_string(env, jlibDir);
+        const std::string adsp = dir + ";/vendor/lib/rfsa/adsp;/vendor/dsp/cdsp;/system/lib/rfsa/adsp;/dsp";
+        setenv("ADSP_LIBRARY_PATH", adsp.c_str(), 1);
+        setenv("GGML_HEXAGON_OPPOLL", "1", 0); // poll for results: lower latency per generated token
+        try {
+            if (ggml_backend_load((dir + "/libggml-hexagon.so").c_str()) == nullptr) {
+                g_npu_report = "NPU-Backend nicht ladbar (kein libcdsprpc.so?)";
+            } else {
+                const std::string name = device_name(PROC_NPU);
+                g_npu_report = name.empty() ? "Hexagon-Backend geladen, aber keine NPU" : "NPU: " + name;
+            }
+        } catch (const std::exception & e) {
+            g_npu_report = std::string("NPU-Fehler: ") + e.what();
+        }
+#else
+        (void) jlibDir;
+        g_npu_report = "dieser Build hat kein NPU-Backend";
+#endif
+        LOG_I("npu: %s", g_npu_report.c_str());
+    }
+    return env->NewStringUTF(g_npu_report.c_str());
+}
+
+/** Name of the device that models can be loaded onto for [processor] (1 = GPU, 2 = NPU), or null. */
+JNIEXPORT jstring JNICALL
+Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeDeviceName(JNIEnv * env, jobject, jint processor) {
     std::shared_lock<std::shared_mutex> registry(g_registry_mutex);
-    const std::string name = gpu_name();
+    const std::string name = device_name(processor);
     return name.empty() ? nullptr : env->NewStringUTF(name.c_str());
 }
 
@@ -346,20 +423,28 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeGpuName(JNIEnv * env, 
 JNIEXPORT jlong JNICALL
 Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeLoad(JNIEnv * env, jobject, jbyteArray jpath, jint nCtx,
                                                                jint nBatch, jint nThreads, jint nThreadsBatch,
-                                                               jboolean useGpu) {
+                                                               jint processor) {
     const std::string path = bytes_to_string(env, jpath);
     std::shared_lock<std::shared_mutex> registry(g_registry_mutex);
 
     llama_model_params mp = llama_model_default_params();
-    ggml_backend_dev_t gpu = useGpu ? find_gpu_device() : nullptr;
-    if (useGpu && gpu == nullptr) LOG_W("no GPU device - loading %s on the CPU", path.c_str());
-    // all layers on the GPU, or none: {nullptr} is an empty list (CPU only, OpenCL stays untouched)
-    ggml_backend_dev_t devices[2] = {gpu, nullptr};
+    ggml_backend_dev_t dev = device_for(processor);
+    if (processor != PROC_CPU && dev == nullptr) {
+        LOG_E("no %s device for %s", processor_name(processor), path.c_str());
+        return 0;
+    }
+    // all layers on the device, or none: {nullptr} is an empty list (CPU only, other backends untouched)
+    ggml_backend_dev_t devices[2] = {dev, nullptr};
     mp.devices = devices;
-    mp.n_gpu_layers = gpu != nullptr ? 999 : 0;
+    mp.n_gpu_layers = dev != nullptr ? 999 : 0;
     mp.load_mode = LLAMA_LOAD_MODE_MMAP;
 
-    llama_model * model = llama_model_load_from_file(path.c_str(), mp);
+    llama_model * model = nullptr;
+    try {
+        model = llama_model_load_from_file(path.c_str(), mp);
+    } catch (const std::exception & e) {
+        LOG_E("loading %s on the %s failed: %s", path.c_str(), processor_name(processor), e.what());
+    }
     if (model == nullptr) {
         LOG_E("failed to load model %s", path.c_str());
         return 0;
@@ -368,7 +453,7 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeLoad(JNIEnv * env, job
     auto * s = new LlamaSession();
     s->model = model;
     s->vocab = llama_model_get_vocab(model);
-    s->gpu = gpu != nullptr;
+    s->processor = dev != nullptr ? processor : PROC_CPU;
 
     llama_context_params cp = llama_context_default_params();
     cp.n_ctx = static_cast<uint32_t>(nCtx);
@@ -378,12 +463,17 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeLoad(JNIEnv * env, job
     cp.n_threads = nThreads;
     cp.n_threads_batch = nThreadsBatch;
     cp.swa_full = true;          // allows prefix reuse for sliding-window models (Gemma 3)
-    cp.op_offload = s->gpu;
+    cp.op_offload = s->processor != PROC_CPU;
     cp.no_perf = true;
     cp.abort_callback = abort_cb;
     cp.abort_callback_data = s;
 
-    s->ctx = llama_init_from_model(model, cp);
+    try {
+        s->ctx = llama_init_from_model(model, cp);
+    } catch (const std::exception & e) {
+        LOG_E("context on the %s failed: %s", processor_name(s->processor), e.what());
+        s->ctx = nullptr;
+    }
     if (s->ctx == nullptr) {
         LOG_E("failed to create context for %s", path.c_str());
         llama_model_free(model);
@@ -395,10 +485,11 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeLoad(JNIEnv * env, job
     return reinterpret_cast<jlong>(s);
 }
 
-JNIEXPORT jboolean JNICALL
-Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeUsesGpu(JNIEnv *, jobject, jlong handle) {
+/** Where the model runs: 0 = CPU, 1 = GPU, 2 = NPU. */
+JNIEXPORT jint JNICALL
+Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeProcessor(JNIEnv *, jobject, jlong handle) {
     auto * s = reinterpret_cast<LlamaSession *>(handle);
-    return s != nullptr && s->gpu ? JNI_TRUE : JNI_FALSE;
+    return s != nullptr ? s->processor : PROC_CPU;
 }
 
 JNIEXPORT void JNICALL
@@ -451,7 +542,7 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeDescribe(JNIEnv * env,
     char line[512];
     std::snprintf(line, sizeof(line), "%s | %.2f B params | %.2f GiB | ctx %d | %s", desc,
                   llama_model_n_params(s->model) / 1e9, llama_model_size(s->model) / 1024.0 / 1024.0 / 1024.0,
-                  s->n_ctx, s->gpu ? "GPU" : "CPU");
+                  s->n_ctx, processor_name(s->processor));
     return env->NewStringUTF(line);
 }
 
@@ -531,105 +622,115 @@ Java_ch_madtreasures_fluency_engine_llm_LlamaNative_nativeGenerate(JNIEnv * env,
     }
     const int max_new = std::max(1, std::min<int>(maxTokens, s->n_ctx - static_cast<int>(toks.size()) - 1));
 
-    // ---- reuse the cached prefix
-    size_t n_keep = 0;
-    while (n_keep < s->cache.size() && n_keep < toks.size() && s->cache[n_keep] == toks[n_keep]) ++n_keep;
-    if (n_keep == toks.size()) --n_keep; // the last prompt token must be evaluated to get logits
-    if (n_keep < s->cache.size()) {
-        if (!llama_memory_seq_rm(llama_get_memory(s->ctx), 0, static_cast<llama_pos>(n_keep), -1)) {
-            llama_memory_clear(llama_get_memory(s->ctx), true);
-            n_keep = 0;
-        }
-        s->cache.resize(n_keep);
-    }
-    stats[1] = static_cast<int64_t>(n_keep);
-
-    // ---- prompt evaluation
-    const int64_t t0 = now_us();
-    llama_batch batch = llama_batch_init(s->n_batch, 0, 1);
-    for (size_t i = n_keep; i < toks.size(); i += static_cast<size_t>(s->n_batch)) {
-        const int n = static_cast<int>(std::min(static_cast<size_t>(s->n_batch), toks.size() - i));
-        batch.n_tokens = n;
-        for (int j = 0; j < n; ++j) {
-            batch.token[j] = toks[i + j];
-            batch.pos[j] = static_cast<llama_pos>(i + j);
-            batch.n_seq_id[j] = 1;
-            batch.seq_id[j][0] = 0;
-            batch.logits[j] = (i + j == toks.size() - 1) ? 1 : 0;
-        }
-        const int rc = llama_decode(s->ctx, batch);
-        if (rc != 0) {
-            llama_batch_free(batch);
-            trim_kv_to_cache(s);
-            stats[3] = now_us() - t0;
-            stats[5] = s->cancel.load() ? STOP_CANCELLED : STOP_ERROR;
-            if (stats[5] == STOP_ERROR) LOG_E("llama_decode (prompt) failed: %d", rc);
-            return finish();
-        }
-        s->cache.insert(s->cache.end(), toks.begin() + static_cast<long>(i), toks.begin() + static_cast<long>(i) + n);
-    }
-    llama_batch_free(batch);
-    const int64_t t1 = now_us();
-    stats[3] = t1 - t0;
-
-    // ---- generation: greedy (+ optional repetition penalty over generated tokens only)
-    llama_sampler * smpl = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    if (repeatPenalty > 1.0f) {
-        // penalties are only applied to the top candidates (cheap, same result as penalised greedy)
-        llama_sampler_chain_add(smpl, llama_sampler_init_top_k(40));
-        llama_sampler_chain_add(smpl, llama_sampler_init_penalties(llama_vocab_n_tokens(s->vocab), 64, repeatPenalty, 0.0f, 0.0f));
-    }
-    llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
-
-    std::string pending;   // generated bytes not yet sent
-    std::string sent;      // everything sent so far (for the newline rule)
-    int64_t stop = STOP_MAX_TOKENS;
-    int n_gen = 0;
-    while (n_gen < max_new) {
-        if (s->cancel.load()) { stop = STOP_CANCELLED; break; }
-        llama_token tok = llama_sampler_sample(smpl, s->ctx, -1);
-        if (llama_vocab_is_eog(s->vocab, tok)) { stop = STOP_EOG; break; }
-        ++n_gen;
-        if (!llama_vocab_is_control(s->vocab, tok)) pending += token_piece(s->vocab, tok);
-
-        bool stop_now = false;
-        if (stopAtNewline == JNI_TRUE) {
-            size_t nl;
-            while ((nl = pending.find('\n')) != std::string::npos) {
-                if (has_visible_text(sent) || has_visible_text(pending.substr(0, nl))) {
-                    pending.resize(nl);
-                    stop_now = true;
-                    break;
-                }
-                pending.erase(0, nl + 1); // ignore leading empty lines
+    auto body = [&]() -> jlongArray {
+        // ---- reuse the cached prefix
+        size_t n_keep = 0;
+        while (n_keep < s->cache.size() && n_keep < toks.size() && s->cache[n_keep] == toks[n_keep]) ++n_keep;
+        if (n_keep == toks.size()) --n_keep; // the last prompt token must be evaluated to get logits
+        if (n_keep < s->cache.size()) {
+            if (!llama_memory_seq_rm(llama_get_memory(s->ctx), 0, static_cast<llama_pos>(n_keep), -1)) {
+                llama_memory_clear(llama_get_memory(s->ctx), true);
+                n_keep = 0;
             }
+            s->cache.resize(n_keep);
         }
-        const size_t ready = stop_now ? pending.size() : utf8_complete_prefix(pending);
-        if (ready > 0) {
-            const std::string chunk = pending.substr(0, ready);
-            pending.erase(0, ready);
-            sent += chunk;
-            if (!sink.emit(chunk)) { stop = STOP_SINK; break; }
-        }
-        if (stop_now) { stop = STOP_NEWLINE; break; }
+        stats[1] = static_cast<int64_t>(n_keep);
 
-        llama_batch one = llama_batch_get_one(&tok, 1);
-        const int rc = llama_decode(s->ctx, one);
-        if (rc != 0) {
-            trim_kv_to_cache(s);
-            stop = s->cancel.load() ? STOP_CANCELLED : STOP_ERROR;
-            if (stop == STOP_ERROR) LOG_E("llama_decode (gen) failed: %d", rc);
-            break;
+        // ---- prompt evaluation
+        const int64_t t0 = now_us();
+        BatchHolder batch_holder(s->n_batch);
+        llama_batch & batch = batch_holder.b;
+        for (size_t i = n_keep; i < toks.size(); i += static_cast<size_t>(s->n_batch)) {
+            const int n = static_cast<int>(std::min(static_cast<size_t>(s->n_batch), toks.size() - i));
+            batch.n_tokens = n;
+            for (int j = 0; j < n; ++j) {
+                batch.token[j] = toks[i + j];
+                batch.pos[j] = static_cast<llama_pos>(i + j);
+                batch.n_seq_id[j] = 1;
+                batch.seq_id[j][0] = 0;
+                batch.logits[j] = (i + j == toks.size() - 1) ? 1 : 0;
+            }
+            const int rc = llama_decode(s->ctx, batch);
+            if (rc != 0) {
+                trim_kv_to_cache(s);
+                stats[3] = now_us() - t0;
+                stats[5] = s->cancel.load() ? STOP_CANCELLED : STOP_ERROR;
+                if (stats[5] == STOP_ERROR) LOG_E("llama_decode (prompt) failed: %d", rc);
+                return finish();
+            }
+            s->cache.insert(s->cache.end(), toks.begin() + static_cast<long>(i), toks.begin() + static_cast<long>(i) + n);
         }
-        s->cache.push_back(tok);
+        const int64_t t1 = now_us();
+        stats[3] = t1 - t0;
+
+        // ---- generation: greedy (+ optional repetition penalty over generated tokens only)
+        SamplerHolder sampler_holder(llama_sampler_chain_init(llama_sampler_chain_default_params()));
+        llama_sampler * smpl = sampler_holder.p;
+        if (repeatPenalty > 1.0f) {
+            // penalties are only applied to the top candidates (cheap, same result as penalised greedy)
+            llama_sampler_chain_add(smpl, llama_sampler_init_top_k(40));
+            llama_sampler_chain_add(smpl, llama_sampler_init_penalties(llama_vocab_n_tokens(s->vocab), 64, repeatPenalty, 0.0f, 0.0f));
+        }
+        llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
+
+        std::string pending;   // generated bytes not yet sent
+        std::string sent;      // everything sent so far (for the newline rule)
+        int64_t stop = STOP_MAX_TOKENS;
+        int n_gen = 0;
+        while (n_gen < max_new) {
+            if (s->cancel.load()) { stop = STOP_CANCELLED; break; }
+            llama_token tok = llama_sampler_sample(smpl, s->ctx, -1);
+            if (llama_vocab_is_eog(s->vocab, tok)) { stop = STOP_EOG; break; }
+            ++n_gen;
+            if (!llama_vocab_is_control(s->vocab, tok)) pending += token_piece(s->vocab, tok);
+
+            bool stop_now = false;
+            if (stopAtNewline == JNI_TRUE) {
+                size_t nl;
+                while ((nl = pending.find('\n')) != std::string::npos) {
+                    if (has_visible_text(sent) || has_visible_text(pending.substr(0, nl))) {
+                        pending.resize(nl);
+                        stop_now = true;
+                        break;
+                    }
+                    pending.erase(0, nl + 1); // ignore leading empty lines
+                }
+            }
+            const size_t ready = stop_now ? pending.size() : utf8_complete_prefix(pending);
+            if (ready > 0) {
+                const std::string chunk = pending.substr(0, ready);
+                pending.erase(0, ready);
+                sent += chunk;
+                if (!sink.emit(chunk)) { stop = STOP_SINK; break; }
+            }
+            if (stop_now) { stop = STOP_NEWLINE; break; }
+
+            llama_batch one = llama_batch_get_one(&tok, 1);
+            const int rc = llama_decode(s->ctx, one);
+            if (rc != 0) {
+                trim_kv_to_cache(s);
+                stop = s->cancel.load() ? STOP_CANCELLED : STOP_ERROR;
+                if (stop == STOP_ERROR) LOG_E("llama_decode (gen) failed: %d", rc);
+                break;
+            }
+            s->cache.push_back(tok);
+        }
+        if (!pending.empty() && stop != STOP_SINK && stop != STOP_CANCELLED) sink.emit(pending);
+
+        stats[2] = n_gen;
+        stats[4] = now_us() - t1;
+        stats[5] = stop;
+        return finish();
+    };
+
+    try {
+        return body();
+    } catch (const std::exception & e) {
+        LOG_E("generation on the %s failed: %s", processor_name(s->processor), e.what());
+        trim_kv_to_cache(s);
+        stats[5] = STOP_ERROR;
+        return finish();
     }
-    if (!pending.empty() && stop != STOP_SINK && stop != STOP_CANCELLED) sink.emit(pending);
-    llama_sampler_free(smpl);
-
-    stats[2] = n_gen;
-    stats[4] = now_us() - t1;
-    stats[5] = stop;
-    return finish();
 }
 
 // ---------------------------------------------------------------------------------- whisper.cpp

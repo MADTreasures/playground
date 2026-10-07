@@ -27,6 +27,8 @@
 
         <!-- Adreno GPU (llama.cpp OpenCL backend, optional): vendor library must be declared. -->
         <uses-native-library android:name="libOpenCL.so" android:required="false" />
+        <!-- FastRPC: connection to the Hexagon NPU (llama.cpp's Hexagon backend) -->
+        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
 
         <activity
             android:name=".MainActivity"
