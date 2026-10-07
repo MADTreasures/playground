@@ -278,20 +278,35 @@ Messwerte auf dem Container (4 vCPU x86, nur Korrektheitsreferenz, das Handy ist
 Hy-MT2 17 Tok/s, MiLMMT-1B 23 Tok/s, MiLMMT-4B 7 Tok/s, Parakeet RTF 0.12. Live-Pipeline vom
 Satzende bis zur fertigen Übersetzung: 1.6 s.
 
+## Messwerte auf dem Handy
+
+Benchmark der App 1.2.0 auf einem Galaxy Z Fold (SM-F976B) mit Snapdragon 8 Elite Gen 5 (SM8850,
+derselbe Chip wie im S26 Ultra), Android 17, 6 Threads, 7.10.2026. Die App wählt die CPU-Variante
+`armv9.2_2` (SVE2/SME).
+
+Hy-MT2 1.8B (Q4_K_M):
+
+| | CPU | GPU (Adreno) | NPU (Hexagon v81) |
+|---|---|---|---|
+| Ø pro Satz | 709 ms | 767 ms | **555 ms** |
+| Prompt einlesen | 215 Tok/s | 326 Tok/s | **936 Tok/s** |
+| Ausgabe | **41.8 Tok/s** | 33.1 Tok/s | 41.1 Tok/s |
+| Wiederholung mit KV-Cache (Live-Teilübersetzung) | **406 ms** | 536 ms | 420 ms |
+| Laden | **762 ms** | 3011 ms | 2444 ms |
+
+- Die Automatik nimmt die NPU. Sie liest 4,4× schneller ein als die CPU und ist bei ganzen Sätzen
+  22 % schneller. Beim Schreiben sind CPU und NPU gleich schnell, begrenzt durch die
+  Speicherbandbreite.
+- Bei Live-Teilübersetzungen liegt der Prompt grösstenteils im KV-Cache, deshalb sind CPU und NPU
+  dort praktisch gleich schnell. Mit der NPU bleibt die CPU für die Spracherkennung frei.
+- Die GPU schreibt langsamer und wird nicht genommen.
+- Damit ist bestätigt: Die NPU-Sitzung (FastRPC, unsigned PD, ohne Root) läuft in der App, das
+  NPU-Programm v81 lädt, und die Ausgabe stimmt mit der CPU überein.
+
+Parakeet-TDT 0.6B v3: 365 ms für 6,6 s Audio (Echtzeitfaktor 0,055).
+
 ## Was nur auf dem Handy getestet werden kann
 
-- Die echte Geschwindigkeit auf dem Snapdragon 8 Elite Gen 5. Erwartet wird deutlich unter 1 s vom
-  Satzende bis zur Übersetzung; das zeigt der Benchmark-Screen.
-- Welche CPU-Variante gewählt wird (i8mm/SVE/SME) und ob KleidiAI greift.
-- **GPU und NPU**: Ob das Adreno-OpenCL-Backend lädt und wie lange die erste Kernel-Übersetzung
-  dauert. Ob das S26 Ultra die NPU-Sitzung erlaubt (FastRPC, unsigned PD) und das NPU-Programm v81
-  lädt. Welches Rechenwerk am schnellsten ist. Das misst die App beim ersten Laden selbst; das
-  Ergebnis steht unter Optionen → Leistung und im Benchmark.
-  - Getestet sind hier: der CPU-Pfad mit echten Modellen, die gesamte Auswahl-, Wechsel- und
-    Absturzlogik mit simulierten Modellen und der Build.
-  - Zum Build gehört: Die NPU-Programme sind Hexagon-Code für v73–v81. `libggml-hexagon.so` ist
-    16-KB-ausgerichtet und findet alle 32 benötigten ggml-Funktionen in der `libggml-base.so` der App.
-  - Nicht getestet sind die OpenCL-Kernels und die NPU-Programme selbst.
 - Mikrofon-Aufnahme, Echo/Rückkopplung beim Vorlesen, Android-TTS-Offline-Stimmen.
 - Foreground-Service-Downloads im Hintergrund, Benachrichtigungen, SAF-Dateiimport.
 - Schweizerdeutsch-Qualität mit echter Mundart (getestet wurde nur Hochdeutsch-Audio) und dessen
