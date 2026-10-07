@@ -15,10 +15,10 @@ aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Mes
 
 ## Downloads
 
-- **Fertige App**: [`dist/Fluency-1.1.0.apk`](../dist/Fluency-1.1.0.apk) (arm64, signiert). Sie
-  installiert sich als Update über 1.0.0, die heruntergeladenen Modelle bleiben erhalten.
-- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.1.0.zip`](../dist/Fluency-AndroidStudio-1.1.0.zip)
-  (13 MB, enthält alle nativen Quellen, keine Submodule)
+- **Fertige App**: [`dist/Fluency-1.2.0.apk`](../dist/Fluency-1.2.0.apk) (arm64, signiert). Sie
+  installiert sich als Update über 1.0.0/1.1.0, die heruntergeladenen Modelle bleiben erhalten.
+- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.2.0.zip`](../dist/Fluency-AndroidStudio-1.2.0.zip)
+  (enthält alle nativen Quellen und die fertig gebauten NPU-Bibliotheken, keine Submodule)
 
 ## In Android Studio bauen
 
@@ -64,19 +64,21 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
    Satz, Prompt- und Ausgabe-Tokens/s, mit KV-Cache, ASR-Echtzeitfaktor und Piper.
 6. **„Deutsch (Schweiz)"** schreibt immer „ss" statt „ß" (Übersetzungen, Untertitel, Vorlesen).
    Die Oberfläche ist Deutsch in Schweizer Schreibweise.
-7. **GPU (Adreno) für die Übersetzung**: Optionen → Leistung → „Rechenwerk für die Übersetzung“.
+7. **GPU (Adreno) und NPU (Hexagon) für die Übersetzung**: Optionen → Leistung → „Rechenwerk für die
+   Übersetzung“.
    - **Automatisch** (Standard): Beim ersten Laden eines Modells übersetzt die App dieselben zwei
-     Testsätze auf der CPU und auf der GPU. Das passiert im Hintergrund, während die CPU schon
-     übersetzt, und nur in Sprechpausen. Danach nimmt die App die GPU, solange sie höchstens 10 %
-     langsamer ist; dann bleibt die CPU für die gleichzeitige Spracherkennung frei. Liefert die GPU
-     eine andere Übersetzung als die CPU, gilt sie als fehlerhaft, und es bleibt bei der CPU.
+     Testsätze auf CPU, GPU und NPU. Das passiert im Hintergrund, während die CPU schon übersetzt,
+     und nur in Sprechpausen. Das schnellste Rechenwerk gewinnt. GPU oder NPU werden auch genommen,
+     solange sie höchstens 10 % langsamer als die CPU sind; dann bleibt die CPU für die gleichzeitige
+     Spracherkennung frei. Liefert GPU oder NPU eine andere Übersetzung als die CPU, gilt sie als
+     fehlerhaft und wird nicht genommen.
    - Das Ergebnis gilt pro Modell. Nach einem App- oder Android-Update wird neu gemessen, ebenso mit
      „Neu messen“.
-   - **Immer GPU** bzw. **Nur CPU** legen das Rechenwerk fest. Ein Wechsel gilt sofort, ohne Neustart.
-   - Die Latenzzeile jeder Übersetzung zeigt, wo sie gerechnet wurde („· GPU“ / „· CPU“). Der
-     Benchmark misst jedes Modell auf beiden.
-   - Spracherkennung (ONNX Runtime, whisper.cpp) und Sprachausgabe laufen immer auf der CPU. Die
-     Hexagon-NPU wird nicht genutzt.
+   - **Immer NPU**, **Immer GPU** bzw. **Nur CPU** legen das Rechenwerk fest. Ein Wechsel gilt
+     sofort, ohne Neustart.
+   - Die Latenzzeile jeder Übersetzung zeigt, wo sie gerechnet wurde („· NPU“, „· GPU“, „· CPU“). Der
+     Benchmark misst jedes Modell auf allen dreien.
+   - Spracherkennung (ONNX Runtime, whisper.cpp) und Sprachausgabe laufen immer auf der CPU.
 
 Sprachen: 54 Einträge (Deutsch, Deutsch (Schweiz), Englisch, Französisch, Italienisch, Spanisch,
 Portugiesisch und alles, was Hy-MT2 und MiLMMT-46 zusätzlich können). Die App wählt automatisch ein
@@ -149,6 +151,29 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
     wiederholt.
   - Meldet llama.cpp auf der GPU einen Fehler, wird dieselbe Anfrage auf der CPU beantwortet, und
     das Modell bleibt dort.
+- **NPU**: llama.cpps **Hexagon-Backend** (`libggml-hexagon.so`). Es rechnet seit dem llama.cpp-Stand
+  vom 26.9.2026 auch Q4_K/Q6_K-Gewichte, also unsere Q4_K_M-Modelle.
+  - Auf der NPU läuft ein eigenes Programm, je eines pro Hexagon-Generation: `libggml-htp-v73.so`
+    (8 Gen 2), `v75` (8 Gen 3), `v79` (8 Elite) und `v81` (8 Elite Gen 5, S26 Ultra). Das Backend
+    fragt die NPU nach ihrer Version und lädt das passende.
+  - Die Verbindung läuft über FastRPC: `libcdsprpc.so` des Herstellers (`uses-native-library`), als
+    „unsigned PD“, also ohne Root und ohne Qualcomm-Signatur. Die App setzt `ADSP_LIBRARY_PATH` auf
+    ihren Bibliotheksordner, damit FastRPC das NPU-Programm findet, und `GGML_HEXAGON_OPPOLL=1`
+    (Warten auf Ergebnisse per Polling, weniger Latenz pro Token).
+  - Wie bei der GPU: Das Backend wird erst bei Bedarf geladen. Ein Modell läuft ganz auf der NPU.
+    Laden, erste Läufe und Test sind über den Absturzschutz abgesichert, und ein Fehler führt
+    zurück auf die CPU. Ein Absturz sperrt nur die NPU, nicht die GPU, und umgekehrt.
+  - Beide Beschleuniger-Backends melden sich in ggml als „GPU“. Die JNI-Brücke unterscheidet sie
+    deshalb am Namen des Backends („OpenCL“ bzw. „HTP“). C++-Ausnahmen der Backends (z. B. wenn ein
+    Gerät die NPU-Sitzung verweigert) fängt sie ab.
+  - Gebaut wird das Hexagon-Backend mit Qualcomms **Hexagon SDK 6.6** (Hexagon Tools 19.0.07). Weil
+    das SDK nicht frei im Netz liegt, liegen die fertigen Bibliotheken in `app/src/main/jniLibs`;
+    Android Studio braucht das SDK also nicht. Neu bauen (nach jeder Änderung an llama.cpp nötig,
+    weil `libggml-hexagon.so` gegen die `libggml-base.so` der App gelinkt ist):
+    `native/fetch-hexagon-sdk.sh` (holt das SDK aus llama.cpps Snapdragon-Toolchain-Image
+    `ghcr.io/snapdragon-toolchain/arm64-android:v0.7`, nur die SDK-Schicht, mit Prüfsumme), dann
+    `native/build-hexagon.sh`. Woraus die Bibliotheken gebaut wurden, steht in
+    `native/HEXAGON_BUILT_FROM`.
 - **JNI-Brücke** (`app/src/main/cpp/fluency_jni.cpp`): Das Modell bleibt warm im Speicher. Der
   **KV-Cache wird wiederverwendet**, es wird nur der Prompt-Teil neu berechnet, der sich geändert
   hat (bei wachsenden Teilsätzen kommen z. B. 31 von 41 Tokens aus dem Cache). Tokens werden
@@ -159,8 +184,10 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
   `app/src/main/jniLibs`.
 - **whisper.cpp 1.9.5** für Schweizerdeutsch, statisch in `libfluency_jni.so`.
 - Native Libraries werden bei der Installation entpackt (`useLegacyPackaging = true`). Das ist nötig,
-  weil die App beim Start die passende `libggml-cpu-*.so` im Bibliotheksordner sucht und lädt. Alle
-  sind 16-KB-ausgerichtet. Release mit R8 (JNI-Klassen bleiben erhalten) und Signatur v3.
+  weil die App die passende `libggml-cpu-*.so`, die Backends und die NPU-Programme im
+  Bibliotheksordner sucht und lädt. Alle ARM-Bibliotheken sind 16-KB-ausgerichtet; die
+  NPU-Programme (Hexagon-Code) packt Gradle unverändert ein. Release mit R8 (JNI-Klassen bleiben
+  erhalten) und Signatur v3.
 
 ## Bauen (Kommandozeile)
 
@@ -211,26 +238,26 @@ Tests laufen immer. Erwartete Ordnerstruktur (Standard: `test-models/` im Projek
 `llm/` (die drei GGUF-Dateien), `parakeet-v3/` (encoder/decoder/joiner.int8.onnx, tokens.txt,
 test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_vad_v5.onnx`.
 
-100 Tests in 20 Klassen, alle grün:
+103 Tests in 20 Klassen, alle grün:
 
 - **Logik**: Schweizer Schreibweise, Satz-Segmentierung, Spracherkennung per Stoppwörtern/Schrift,
   Prompt-Formate, Modell-Routing, Katalog (gepinnte URLs, SHA-256), **Downloader** (Fortsetzen nach
   Verbindungsabbruch, `.part` aus früherem Lauf, Server ignoriert Range, falscher Hash), WAV,
   **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp).
-- **CPU/GPU-Wahl** mit simulierten CPU- und GPU-Modellen (im Container gibt es keine Adreno-GPU).
-  Getestet wird dieselbe Engine-Logik wie auf dem Handy:
-  - Die schnellere GPU übernimmt ohne Pause, eine langsamere GPU wird nicht genommen, ebenso eine
-    GPU mit falscher Ausgabe.
+- **CPU/GPU/NPU-Wahl** mit simulierten Modellen auf CPU, GPU und NPU. Im Container gibt es weder
+  eine Adreno-GPU noch eine Hexagon-NPU. Getestet wird dieselbe Engine-Logik wie auf dem Handy:
+  - Das schnellste Rechenwerk übernimmt ohne Pause. Sind GPU und NPU langsamer, bleibt es bei der
+    CPU. Eine NPU mit falscher Ausgabe schlägt eine korrekte GPU nicht.
   - Die Messung wartet, solange übersetzt wird.
-  - Eine gespeicherte Entscheidung lädt das Modell direkt auf der GPU.
-  - „Nur CPU“ berührt die GPU nie.
-  - Ein GPU-Fehler beantwortet dieselbe Anfrage auf der CPU; ein fehlgeschlagenes GPU-Laden wird
+  - Eine gespeicherte Entscheidung lädt das Modell direkt dort.
+  - „Nur CPU“ berührt GPU und NPU nie.
+  - Ein NPU-Fehler beantwortet dieselbe Anfrage auf der CPU; ein fehlgeschlagenes NPU-Laden wird
     genau einmal versucht.
-  - Eine gesperrte GPU bleibt aus, bis man sie wieder zulässt.
-  - Ein Wechsel der Einstellung wirkt ohne Neustart.
-  - Der Benchmark kann CPU und GPU erzwingen.
-  - Dazu die Absturz-Markierung, das Speichern der Entscheidungen (inkl. Zurücksetzen nach einem
-    Update) und der Textvergleich.
+  - Eine gesperrte NPU bleibt aus, bis man sie wieder zulässt; die GPU bleibt davon unberührt.
+  - Ein Wechsel der Einstellung (CPU → NPU → GPU → CPU) wirkt ohne Neustart.
+  - Der Benchmark kann jedes Rechenwerk erzwingen.
+  - Dazu die Absturz-Markierung je Rechenwerk, das Speichern der Entscheidungen (inkl. Zurücksetzen
+    nach einem Update) und Auswahlregel und Textvergleich.
 - **Echte Modelle auf dem x86-Container über dieselbe JNI wie in der App**:
   - Hy-MT2: Streaming, KV-Cache-Wiederverwendung, Abbruch, CJK-Ausgabe.
   - Alle sechs Kernsprachen, Auto-Quelle, Absätze, Schweizer „ss":
@@ -243,7 +270,8 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
   - Piper spricht, Parakeet erkennt: „Guten Morgen, wie komme ich zum Bahnhof?"
   - **Live-Pipeline Ende-zu-Ende** (Audio → VAD → Parakeet → Hy-MT2) und der App-Benchmark
     (prüft u. a., dass ein wiederholter Prompt bis auf das letzte Token aus dem KV-Cache kommt).
-  - Die echte JNI meldet auf x86 „kein GPU-Backend“, der Automatikmodus bleibt dann auf der CPU.
+  - Die echte JNI meldet auf x86 „kein GPU-Backend“ und „kein NPU-Backend“; der Automatikmodus
+    bleibt dann auf der CPU.
 - **Robolectric-Screenshots** aller Bildschirme (`docs/screenshots`).
 
 Messwerte auf dem Container (4 vCPU x86, nur Korrektheitsreferenz, das Handy ist schneller):
@@ -255,12 +283,15 @@ Satzende bis zur fertigen Übersetzung: 1.6 s.
 - Die echte Geschwindigkeit auf dem Snapdragon 8 Elite Gen 5. Erwartet wird deutlich unter 1 s vom
   Satzende bis zur Übersetzung; das zeigt der Benchmark-Screen.
 - Welche CPU-Variante gewählt wird (i8mm/SVE/SME) und ob KleidiAI greift.
-- **Die GPU**: Ob das Adreno-OpenCL-Backend auf dem S26 Ultra lädt, wie lange die erste
-  Kernel-Übersetzung dauert und ob GPU oder CPU schneller ist. Das misst die App beim ersten Laden
-  selbst; das Ergebnis steht unter Optionen → Leistung und im Benchmark. Im Container gibt es keine
-  Adreno-GPU. Getestet sind hier der CPU-Pfad mit echten Modellen und die gesamte
-  Auswahl-, Wechsel- und Absturzlogik mit simulierten CPU-/GPU-Modellen, nicht aber die
-  OpenCL-Kernels selbst.
+- **GPU und NPU**: Ob das Adreno-OpenCL-Backend lädt und wie lange die erste Kernel-Übersetzung
+  dauert. Ob das S26 Ultra die NPU-Sitzung erlaubt (FastRPC, unsigned PD) und das NPU-Programm v81
+  lädt. Welches Rechenwerk am schnellsten ist. Das misst die App beim ersten Laden selbst; das
+  Ergebnis steht unter Optionen → Leistung und im Benchmark.
+  - Getestet sind hier: der CPU-Pfad mit echten Modellen, die gesamte Auswahl-, Wechsel- und
+    Absturzlogik mit simulierten Modellen und der Build.
+  - Zum Build gehört: Die NPU-Programme sind Hexagon-Code für v73–v81. `libggml-hexagon.so` ist
+    16-KB-ausgerichtet und findet alle 32 benötigten ggml-Funktionen in der `libggml-base.so` der App.
+  - Nicht getestet sind die OpenCL-Kernels und die NPU-Programme selbst.
 - Mikrofon-Aufnahme, Echo/Rückkopplung beim Vorlesen, Android-TTS-Offline-Stimmen.
 - Foreground-Service-Downloads im Hintergrund, Benachrichtigungen, SAF-Dateiimport.
 - Schweizerdeutsch-Qualität mit echter Mundart (getestet wurde nur Hochdeutsch-Audio) und dessen
@@ -271,5 +302,6 @@ Satzende bis zur fertigen Übersetzung: 1.6 s.
 
 App-Code: privat. Komponenten: llama.cpp, whisper.cpp und ggml (MIT), sherpa-onnx (Apache-2.0),
 ONNX Runtime (MIT), KleidiAI (Apache-2.0), OpenCL-Headers/ICD-Loader (Apache-2.0), eSpeak-NG-Daten
-(GPL-3.0). Modelle: siehe Tabelle oben. Sie werden nicht mitgeliefert, sondern vom Nutzer
+(GPL-3.0). Die NPU-Bibliotheken sind aus dem llama.cpp-Quellcode (MIT) mit Qualcomms Hexagon SDK
+gebaut (Qualcomm-Lizenz, private Nutzung). Modelle: siehe Tabelle oben. Sie werden nicht mitgeliefert, sondern vom Nutzer
 heruntergeladen. Einige sind nur für die nicht-kommerzielle Nutzung freigegeben.
