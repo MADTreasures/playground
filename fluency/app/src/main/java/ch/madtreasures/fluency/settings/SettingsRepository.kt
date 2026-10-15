@@ -48,6 +48,8 @@ data class AppSettings(
     val asrThreads: Int = 2,
     /** CPU or GPU for the translation models (automatic: measured once per model) */
     val accel: AccelMode = AccelMode.AUTO,
+    /** the previous sentences and their translations go into the prompt (ambiguous words) */
+    val translationContext: Boolean = true,
     val showLatency: Boolean = true,
     val keepScreenOn: Boolean = true,
     val muteMicWhileSpeaking: Boolean = true,
@@ -76,6 +78,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         val llmThreads = intPreferencesKey("llmThreads")
         val asrThreads = intPreferencesKey("asrThreads")
         val accel = stringPreferencesKey("accel")
+        val translationContext = booleanPreferencesKey("translationContext")
 
         /** until 1.0.0: GPU on/off (off = CPU only) */
         val useGpu = booleanPreferencesKey("useGpu")
@@ -107,6 +110,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         llmThreads = p[K.llmThreads] ?: defaults.llmThreads,
         asrThreads = p[K.asrThreads] ?: defaults.asrThreads,
         accel = AccelMode.parse(p[K.accel]) ?: if (p[K.useGpu] == true) AccelMode.GPU else defaults.accel,
+        translationContext = p[K.translationContext] ?: defaults.translationContext,
         showLatency = p[K.showLatency] ?: defaults.showLatency,
         keepScreenOn = p[K.keepScreenOn] ?: defaults.keepScreenOn,
         muteMicWhileSpeaking = p[K.muteMicWhileSpeaking] ?: defaults.muteMicWhileSpeaking,
@@ -145,6 +149,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
                 p[K.asrThreads] = s.asrThreads
                 p[K.accel] = s.accel.name
                 p.remove(K.useGpu)
+                p[K.translationContext] = s.translationContext
                 p[K.showLatency] = s.showLatency
                 p[K.keepScreenOn] = s.keepScreenOn
                 p[K.muteMicWhileSpeaking] = s.muteMicWhileSpeaking

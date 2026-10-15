@@ -6,6 +6,7 @@ import ch.madtreasures.fluency.core.Wav
 import ch.madtreasures.fluency.engine.asr.AsrEngine
 import ch.madtreasures.fluency.engine.asr.SAMPLE_RATE
 import ch.madtreasures.fluency.engine.asr.SherpaAsr
+import ch.madtreasures.fluency.engine.asr.WhisperCppAsr
 import ch.madtreasures.fluency.models.AsrType
 import ch.madtreasures.fluency.models.ModelCatalog
 import kotlinx.coroutines.runBlocking
@@ -26,6 +27,7 @@ class BenchmarkIntegrationTest {
         val asrModels = listOfNotNull(
             ModelCatalog.byId(ModelCatalog.PARAKEET),
             ModelCatalog.byId(ModelCatalog.WHISPER_TURBO)?.takeIf { File(TestEnv.whisperDir, "turbo-encoder.int8.onnx").exists() },
+            ModelCatalog.byId(ModelCatalog.SWISS_WHISPER)?.takeIf { TestEnv.swissWhisper.exists() },
         )
         val bench = Benchmark(
             translation = engine,
@@ -34,6 +36,7 @@ class BenchmarkIntegrationTest {
             loadAsr = { m ->
                 when (m.asrType) {
                     AsrType.WHISPER_SHERPA -> SherpaAsr.whisper(m.id, m.name, TestEnv.whisperDir, 4)
+                    AsrType.WHISPER_CPP -> WhisperCppAsr.load(m.id, m.name, TestEnv.swissWhisper.path, 4, "de")!!
                     else -> SherpaAsr.parakeet(m.id, m.name, TestEnv.parakeetDir, 4)
                 }.also { current = it }
             },
@@ -56,7 +59,14 @@ class BenchmarkIntegrationTest {
         // a repeated (live partial) prompt comes from the KV cache: all tokens but the last one, which
         // is evaluated again for its logits (checked on the mechanism; times vary on a shared host)
         assertTrue(report.mt.all { it.cachedPromptTokens > 10 && it.cachedReusedTokens == it.cachedPromptTokens - 1 })
+        // what context costs: the first sentence again with an earlier sentence as context
+        assertTrue(report.mt.all { it.contextTokens > 5 && it.contextMs > 0 && it.plainMs > 0 })
+        assertTrue(report.asText().contains("mit Kontext"))
+        // the Swiss German model is measured with the German clip and runs as Q8_0
         assertEquals(asrModels.size, report.asr.size)
-        assertTrue(report.asr.all { it.rtf in 0.0..2.0 && it.text.contains("Wurst") })
+        assertTrue(report.asr.all { it.text.contains("Wurst") })
+        assertTrue(report.asr.filter { it.modelId != ModelCatalog.SWISS_WHISPER }.all { it.rtf in 0.0..2.0 })
+        val swiss = report.asr.firstOrNull { it.modelId == ModelCatalog.SWISS_WHISPER }
+        if (swiss != null) assertEquals("Q8_0, 4 Threads", swiss.detail)
     }
 }

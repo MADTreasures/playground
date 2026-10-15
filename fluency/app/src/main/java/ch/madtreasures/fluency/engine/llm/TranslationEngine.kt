@@ -79,6 +79,11 @@ class TranslationEngine(
         val modelId: String? = null,
         /** force CPU, GPU or NPU (benchmark) */
         val processor: Processor? = null,
+        /**
+         * earlier sentences of the conversation, oldest first, oriented like this request: used
+         * when [AppSettings.translationContext] is on (texts: the earlier pieces of the same text)
+         */
+        val context: List<ContextPair> = emptyList(),
     )
 
     data class Result(
@@ -313,6 +318,27 @@ class TranslationEngine(
 
     /** Where model [id] runs, if it is loaded. */
     fun processorOf(id: String): Processor? = loaded[id]?.processor
+
+    /**
+     * Brings the beginning of the next request's prompt (instruction + earlier sentences, see
+     * [PromptFormat.warmUpPrompt]) into the KV cache of the model that will serve it, while it is
+     * idle: the first partial translation of the next utterance then only evaluates its own words.
+     * Only for a model that is loaded already and when context is on; never blocks the caller.
+     */
+    fun prepare(req: Request) {
+        if (!settings().translationContext) return
+        val ctx = TranslationContext.join(TranslationContext.select(req.context)) ?: return
+        val info = pickModel(req.role, req.source, req.target, req.modelId) ?: return
+        val style = info.promptStyle ?: return
+        val prompt = PromptFormat.warmUpPrompt(style, req.source, req.target, ctx) ?: return
+        val l = loaded[info.id] ?: return
+        scope.launch(l.dispatcher) {
+            val model = l.model
+            // an accelerator's first run is crash-guarded in runOn: never start with a warm-up
+            if (model.isClosed || l.runningRole != null || (model.processor != Processor.CPU && !l.checked)) return@launch
+            runCatching { model.generate(prompt.text, prompt.addSpecial, maxTokens = 0) }
+        }
+    }
 
     /** Stops the generation that is running for [role] (all roles if null). */
     fun cancel(role: Role? = null) {
@@ -643,35 +669,50 @@ class TranslationEngine(
         var decode = 0.0
         var cancelled = false
         val echo = PromptFormat.echoNames(req.target)
+        val useContext = settings().translationContext && PromptFormat.supportsContext(style)
+        // earlier sentences, oldest first: the conversation's, then the pieces of this text
+        val history = if (useContext) req.context.toMutableList() else mutableListOf()
         for (piece in pieces) {
             if (piece.text.isBlank()) {
                 out.append(piece.separatorAfter)
                 continue
             }
-            val prompt = PromptFormat.build(style, src, req.target, piece.text) { user -> model.applyChatTemplate(user) }
             val prefix = out.toString()
-            val r = model.generate(
-                prompt = prompt.text,
-                addSpecial = prompt.addSpecial,
-                maxTokens = PromptFormat.maxTokens(piece.text),
-                repeatPenalty = if (style == PromptStyle.HY_MT) 1.05f else 1.0f,
-                stopAtNewline = prompt.stopAtNewline,
-            ) { partial ->
-                onPartial?.invoke(TextNormalizer.forLanguage(prefix + TextNormalizer.cleanTranslation(partial, piece.text, echo), req.target))
-                true
+            fun generateWith(context: PromptFormat.Context?): LlamaModel.Result {
+                val prompt = PromptFormat.build(style, src, req.target, piece.text, context) { user -> model.applyChatTemplate(user) }
+                val r = model.generate(
+                    prompt = prompt.text,
+                    addSpecial = prompt.addSpecial,
+                    maxTokens = PromptFormat.maxTokens(piece.text),
+                    repeatPenalty = if (style == PromptStyle.HY_MT) 1.05f else 1.0f,
+                    stopAtNewline = prompt.stopAtNewline,
+                ) { partial ->
+                    onPartial?.invoke(TextNormalizer.forLanguage(prefix + TextNormalizer.cleanTranslation(partial, piece.text, echo), req.target))
+                    true
+                }
+                if (r.stop == LlamaModel.StopReason.ERROR) throw GenerationException("Übersetzung fehlgeschlagen (${info.name})")
+                if (r.stop == LlamaModel.StopReason.PROMPT_TOO_LONG) throw IOException("Text zu lang für das Modell")
+                promptTokens += r.promptTokens
+                reused += r.reusedTokens
+                generated += r.generatedTokens
+                prefill += r.prefillMs
+                decode += r.decodeMs
+                return r
             }
-            if (r.stop == LlamaModel.StopReason.ERROR) throw GenerationException("Übersetzung fehlgeschlagen (${info.name})")
-            if (r.stop == LlamaModel.StopReason.PROMPT_TOO_LONG) throw IOException("Text zu lang für das Modell")
-            out.append(TextNormalizer.cleanTranslation(r.text, piece.text, echo)).append(piece.separatorAfter)
-            promptTokens += r.promptTokens
-            reused += r.reusedTokens
-            generated += r.generatedTokens
-            prefill += r.prefillMs
-            decode += r.decodeMs
+            val context = if (useContext) TranslationContext.join(TranslationContext.select(history)) else null
+            var r = generateWith(context)
+            var pieceOut = TextNormalizer.cleanTranslation(r.text, piece.text, echo)
+            if (context != null && r.stop != LlamaModel.StopReason.CANCELLED && TranslationContext.failed(pieceOut, context)) {
+                // the model did not continue after the earlier translation: this sentence without context
+                r = generateWith(null)
+                pieceOut = TextNormalizer.cleanTranslation(r.text, piece.text, echo)
+            }
+            out.append(pieceOut).append(piece.separatorAfter)
             if (r.stop == LlamaModel.StopReason.CANCELLED) {
                 cancelled = true
                 break
             }
+            if (useContext) history += ContextPair(piece.text, pieceOut)
         }
         val final = TextNormalizer.forLanguage(out.toString().trim(), req.target)
         return Result(

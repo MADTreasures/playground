@@ -121,6 +121,14 @@ fun SettingsScreen(
                     "Ein Qualitätsmodell (z. B. MiLMMT-46 4B) übersetzt am Satzende neu und ist dadurch langsamer.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Toggle("Zusammenhang beachten", s.translationContext) { v -> onChange { it.copy(translationContext = v) } }
+            Text(
+                "Die letzten zwei Sätze und ihre Übersetzung werden mitgegeben. So wählt das Modell bei mehrdeutigen " +
+                    "Wörtern die passende Bedeutung (z. B. „Nachrichten“ im Chat = messages, im Fernsehen = news) und " +
+                    "bleibt bei Du/Sie und Begriffen einheitlich. Kostet pro Satz einige Millisekunden (NPU) bis gut " +
+                    "hundert Millisekunden (CPU); ein Teil davon wird in Sprechpausen vorausberechnet.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             SectionTitle("Spracherkennung")
             Choice(
@@ -173,6 +181,7 @@ fun SettingsScreen(
             Stepper("Threads Spracherkennung", s.asrThreads, 1..6, 1, "") { v -> onChange { it.copy(asrThreads = v) } }
             Text(
                 "Threads gelten nach einem Neustart der App, ein Wechsel des Rechenwerks sofort. " +
+                    "Schweizerdeutsch (Whisper) nutzt so viele Threads wie die Übersetzung, mindestens 4. " +
                     "Der Benchmark misst jedes Modell auf CPU, GPU und NPU.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -53,14 +53,15 @@ class AsrManager(
     @Synchronized
     fun engine(info: ModelInfo): AsrEngine {
         engines[info.id]?.let { return it }
-        val threads = settings().asrThreads
+        val s = settings()
+        val threads = s.asrThreads
         val dir = models.store.dir(info.id)
         val engine: AsrEngine = when (info.asrType) {
             AsrType.PARAKEET -> SherpaAsr.parakeet(info.id, info.name, dir, threads)
             AsrType.WHISPER_SHERPA -> SherpaAsr.whisper(info.id, info.name, dir, threads)
             AsrType.WHISPER_CPP -> {
                 val file = File(dir, info.files.first().path)
-                WhisperCppAsr.load(info.id, info.name, file.path, maxOf(threads, 4), fixedLanguage = "de".takeIf { info.supports("de-CH") && !info.custom })
+                WhisperCppAsr.load(info.id, info.name, file.path, whisperThreads(s), fixedLanguage = "de".takeIf { info.supports("de-CH") && !info.custom })
                     ?: throw IOException("${info.name} konnte nicht geladen werden")
             }
             null -> throw IOException("${info.name} ist kein Spracherkennungsmodell")
@@ -79,5 +80,14 @@ class AsrManager(
     fun releaseAll() {
         engines.values.forEach { runCatching { it.close() } }
         engines.clear()
+    }
+
+    companion object {
+        /**
+         * Whisper (large-v3-turbo) is far heavier than Parakeet and recognises only when the speaker
+         * pauses, while the translation runs before or after it (on the NPU when available): it gets
+         * as many threads as the translation, at least 4.
+         */
+        fun whisperThreads(s: AppSettings): Int = maxOf(s.asrThreads, s.llmThreads.coerceAtMost(8), 4)
     }
 }

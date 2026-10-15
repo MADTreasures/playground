@@ -15,9 +15,9 @@ aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Mes
 
 ## Downloads
 
-- **Fertige App**: [`dist/Fluency-1.2.0.apk`](../dist/Fluency-1.2.0.apk) (arm64, signiert). Sie
-  installiert sich als Update über 1.0.0/1.1.0, die heruntergeladenen Modelle bleiben erhalten.
-- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.2.0.zip`](../dist/Fluency-AndroidStudio-1.2.0.zip)
+- **Fertige App**: [`dist/Fluency-1.3.0.apk`](../dist/Fluency-1.3.0.apk) (arm64, signiert). Sie
+  installiert sich als Update über 1.0.0–1.2.0, die heruntergeladenen Modelle bleiben erhalten.
+- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.3.0.zip`](../dist/Fluency-AndroidStudio-1.3.0.zip)
   (enthält alle nativen Quellen und die fertig gebauten NPU-Bibliotheken, keine Submodule)
 
 ## In Android Studio bauen
@@ -52,7 +52,8 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
    Gegenüber auf dem Kopf. Jede Seite hat ihren eigenen Mikrofon-Button. Nach 1,8 s Stille wird
    automatisch übergeben.
 3. **Text-Übersetzung** (tippen/einfügen): Übersetzung schon beim Tippen mit dem schnellen Modell,
-   per Knopf mit dem besten installierten Modell. Lange Texte werden satz- und absatzweise übersetzt.
+   per Knopf mit dem besten installierten Modell. Lange Texte werden satz- und absatzweise übersetzt,
+   jedes Stück mit dem vorherigen als Kontext.
 4. **Modellverwaltung**: Download mit Fortschritt und Geschwindigkeit. Abgebrochene Downloads
    werden per HTTP Range fortgesetzt, auch nach einem App-Neustart. **SHA-256-Prüfung** jeder Datei,
    die Download-URLs sind auf einen Hugging-Face-Commit fixiert. Dazu: Löschen, Speicherbedarf und
@@ -64,7 +65,21 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
    Satz, Prompt- und Ausgabe-Tokens/s, mit KV-Cache, ASR-Echtzeitfaktor und Piper.
 6. **„Deutsch (Schweiz)"** schreibt immer „ss" statt „ß" (Übersetzungen, Untertitel, Vorlesen).
    Die Oberfläche ist Deutsch in Schweizer Schreibweise.
-7. **GPU (Adreno) und NPU (Hexagon) für die Übersetzung**: Optionen → Leistung → „Rechenwerk für die
+7. **Zusammenhang (Kontext)**: Mehrdeutige Wörter werden nach dem Gesprächszusammenhang übersetzt,
+   z. B. „Nachrichten“ im Chat als *messages* statt *news*, „Bank“ im Park als *bench*, „bill“ im
+   Restaurant als *Rechnung*. Dazu bekommt jede Übersetzung die letzten zwei Sätze mit. Sie
+   stehen vor dem neuen Satz, ihre Übersetzung ist der Anfang der Antwort, und das Modell
+   übersetzt einfach weiter. Das wirkt auch für Du/Sie und einheitliche Begriffe.
+   - Im Gesprächsmodus zählen beide Personen, die Sätze des Gegenübers werden umgedreht verwendet.
+   - Kosten: rund 15–25 zusätzliche Prompt-Tokens pro Satz Kontext. Auf der NPU (936 Tok/s) sind
+     das etwa 20–40 ms pro Äusserung, auf der CPU (215 Tok/s) etwa 70–170 ms.
+   - Nach jeder fertigen Äusserung berechnet die App in der Sprechpause den Anfang des nächsten
+     Prompts schon voraus (KV-Cache). Im Test kamen damit 46 statt 23 von 71 Prompt-Tokens aus dem
+     Cache.
+   - Der Benchmark zeigt die Kosten pro Modell und Rechenwerk („mit Kontext … statt … ms“).
+   - Abschaltbar unter Optionen → Übersetzung → „Zusammenhang beachten“. Gibt das Modell mit Kontext
+     nichts Brauchbares zurück, wird der Satz ohne Kontext übersetzt.
+8. **GPU (Adreno) und NPU (Hexagon) für die Übersetzung**: Optionen → Leistung → „Rechenwerk für die
    Übersetzung“.
    - **Automatisch** (Standard): Beim ersten Laden eines Modells übersetzt die App dieselben zwei
      Testsätze auf CPU, GPU und NPU. Das passiert im Hintergrund, während die CPU schon übersetzt,
@@ -95,7 +110,7 @@ Geprüft auf Hugging Face am 6.10.2026. Es gibt Nachfolger der im Auftrag genann
 | Übersetzung sehr schnell (optional) | Xiaomi MiLMMT-46-1B v1.0 Q4_K_M | 0.81 GB | 46 | Gemma Terms |
 | Spracherkennung live | **NVIDIA Parakeet-TDT-0.6B-v3** int8 (sherpa-onnx) | 0.67 GB | 25 europ., automatische Erkennung | CC-BY-4.0 |
 | Spracherkennung Fallback | **Whisper large-v3-turbo** int8 (sherpa-onnx) | 1.04 GB | ~100 | MIT |
-| Schweizerdeutsch (Mundart → Hochdeutsch) | Whisper-large-v3-turbo-Finetune von Flurin17, GGML q5_0 (whisper.cpp) | 0.57 GB | gsw → de | CC-BY-NC-4.0 (privat ok) |
+| Schweizerdeutsch (Mundart → Hochdeutsch) | Whisper-large-v3-turbo-Finetune von Flurin17, GGML q5_0 (whisper.cpp), läuft als Q8_0 | 0.57 GB | gsw → de | CC-BY-NC-4.0 (privat ok) |
 | Sprachaktivität | **Silero VAD v5** | 2 MB | – | MIT |
 | Sprachausgabe | Android-TTS (nur Offline-Stimmen), optional **Piper** (Thorsten de, Lessac en, Siwis fr, Paola it, Davefx es, Tugão pt) | je 63 MB + 18 MB eSpeak-Daten | 6 | CC0 / CC-BY / … |
 
@@ -115,6 +130,22 @@ Begründung:
   Vorab-Erkennung pro Sprechpause) und wird nur für die Ausgangssprache „Deutsch (Schweiz)"
   verwendet. Der Encoder-Kontext wird an die Länge der Äusserung angepasst (`audio_ctx`). Auf x86
   sinkt die Zeit für 2,8 s Audio damit von 14,5 s auf 3,1 s, bei identischem Ergebnis.
+  - **Seit 1.3.0 läuft es als Q8_0**: Die Datei hat Q5_0-Gewichte. Für Q5_0 hat ggml auf ARM keine
+    schnellen Matrix-Kernels (kein i8mm, kein KleidiAI, kein Repacking). Beim Laden werden die
+    Gewichte deshalb nach Q8_0 umgewandelt (`app/src/main/cpp/whisper_q8.h`). Das ist exakt: Ein
+    Q5_0-Wert ist (q − 16) · d mit q = 0…31, das passt mit derselben Skala d in ein int8. Es wird
+    nichts auf den Speicher geschrieben, die geprüfte Originaldatei bleibt, im RAM sind es 0,86 statt
+    0,57 GB. Auf dem Handy rechnen damit KleidiAI-Kernels (i8mm bzw. SME2) den Encoder.
+  - Ehrlich gesagt: Die Umwandlung ist exakt, aber KleidiAI rechnet Q8_0 intern mit einer int8-Skala
+    pro Gewichtszeile und quantisiert die Aktivierungen pro Zeile. Das ist nicht bitgleich zu Q5_0,
+    entspricht aber dem int8-Modus von CTranslate2/faster-whisper, mit dem die Schweizer
+    Whisper-Modelle verbreitet laufen. Auf x86 (ohne KleidiAI) ist der Text identisch.
+  - Whisper bekommt so viele Threads wie die Übersetzung (Standard 6, mindestens 4) statt 4. Die
+    Übersetzung läuft vorher oder nachher und auf diesem Handy ohnehin auf der NPU.
+  - Der Benchmark misst das Schweizer Modell jetzt mit (Hochdeutsch-Clip) und zeigt „Q8_0, 6 Threads“.
+  - NPU/GPU für Whisper ist bewusst nicht eingebaut: whisper.cpp legt alle Gewichte ungeprüft auf
+    ein Beschleuniger-Gerät, und das Hexagon-Backend braucht spezielle Puffer für umgepackte
+    Gewichte. Ohne Testgerät wäre das ein Blindflug mit Absturzrisiko.
 - Die Modelle sind **nicht in der APK**. Beim ersten Start lädt „Empfohlene laden" Hy-MT2, Parakeet
   und Silero VAD (1.8 GB).
 
@@ -179,10 +210,18 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
   hat (bei wachsenden Teilsätzen kommen z. B. 31 von 41 Tokens aus dem Cache). Tokens werden
   gestreamt (nur vollständige UTF-8-Zeichen), Abbruch geht jederzeit. Die Prompts sind die kürzesten
   offiziellen Formate (Hy-MT2-Chat-Template bzw. MiLMMT-Completion), Decoding greedy.
+  - Mit Kontext stehen die vorherigen Sätze vor dem neuen, ihre Übersetzung ist der Anfang der
+    Antwort.
+  - Gemessen auf 45 mehrdeutigen Sätzen (de↔en, echte Modelle):
+    - Hy-MT2: 29 → 40 richtig. Hy-MT2s eigene Kontextvorlage („[Background Information]“) schaffte
+      nur 33 und übersetzte teils den Kontext statt des Satzes.
+    - MiLMMT-46 1B: 32 → 44 richtig.
+  - `maxTokens = 0` füllt nur den KV-Cache; damit wird der nächste Prompt vorgewärmt.
 - **sherpa-onnx 1.13.8** (VAD, ASR, Piper) aus dem Quellcode gebaut gegen ONNX Runtime 1.28.0 (aus
   Maven), siehe `native/build-sherpa-onnx.sh`. Die gebaute `libsherpa-onnx-jni.so` liegt in
   `app/src/main/jniLibs`.
-- **whisper.cpp 1.9.5** für Schweizerdeutsch, statisch in `libfluency_jni.so`.
+- **whisper.cpp 1.9.5** für Schweizerdeutsch, statisch in `libfluency_jni.so`. Q5_0-Modelle werden
+  beim Laden exakt nach Q8_0 umgewandelt (siehe Modelle).
 - Native Libraries werden bei der Installation entpackt (`useLegacyPackaging = true`). Das ist nötig,
   weil die App die passende `libggml-cpu-*.so`, die Backends und die NPU-Programme im
   Bibliotheksordner sucht und lädt. Alle ARM-Bibliotheken sind 16-KB-ausgerichtet; die
@@ -238,12 +277,18 @@ Tests laufen immer. Erwartete Ordnerstruktur (Standard: `test-models/` im Projek
 `llm/` (die drei GGUF-Dateien), `parakeet-v3/` (encoder/decoder/joiner.int8.onnx, tokens.txt,
 test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_vad_v5.onnx`.
 
-103 Tests in 20 Klassen, alle grün:
+127 Tests in 25 Klassen, alle grün:
 
 - **Logik**: Schweizer Schreibweise, Satz-Segmentierung, Spracherkennung per Stoppwörtern/Schrift,
   Prompt-Formate, Modell-Routing, Katalog (gepinnte URLs, SHA-256), **Downloader** (Fortsetzen nach
   Verbindungsabbruch, `.part` aus früherem Lauf, Server ignoriert Range, falscher Hash), WAV,
-  **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp).
+  **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp, Kontext
+  der vorherigen Äusserung, Vorwärmen nach jeder Äusserung).
+- **Kontext**: Auswahl der letzten zwei Sätze (Zeichenlimit, leere Sätze, Zeilenumbrüche),
+  Chinesisch/Japanisch ohne Leerzeichen, Prompt-Aufbau für Hy-MT2 und MiLMMT, der Vorwärm-Prompt ist
+  Anfang jedes folgenden Prompts, Gesprächsmodus (Sätze des Gegenübers umgedreht, de = de-CH),
+  Engine (Kontext vorne und als Antwortanfang, abschaltbar, leere Antwort → ohne Kontext neu,
+  Textstücke mit dem vorherigen Stück, Vorwärmen nur bei geladenem Modell).
 - **CPU/GPU/NPU-Wahl** mit simulierten Modellen auf CPU, GPU und NPU. Im Container gibt es weder
   eine Adreno-GPU noch eine Hexagon-NPU. Getestet wird dieselbe Engine-Logik wie auf dem Handy:
   - Das schnellste Rechenwerk übernimmt ohne Pause. Sind GPU und NPU langsamer, bleibt es bei der
@@ -265,11 +310,16 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
   - MiLMMT 1B/4B, inkl. Schwedisch.
   - Parakeet (de/en/fr/es) und Whisper-turbo (inkl. Spracherkennung).
   - Silero VAD mit absoluten Segmentpositionen.
-  - Schweizerdeutsch-Whisper über whisper.cpp.
+  - Schweizerdeutsch-Whisper über whisper.cpp, geladen als Q8_0 (gleicher Text wie mit Q5_0).
+  - **Kontext mit Hy-MT2**: der Satz aus dem Feldtest („…dass die Nachrichten getrennt werden“)
+    wird mit dem Satz davor zu „…the messages are separated“ (ohne Kontext: „the news is
+    separated“); Bank → bench, Mutter → nut, bill → Rechnung, key → Taste; der Kontext wird nicht
+    mitübersetzt; Vorwärmen holt 46 statt 23 von 71 Prompt-Tokens aus dem Cache.
   - Echter Download von Hugging Face inkl. SHA-256 (Silero, 355 eSpeak-Dateien, Piper).
   - Piper spricht, Parakeet erkennt: „Guten Morgen, wie komme ich zum Bahnhof?"
   - **Live-Pipeline Ende-zu-Ende** (Audio → VAD → Parakeet → Hy-MT2) und der App-Benchmark
-    (prüft u. a., dass ein wiederholter Prompt bis auf das letzte Token aus dem KV-Cache kommt).
+    (prüft u. a., dass ein wiederholter Prompt bis auf das letzte Token aus dem KV-Cache kommt, dass
+    die Kontext-Kosten gemessen werden und dass das Schweizer Modell als „Q8_0“ mitgemessen wird).
   - Die echte JNI meldet auf x86 „kein GPU-Backend“ und „kein NPU-Backend“; der Automatikmodus
     bleibt dann auf der CPU.
 - **Robolectric-Screenshots** aller Bildschirme (`docs/screenshots`).
@@ -305,12 +355,20 @@ Hy-MT2 1.8B (Q4_K_M):
 
 Parakeet-TDT 0.6B v3: 365 ms für 6,6 s Audio (Echtzeitfaktor 0,055).
 
+Neu in 1.3.0 und noch nicht auf dem Handy gemessen: Kontext-Kosten (Zeile „mit Kontext … statt …
+ms“) und das Schweizer Modell als Q8_0 mit 6 Threads (eigene Zeile unter Spracherkennung).
+
 ## Was nur auf dem Handy getestet werden kann
 
 - Mikrofon-Aufnahme, Echo/Rückkopplung beim Vorlesen, Android-TTS-Offline-Stimmen.
 - Foreground-Service-Downloads im Hintergrund, Benachrichtigungen, SAF-Dateiimport.
-- Schweizerdeutsch-Qualität mit echter Mundart (getestet wurde nur Hochdeutsch-Audio) und dessen
-  Tempo auf dem Handy.
+- Schweizerdeutsch-Qualität mit echter Mundart (getestet wurde nur Hochdeutsch-Audio).
+- Wie viel schneller Schweizerdeutsch als Q8_0 auf dem Handy ist. Auf x86 gibt es die ARM-Kernels
+  (i8mm/KleidiAI/SME2) nicht; dort ist Q8_0 nur gleich schnell bis etwas schneller (4,5 statt 5,3 s
+  Encoder für 2,8 s Audio, langsamer Container). Erwartet wird auf dem Handy ein Mehrfaches, gemessen
+  ist es nicht.
+- Kontext-Kosten auf NPU und CPU des Handys; die Qualität mit dem Kontext auf der NPU (auf x86 nur
+  CPU geprüft).
 - Speicherverbrauch und Wärmeentwicklung bei langen Sitzungen.
 
 ## Lizenzen
