@@ -213,9 +213,19 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
   - Mit Kontext stehen die vorherigen Sätze vor dem neuen, ihre Übersetzung ist der Anfang der
     Antwort.
   - Gemessen auf 45 mehrdeutigen Sätzen (de↔en, echte Modelle):
-    - Hy-MT2: 29 → 40 richtig. Hy-MT2s eigene Kontextvorlage („[Background Information]“) schaffte
-      nur 33 und übersetzte teils den Kontext statt des Satzes.
+    - Hy-MT2: 29 → 40 richtig. Hy-MT2s eigene Kontextvorlage („[Background Information]“, exakt
+      wie in der Modellkarte) schaffte 35 und übersetzte teils den Kontext statt des Satzes.
     - MiLMMT-46 1B: 32 → 44 richtig.
+    - Getestet und verworfen: ein separates kleines Kontext-Modell, das aus Gespräch und Satz das
+      Thema und die Bedeutung mehrdeutiger Wörter bestimmt und sie Hy-MT2 über dessen
+      Begriffs-Vorlage („X translates to Y“) mitgibt. Geprüft wurden Qwen3.5-0.8B, LFM2.5-1.2B und
+      Qwen3.5-2B (Okt. 2026):
+      - Mit Begriffs-Hinweisen 28–29 richtig, mit Thema 32–33, kombiniert mit der jetzigen Lösung
+        34–39. Das ist überall schlechter als 40.
+      - Grund: Die kleinen Modelle erkennen die mehrdeutigen Wörter nicht. Qwen3.5-2B meldet fast
+        immer „keine“, LFM2.5 liefert falsche Hinweise (z. B. crane = Storch). Ein abstraktes Thema
+        („Übersetzungs-App“) nutzt Hy-MT2 kaum, die echten Sätze schon.
+      - Kosten: auf x86 rund 2 s zusätzlich pro Satz, doppelt so viel wie die ganze Übersetzung.
   - `maxTokens = 0` füllt nur den KV-Cache; damit wird der nächste Prompt vorgewärmt.
 - **sherpa-onnx 1.13.8** (VAD, ASR, Piper) aus dem Quellcode gebaut gegen ONNX Runtime 1.28.0 (aus
   Maven), siehe `native/build-sherpa-onnx.sh`. Die gebaute `libsherpa-onnx-jni.so` liegt in

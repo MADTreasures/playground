@@ -11,7 +11,9 @@ data class ContextPair(val source: String, val translation: String)
  * of the text to translate, and their translation is written as the beginning of the model's
  * answer, so the model simply continues translating. Measured on 45 ambiguous sentences (x86, the
  * real models): Hy-MT2 29 → 40 correct, MiLMMT-46 1B 32 → 44. Hy-MT2's own context template was
- * worse (33) and sometimes translated the context instead of the text.
+ * worse (35) and sometimes translated the context instead of the text. A separate small context
+ * model (Qwen3.5-0.8B/2B, LFM2.5-1.2B: topic + word hints via Hy-MT2's terminology template) was
+ * worse as well (28-39) and cost about twice the translation time.
  */
 object TranslationContext {
     /** at most this many earlier sentences ... */
