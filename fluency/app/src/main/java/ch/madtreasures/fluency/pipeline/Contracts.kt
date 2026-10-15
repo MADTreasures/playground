@@ -14,9 +14,6 @@ interface Translator {
     suspend fun translate(req: TranslationEngine.Request, onPartial: ((String) -> Unit)? = null): TranslationEngine.Result
 
     fun cancel(role: TranslationEngine.Role? = null)
-
-    /** Prepares the next request while nothing runs (prompt prefix into the KV cache); optional. */
-    fun prepare(req: TranslationEngine.Request) {}
 }
 
 class EngineTranslator(private val engine: TranslationEngine) : Translator {
@@ -27,8 +24,6 @@ class EngineTranslator(private val engine: TranslationEngine) : Translator {
         engine.translate(req, onPartial)
 
     override fun cancel(role: TranslationEngine.Role?) = engine.cancel(role)
-
-    override fun prepare(req: TranslationEngine.Request) = engine.prepare(req)
 }
 
 /** Voice activity detection (Silero in the app). */

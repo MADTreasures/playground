@@ -9,6 +9,7 @@ import ch.madtreasures.fluency.engine.asr.SherpaAsr
 import ch.madtreasures.fluency.engine.asr.WhisperCppAsr
 import ch.madtreasures.fluency.models.AsrType
 import ch.madtreasures.fluency.models.ModelCatalog
+import ch.madtreasures.fluency.settings.AppSettings
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -22,7 +23,8 @@ class BenchmarkIntegrationTest {
         TestEnv.assumeLlama()
         TestEnv.assumeSherpa()
         TestEnv.assumeFile(File(TestEnv.parakeetDir, "encoder.int8.onnx"))
-        val engine = TestEnv.engine()
+        // a context document: the benchmark measures what it costs (Hy-MT2 only)
+        val engine = TestEnv.engine(AppSettings(llmThreads = 4, contextDocument = "Ich teste meine Übersetzungs-App auf dem Handy."))
         var current: AsrEngine? = null
         val asrModels = listOfNotNull(
             ModelCatalog.byId(ModelCatalog.PARAKEET),
@@ -59,9 +61,10 @@ class BenchmarkIntegrationTest {
         // a repeated (live partial) prompt comes from the KV cache: all tokens but the last one, which
         // is evaluated again for its logits (checked on the mechanism; times vary on a shared host)
         assertTrue(report.mt.all { it.cachedPromptTokens > 10 && it.cachedReusedTokens == it.cachedPromptTokens - 1 })
-        // what context costs: the first sentence again with an earlier sentence as context
-        assertTrue(report.mt.all { it.contextTokens > 5 && it.contextMs > 0 && it.plainMs > 0 })
-        assertTrue(report.asText().contains("mit Kontext"))
+        // what the context document costs: Hy-MT2 uses it, MiLMMT does not
+        assertTrue(report.mt.filter { it.modelId == ModelCatalog.HY_MT2 }.all { it.contextTokens > 5 && it.contextMs > 0 && it.plainMs > 0 })
+        assertTrue(report.mt.filter { it.modelId != ModelCatalog.HY_MT2 }.all { it.contextTokens == 0 })
+        assertTrue(report.asText().contains("mit Kontext-Dokument"))
         // the Swiss German model is measured with the German clip and runs as Q8_0
         assertEquals(asrModels.size, report.asr.size)
         assertTrue(report.asr.all { it.text.contains("Wurst") })

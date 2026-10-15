@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -12,6 +13,24 @@ val keystoreProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 fun signingValue(key: String, env: String): String? = keystoreProps.getProperty(key) ?: System.getenv(env)
+
+/**
+ * The release keystore: a path (keystore.properties "storeFile" or FLUENCY_KEYSTORE), or the file
+ * itself as Base64 text in FLUENCY_KEYSTORE_BASE64, for cloud environments where secrets can only
+ * be environment variables. The decoded copy goes to .gradle/ (git-ignored, not in the Studio ZIP).
+ */
+fun releaseKeystore(): File? {
+    signingValue("storeFile", "FLUENCY_KEYSTORE")?.let { return rootProject.file(it) }
+    val text = System.getenv("FLUENCY_KEYSTORE_BASE64")?.filterNot(Char::isWhitespace)?.takeIf { it.isNotEmpty() }
+        ?: return null
+    val bytes = Base64.getDecoder().decode(text)
+    val f = rootProject.file(".gradle/signing/release.keystore")
+    if (!f.exists() || !f.readBytes().contentEquals(bytes)) {
+        f.parentFile.mkdirs()
+        f.writeBytes(bytes)
+    }
+    return f
+}
 
 // Host (x86-64) native libraries for the JVM tests, see native/build-host-jni.sh and
 // native/build-sherpa-onnx.sh host.
@@ -29,8 +48,8 @@ android {
         applicationId = "ch.madtreasures.fluency"
         minSdk = 31
         targetSdk = 37
-        versionCode = 4
-        versionName = "1.3.0"
+        versionCode = 5
+        versionName = "1.4.0"
 
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {
@@ -54,9 +73,9 @@ android {
 
     signingConfigs {
         create("release") {
-            val store = signingValue("storeFile", "FLUENCY_KEYSTORE")
+            val store = releaseKeystore()
             if (store != null) {
-                storeFile = rootProject.file(store)
+                storeFile = store
                 storePassword = signingValue("storePassword", "FLUENCY_KEYSTORE_PASSWORD")
                 keyAlias = signingValue("keyAlias", "FLUENCY_KEY_ALIAS")
                 keyPassword = signingValue("keyPassword", "FLUENCY_KEY_PASSWORD")

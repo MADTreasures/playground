@@ -7,7 +7,6 @@ import ch.madtreasures.fluency.engine.asr.AsrResult
 import ch.madtreasures.fluency.engine.asr.SAMPLE_RATE
 import ch.madtreasures.fluency.engine.asr.SpeechChunk
 import ch.madtreasures.fluency.engine.audio.AudioSource
-import ch.madtreasures.fluency.engine.llm.ContextPair
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -106,7 +105,6 @@ class LivePipelineTest {
 
     private class FakeTranslator : Translator {
         val requests = Collections.synchronizedList(mutableListOf<TranslationEngine.Request>())
-        val prepared = Collections.synchronizedList(mutableListOf<TranslationEngine.Request>())
         override fun modelFor(role: TranslationEngine.Role, source: Language?, target: Language) = "m"
         override suspend fun translate(req: TranslationEngine.Request, onPartial: ((String) -> Unit)?): TranslationEngine.Result {
             requests += req
@@ -115,9 +113,6 @@ class LivePipelineTest {
             return TranslationEngine.Result(req.text.uppercase(), "m", "M", req.source, 15, 10, 0, 5, 1.0, 10.0, false)
         }
         override fun cancel(role: TranslationEngine.Role?) {}
-        override fun prepare(req: TranslationEngine.Request) {
-            prepared += req
-        }
     }
 
     private class FakeSpeaker : Speaker {
@@ -188,18 +183,6 @@ class LivePipelineTest {
         assertTrue(st.utterances.all { it.final })
         assertTrue(st.utterances[0].sourceText.split(' ').size < st.utterances[1].sourceText.split(' ').size)
         assertTrue(st.utterances[0].id < st.utterances[1].id)
-    }
-
-    @Test fun laterUtterancesAreTranslatedWithTheEarlierOnesAsContext() {
-        val (st, tr, _) = run(listOf(0.3 to false, 1.2 to true, 0.8 to false, 2.2 to true, 0.8 to false))
-        val (first, second) = st.utterances
-        val one = ContextPair(first.sourceText, first.translation)
-        val withContext = tr.requests.filter { it.context.isNotEmpty() }
-        assertTrue("the second utterance is translated with the first as context", withContext.isNotEmpty())
-        assertTrue(withContext.all { it.context == listOf(one) })
-        // after every finished utterance the beginning of the next prompt is prepared
-        assertEquals(listOf(one), tr.prepared.first().context)
-        assertEquals(listOf(one, ContextPair(second.sourceText, second.translation)), tr.prepared.last().context)
     }
 
     @Test fun speechStillRunningAtStopIsFinalised() {

@@ -6,18 +6,18 @@ Android-App (Kotlin, Jetpack Compose, Material 3) für das **Samsung Galaxy S26 
 Das Internet wird nur für den einmaligen Modell-Download gebraucht, danach funktioniert alles im
 Flugmodus.
 
-| Live | Gespräch | Text | Modelle | Benchmark |
-|---|---|---|---|---|
-| ![](docs/screenshots/01_live.png) | ![](docs/screenshots/04_conversation.png) | ![](docs/screenshots/05_text.png) | ![](docs/screenshots/06_models.png) | ![](docs/screenshots/07_benchmark.png) |
+| Live | Gespräch | Text | Modelle | Kontext-Dokument | Benchmark |
+|---|---|---|---|---|---|
+| ![](docs/screenshots/01_live.png) | ![](docs/screenshots/04_conversation.png) | ![](docs/screenshots/05_text.png) | ![](docs/screenshots/06_models.png) | ![](docs/screenshots/10_context_document.png) | ![](docs/screenshots/07_benchmark.png) |
 
 Die Screenshots sind Robolectric-Renderings (`ScreenshotTest`). Die Texte und Zahlen darin stammen
 aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Messungen**.
 
 ## Downloads
 
-- **Fertige App**: [`dist/Fluency-1.3.0.apk`](../dist/Fluency-1.3.0.apk) (arm64, signiert). Sie
-  installiert sich als Update über 1.0.0–1.2.0, die heruntergeladenen Modelle bleiben erhalten.
-- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.3.0.zip`](../dist/Fluency-AndroidStudio-1.3.0.zip)
+- **Fertige App**: [`dist/Fluency-1.4.0.apk`](../dist/Fluency-1.4.0.apk) (arm64, signiert). Sie
+  installiert sich als Update über 1.0.0–1.3.0, die heruntergeladenen Modelle bleiben erhalten.
+- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.4.0.zip`](../dist/Fluency-AndroidStudio-1.4.0.zip)
   (enthält alle nativen Quellen und die fertig gebauten NPU-Bibliotheken, keine Submodule)
 
 ## In Android Studio bauen
@@ -52,8 +52,7 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
    Gegenüber auf dem Kopf. Jede Seite hat ihren eigenen Mikrofon-Button. Nach 1,8 s Stille wird
    automatisch übergeben.
 3. **Text-Übersetzung** (tippen/einfügen): Übersetzung schon beim Tippen mit dem schnellen Modell,
-   per Knopf mit dem besten installierten Modell. Lange Texte werden satz- und absatzweise übersetzt,
-   jedes Stück mit dem vorherigen als Kontext.
+   per Knopf mit dem besten installierten Modell. Lange Texte werden satz- und absatzweise übersetzt.
 4. **Modellverwaltung**: Download mit Fortschritt und Geschwindigkeit. Abgebrochene Downloads
    werden per HTTP Range fortgesetzt, auch nach einem App-Neustart. **SHA-256-Prüfung** jeder Datei,
    die Download-URLs sind auf einen Hugging-Face-Commit fixiert. Dazu: Löschen, Speicherbedarf und
@@ -65,20 +64,21 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
    Satz, Prompt- und Ausgabe-Tokens/s, mit KV-Cache, ASR-Echtzeitfaktor und Piper.
 6. **„Deutsch (Schweiz)"** schreibt immer „ss" statt „ß" (Übersetzungen, Untertitel, Vorlesen).
    Die Oberfläche ist Deutsch in Schweizer Schreibweise.
-7. **Zusammenhang (Kontext)**: Mehrdeutige Wörter werden nach dem Gesprächszusammenhang übersetzt,
-   z. B. „Nachrichten“ im Chat als *messages* statt *news*, „Bank“ im Park als *bench*, „bill“ im
-   Restaurant als *Rechnung*. Dazu bekommt jede Übersetzung die letzten zwei Sätze mit. Sie
-   stehen vor dem neuen Satz, ihre Übersetzung ist der Anfang der Antwort, und das Modell
-   übersetzt einfach weiter. Das wirkt auch für Du/Sie und einheitliche Begriffe.
-   - Im Gesprächsmodus zählen beide Personen, die Sätze des Gegenübers werden umgedreht verwendet.
-   - Kosten: rund 15–25 zusätzliche Prompt-Tokens pro Satz Kontext. Auf der NPU (936 Tok/s) sind
-     das etwa 20–40 ms pro Äusserung, auf der CPU (215 Tok/s) etwa 70–170 ms.
-   - Nach jeder fertigen Äusserung berechnet die App in der Sprechpause den Anfang des nächsten
-     Prompts schon voraus (KV-Cache). Im Test kamen damit 46 statt 23 von 71 Prompt-Tokens aus dem
-     Cache.
-   - Der Benchmark zeigt die Kosten pro Modell und Rechenwerk („mit Kontext … statt … ms“).
-   - Abschaltbar unter Optionen → Übersetzung → „Zusammenhang beachten“. Gibt das Modell mit Kontext
-     nichts Brauchbares zurück, wird der Satz ohne Kontext übersetzt.
+7. **Kontext-Dokument (eigene Sätze)**: Optionen → Übersetzung → „Kontext-Dokument schreiben“.
+   Du schreibst selbst, worum es in deinen Gesprächen geht, und ergänzt es, wann du willst. Die App
+   nimmt nur diese Sätze, nichts automatisch.
+   - Normale Zeilen sind Sätze, z. B. „Ich teste meine Übersetzungs-App auf dem Handy.“ Sie gehen
+     bei jeder Übersetzung als Systemnachricht an Hy-MT2 mit.
+   - Zeilen „Wort = Übersetzung“ (auch → oder ->) sind feste Übersetzungen, z. B. „Nachrichten =
+     messages“. Sie gelten nur für Sätze, in denen das Wort vorkommt, mit beliebiger Endung, und auch
+     in der Gegenrichtung (messages → Nachrichten).
+   - **Kosten:** Die Sätze stehen in jedem Prompt gleich vorne. Sie werden einmal berechnet (gleich
+     beim Laden des Modells) und kommen danach aus dem KV-Cache. Im Test kamen 56 von 65
+     Prompt-Tokens aus dem Cache, neu zu rechnen waren nur 9 statt 32 ohne Dokument. Feste Begriffe
+     kosten nur in Sätzen mit dem Wort ein paar Tokens.
+   - Gilt für Hy-MT2 (Standardmodell), nicht für MiLMMT-46. Abschaltbar mit „Kontext-Dokument
+     verwenden“. Der Benchmark misst ohne Dokument und zeigt die Kosten separat.
+   - Höchstens 2000 Zeichen, weil alles in jeden Prompt geht.
 8. **GPU (Adreno) und NPU (Hexagon) für die Übersetzung**: Optionen → Leistung → „Rechenwerk für die
    Übersetzung“.
    - **Automatisch** (Standard): Beim ersten Laden eines Modells übersetzt die App dieselben zwei
@@ -210,23 +210,36 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
   hat (bei wachsenden Teilsätzen kommen z. B. 31 von 41 Tokens aus dem Cache). Tokens werden
   gestreamt (nur vollständige UTF-8-Zeichen), Abbruch geht jederzeit. Die Prompts sind die kürzesten
   offiziellen Formate (Hy-MT2-Chat-Template bzw. MiLMMT-Completion), Decoding greedy.
-  - Mit Kontext stehen die vorherigen Sätze vor dem neuen, ihre Übersetzung ist der Anfang der
-    Antwort.
-  - Gemessen auf 45 mehrdeutigen Sätzen (de↔en, echte Modelle):
-    - Hy-MT2: 29 → 40 richtig. Hy-MT2s eigene Kontextvorlage („[Background Information]“, exakt
-      wie in der Modellkarte) schaffte 35 und übersetzte teils den Kontext statt des Satzes.
-    - MiLMMT-46 1B: 32 → 44 richtig.
-    - Getestet und verworfen: ein separates kleines Kontext-Modell, das aus Gespräch und Satz das
-      Thema und die Bedeutung mehrdeutiger Wörter bestimmt und sie Hy-MT2 über dessen
-      Begriffs-Vorlage („X translates to Y“) mitgibt. Geprüft wurden Qwen3.5-0.8B, LFM2.5-1.2B und
-      Qwen3.5-2B (Okt. 2026):
-      - Mit Begriffs-Hinweisen 28–29 richtig, mit Thema 32–33, kombiniert mit der jetzigen Lösung
-        34–39. Das ist überall schlechter als 40.
-      - Grund: Die kleinen Modelle erkennen die mehrdeutigen Wörter nicht. Qwen3.5-2B meldet fast
-        immer „keine“, LFM2.5 liefert falsche Hinweise (z. B. crane = Storch). Ein abstraktes Thema
-        („Übersetzungs-App“) nutzt Hy-MT2 kaum, die echten Sätze schon.
-      - Kosten: auf x86 rund 2 s zusätzlich pro Satz, doppelt so viel wie die ganze Übersetzung.
-  - `maxTokens = 0` füllt nur den KV-Cache; damit wird der nächste Prompt vorgewärmt.
+  - **Kontext-Dokument:** Die Sätze des Nutzers stehen in der Systemnachricht des
+    Hunyuan-Chat-Templates (`<｜hy_begin▁of▁sentence｜>Sätze<｜hy_place▁holder▁no▁3｜><｜hy_User｜>…`),
+    feste Übersetzungen in Hy-MT2s offizieller Begriffs-Vorlage („Reference the following
+    translations: X translates to Y“).
+  - Gemessen auf 45 mehrdeutigen Sätzen (de↔en, echtes Hy-MT2 auf x86), mit einem Satz zum Thema je
+    Fall:
+
+    | Variante | richtig |
+    |---|---|
+    | ohne Kontext | 29 |
+    | Satz als Systemnachricht (gewählt) | 37 |
+    | Satz in Hy-MT2s Vorlage „[Background Information]“ | 35 |
+    | Satz als früherer Chat-Turn | 36 |
+    | fester Begriff allein | 38 von 41 |
+    | **Satz als Systemnachricht + fester Begriff (gewählt)** | **45** |
+
+  - Ein Dokument für alle Sätze („Ich teste meine Übersetzungs-App …“) löst die Nachrichten-Fälle,
+    lässt „Nachrichten“ im Fernsehen bei *news* und übersetzt das Dokument nie mit. In Sätzen zu
+    ganz anderen Themen kann es die Wortwahl verschieben (z. B. „tip“ → *Tipp* statt *Trinkgeld*);
+    dafür sind die festen Begriffe da.
+  - Bis 1.3.0 nahm die App automatisch die letzten zwei Sätze des Gesprächs. Das ist entfernt, auf
+    Wunsch: Der Nutzer will selbst bestimmen, welche Sätze gelten.
+  - Getestet und verworfen: ein separates kleines Kontext-Modell, das aus Gespräch und Satz das
+    Thema und die Bedeutung mehrdeutiger Wörter bestimmt (Qwen3.5-0.8B, LFM2.5-1.2B, Qwen3.5-2B,
+    Okt. 2026):
+    - Es kam auf 28–33 richtig und brauchte auf x86 rund 2 s zusätzlich pro Satz.
+    - Grund: Die kleinen Modelle erkennen die mehrdeutigen Wörter nicht. Qwen3.5-2B meldet fast
+      immer „keine“, LFM2.5 liefert falsche Hinweise (z. B. crane = Storch).
+  - `maxTokens = 0` füllt nur den KV-Cache; so werden die Sätze des Dokuments beim Laden des
+    Modells vorausberechnet.
 - **sherpa-onnx 1.13.8** (VAD, ASR, Piper) aus dem Quellcode gebaut gegen ONNX Runtime 1.28.0 (aus
   Maven), siehe `native/build-sherpa-onnx.sh`. Die gebaute `libsherpa-onnx-jni.so` liegt in
   `app/src/main/jniLibs`.
@@ -272,6 +285,16 @@ oder per Umgebungsvariablen `FLUENCY_KEYSTORE`, `FLUENCY_KEYSTORE_PASSWORD`, `FL
 `FLUENCY_KEY_PASSWORD`. Updates müssen mit **demselben Schlüssel** signiert werden (Zertifikat
 SHA-256 `81:05:E7:DE:…:9C:6A`), sonst verweigert Android die Installation über die alte Version.
 
+In einer Cloud-Umgebung, in der Geheimnisse nur Umgebungsvariablen sein können (z. B. Claude Code
+im Web), kommt die Schlüsseldatei selbst als Text in `FLUENCY_KEYSTORE_BASE64`. Der Build schreibt
+sie dann nach `.gradle/signing/` (nicht im Repo, nicht im ZIP). Den Text erzeugt man so:
+
+```
+PowerShell:  [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\pfad\mein.jks")) | Set-Clipboard
+macOS:       base64 -i mein.jks | pbcopy
+Linux:       base64 -w0 mein.jks
+```
+
 Modellkatalog aktualisieren (neue Commits/Hashes von Hugging Face): `python3 -I tools/gen_model_files.py`.
 
 ## Tests
@@ -287,18 +310,21 @@ Tests laufen immer. Erwartete Ordnerstruktur (Standard: `test-models/` im Projek
 `llm/` (die drei GGUF-Dateien), `parakeet-v3/` (encoder/decoder/joiner.int8.onnx, tokens.txt,
 test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_vad_v5.onnx`.
 
-127 Tests in 25 Klassen, alle grün:
+124 Tests in 24 Klassen, alle grün:
 
 - **Logik**: Schweizer Schreibweise, Satz-Segmentierung, Spracherkennung per Stoppwörtern/Schrift,
   Prompt-Formate, Modell-Routing, Katalog (gepinnte URLs, SHA-256), **Downloader** (Fortsetzen nach
   Verbindungsabbruch, `.part` aus früherem Lauf, Server ignoriert Range, falscher Hash), WAV,
-  **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp, Kontext
-  der vorherigen Äusserung, Vorwärmen nach jeder Äusserung).
-- **Kontext**: Auswahl der letzten zwei Sätze (Zeichenlimit, leere Sätze, Zeilenumbrüche),
-  Chinesisch/Japanisch ohne Leerzeichen, Prompt-Aufbau für Hy-MT2 und MiLMMT, der Vorwärm-Prompt ist
-  Anfang jedes folgenden Prompts, Gesprächsmodus (Sätze des Gegenübers umgedreht, de = de-CH),
-  Engine (Kontext vorne und als Antwortanfang, abschaltbar, leere Antwort → ohne Kontext neu,
-  Textstücke mit dem vorherigen Stück, Vorwärmen nur bei geladenem Modell).
+  **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp).
+- **Kontext-Dokument**:
+  - Lesen: Sätze und feste Begriffe getrennt, Anführungszeichen, →/->, zu lange Zeilen bleiben
+    Sätze, Grenze 2000 Zeichen.
+  - Begriffe: nur wenn das Wort vorkommt (Wortanfang, beliebige Endung, Gross/klein), Gegenrichtung,
+    Chinesisch ohne Leerzeichen.
+  - Prompts: Systemnachricht, Begriffs-Vorlage englisch und chinesisch wie in der Modellkarte; der
+    Vorwärm-Teil ist Anfang jedes Prompts.
+  - Engine: Dokument in jedem Hy-MT2-Prompt, abschaltbar, nicht im Benchmark/CPU-GPU-NPU-Vergleich,
+    nicht bei MiLMMT; leere Antwort → ohne Dokument neu; Vorwärmen beim Laden.
 - **CPU/GPU/NPU-Wahl** mit simulierten Modellen auf CPU, GPU und NPU. Im Container gibt es weder
   eine Adreno-GPU noch eine Hexagon-NPU. Getestet wird dieselbe Engine-Logik wie auf dem Handy:
   - Das schnellste Rechenwerk übernimmt ohne Pause. Sind GPU und NPU langsamer, bleibt es bei der
@@ -321,15 +347,18 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
   - Parakeet (de/en/fr/es) und Whisper-turbo (inkl. Spracherkennung).
   - Silero VAD mit absoluten Segmentpositionen.
   - Schweizerdeutsch-Whisper über whisper.cpp, geladen als Q8_0 (gleicher Text wie mit Q5_0).
-  - **Kontext mit Hy-MT2**: der Satz aus dem Feldtest („…dass die Nachrichten getrennt werden“)
-    wird mit dem Satz davor zu „…the messages are separated“ (ohne Kontext: „the news is
-    separated“); Bank → bench, Mutter → nut, bill → Rechnung, key → Taste; der Kontext wird nicht
-    mitübersetzt; Vorwärmen holt 46 statt 23 von 71 Prompt-Tokens aus dem Cache.
+  - **Kontext-Dokument mit Hy-MT2**:
+    - Der Satz aus dem Feldtest („…dass die Nachrichten getrennt werden“) wird mit dem Dokument
+      zu „…the messages are separated“ (ohne Dokument: „the news is separated“).
+    - „Bank = bench“ wird befolgt, auch rückwärts (bench → Bank).
+    - Unbeteiligte Sätze (Zoo, Bahnhof) bleiben unverändert.
+    - Nach dem Vorwärmen kommen die Sätze aus dem Cache.
   - Echter Download von Hugging Face inkl. SHA-256 (Silero, 355 eSpeak-Dateien, Piper).
   - Piper spricht, Parakeet erkennt: „Guten Morgen, wie komme ich zum Bahnhof?"
   - **Live-Pipeline Ende-zu-Ende** (Audio → VAD → Parakeet → Hy-MT2) und der App-Benchmark
     (prüft u. a., dass ein wiederholter Prompt bis auf das letzte Token aus dem KV-Cache kommt, dass
-    die Kontext-Kosten gemessen werden und dass das Schweizer Modell als „Q8_0“ mitgemessen wird).
+    die Kosten des Kontext-Dokuments gemessen werden und dass das Schweizer Modell als „Q8_0“
+    mitgemessen wird).
   - Die echte JNI meldet auf x86 „kein GPU-Backend“ und „kein NPU-Backend“; der Automatikmodus
     bleibt dann auf der CPU.
 - **Robolectric-Screenshots** aller Bildschirme (`docs/screenshots`).
@@ -365,8 +394,9 @@ Hy-MT2 1.8B (Q4_K_M):
 
 Parakeet-TDT 0.6B v3: 365 ms für 6,6 s Audio (Echtzeitfaktor 0,055).
 
-Neu in 1.3.0 und noch nicht auf dem Handy gemessen: Kontext-Kosten (Zeile „mit Kontext … statt …
-ms“) und das Schweizer Modell als Q8_0 mit 6 Threads (eigene Zeile unter Spracherkennung).
+Noch nicht auf dem Handy gemessen: die Kosten des Kontext-Dokuments (Zeile „mit Kontext-Dokument
+einmalig … statt … ms“, erscheint nur mit Dokument) und das Schweizer Modell als Q8_0 mit 6 Threads
+(eigene Zeile unter Spracherkennung).
 
 ## Was nur auf dem Handy getestet werden kann
 
@@ -377,8 +407,8 @@ ms“) und das Schweizer Modell als Q8_0 mit 6 Threads (eigene Zeile unter Sprac
   (i8mm/KleidiAI/SME2) nicht; dort ist Q8_0 nur gleich schnell bis etwas schneller (4,5 statt 5,3 s
   Encoder für 2,8 s Audio, langsamer Container). Erwartet wird auf dem Handy ein Mehrfaches, gemessen
   ist es nicht.
-- Kontext-Kosten auf NPU und CPU des Handys; die Qualität mit dem Kontext auf der NPU (auf x86 nur
-  CPU geprüft).
+- Kosten des Kontext-Dokuments auf NPU und CPU des Handys; die Qualität mit Dokument auf der NPU
+  (auf x86 nur CPU geprüft).
 - Speicherverbrauch und Wärmeentwicklung bei langen Sitzungen.
 
 ## Lizenzen

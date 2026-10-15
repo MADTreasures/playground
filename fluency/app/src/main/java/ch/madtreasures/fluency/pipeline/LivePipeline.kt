@@ -353,7 +353,7 @@ class LivePipeline(
         val deferred = CompletableDeferred<TranslationEngine.Result?>()
         inflight = Inflight(req, deferred)
         try {
-            val res = translator.translate(TranslationEngine.Request(req.text, config.source, config.target, Role.LIVE, context = contextFor(req.id))) { partial ->
+            val res = translator.translate(TranslationEngine.Request(req.text, config.source, config.target, Role.LIVE)) { partial ->
                 if (req.id !in finalizing) updateUtterance(req.id) { if (it.final) it else it.copy(translation = partial) }
             }
             if (!res.cancelled) {
@@ -408,7 +408,7 @@ class LivePipeline(
             var result: TranslationEngine.Result? = null
             val translation = reused ?: run {
                 translator.cancel(Role.LIVE)
-                translator.translate(TranslationEngine.Request(text, config.source, config.target, Role.FINAL, context = contextFor(job.id))) { partial ->
+                translator.translate(TranslationEngine.Request(text, config.source, config.target, Role.FINAL)) { partial ->
                     updateUtterance(job.id) { it.copy(translation = partial) }
                 }.also { result = it }.text
             }
@@ -426,8 +426,6 @@ class LivePipeline(
             updateUtterance(job.id) { it.copy(translation = translation, final = true, latency = latency) }
             partialCache.remove(job.id)
             if (speaker != null && speakEnabled() && translation.isNotBlank()) speakQueue.trySend(translation to config.target)
-            // the next utterance's prompt starts with this one: evaluate that part while the speaker pauses
-            translator.prepare(TranslationEngine.Request("", config.source, config.target, Role.LIVE, context = contextFor(Long.MAX_VALUE)))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -454,9 +452,6 @@ class LivePipeline(
     // ------------------------------------------------------------------------------- state
 
     private fun normalizeSource(text: String): String = TextNormalizer.forLanguage(text.trim(), config.source)
-
-    /** The finished utterances before [id] (both people in conversation mode) as translation context. */
-    private fun contextFor(id: Long) = ConversationContext.pairsFor(state.value.utterances, id, config.source, config.target)
 
     private fun newUtterance(): Long {
         val id = nextId.incrementAndGet()

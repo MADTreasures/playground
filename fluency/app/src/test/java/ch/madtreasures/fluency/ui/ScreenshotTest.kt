@@ -38,6 +38,7 @@ import ch.madtreasures.fluency.ui.models.ModelsActions
 import ch.madtreasures.fluency.ui.models.ModelsScreen
 import ch.madtreasures.fluency.ui.models.ModelsUiState
 import ch.madtreasures.fluency.ui.settings.AccelUi
+import ch.madtreasures.fluency.ui.settings.ContextDocumentScreen
 import ch.madtreasures.fluency.ui.settings.SettingsScreen
 import ch.madtreasures.fluency.ui.settings.SettingsUiState
 import ch.madtreasures.fluency.ui.text.ModelOption
@@ -191,5 +192,14 @@ class ScreenshotTest {
 
     @Test fun settingsGpu() = shoot("09_settings_gpu", before = { compose.onNodeWithText("Threads Übersetzung").performScrollTo() }) {
         Framed(Tab.SETTINGS) { SettingsScreen(settingsState, onChange = {}, onBenchmark = {}) }
+    }
+
+    @Test fun contextDocument() = shoot("10_context_document") {
+        ContextDocumentScreen(
+            text = "Ich teste meine Übersetzungs-App auf dem Handy.\nWir sprechen oft über Chat-Nachrichten und das Modell.\n" +
+                "Nachrichten = messages\nBank = bench",
+            onSave = {},
+            onBack = {},
+        )
     }
 }

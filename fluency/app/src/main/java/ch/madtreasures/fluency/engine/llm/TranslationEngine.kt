@@ -80,10 +80,10 @@ class TranslationEngine(
         /** force CPU, GPU or NPU (benchmark) */
         val processor: Processor? = null,
         /**
-         * earlier sentences of the conversation, oldest first, oriented like this request: used
-         * when [AppSettings.translationContext] is on (texts: the earlier pieces of the same text)
+         * apply the user's context document ([AppSettings.contextDocument]) if it is switched on;
+         * the benchmark and the CPU/GPU/NPU comparison leave it out
          */
-        val context: List<ContextPair> = emptyList(),
+        val useDocument: Boolean = true,
     )
 
     data class Result(
@@ -206,7 +206,23 @@ class TranslationEngine(
     /** Loads [ids] in the background so the first translation is fast. */
     suspend fun preload(ids: Collection<String>) {
         val infos = source.installedTranslationModels().filter { it.id in ids }
-        for (info in infos) runCatching { get(info) }
+        for (info in infos) runCatching { warmUpDocument(get(info)) }
+    }
+
+    /**
+     * Evaluates the system message (the sentences of the user's context document) on the loaded
+     * model, so that the first translation already finds it in the KV cache.
+     */
+    private suspend fun warmUpDocument(l: Loaded) {
+        if (l.info.promptStyle != PromptStyle.HY_MT) return
+        val sentences = currentDocument()?.sentences?.takeIf { it.isNotEmpty() } ?: return
+        val prompt = PromptFormat.hyMtDocumentPrefix(sentences)
+        withContext(l.dispatcher) {
+            val model = l.model
+            // an accelerator's first run is crash-guarded in runOn: never start with the warm-up
+            if (model.isClosed || (model.processor != Processor.CPU && !l.checked)) return@withContext
+            runCatching { model.generate(prompt.text, prompt.addSpecial, maxTokens = 0) }
+        }
     }
 
     // ------------------------------------------------------------------------------ loading
@@ -319,25 +335,19 @@ class TranslationEngine(
     /** Where model [id] runs, if it is loaded. */
     fun processorOf(id: String): Processor? = loaded[id]?.processor
 
-    /**
-     * Brings the beginning of the next request's prompt (instruction + earlier sentences, see
-     * [PromptFormat.warmUpPrompt]) into the KV cache of the model that will serve it, while it is
-     * idle: the first partial translation of the next utterance then only evaluates its own words.
-     * Only for a model that is loaded already and when context is on; never blocks the caller.
-     */
-    fun prepare(req: Request) {
-        if (!settings().translationContext) return
-        val ctx = TranslationContext.join(TranslationContext.select(req.context)) ?: return
-        val info = pickModel(req.role, req.source, req.target, req.modelId) ?: return
-        val style = info.promptStyle ?: return
-        val prompt = PromptFormat.warmUpPrompt(style, req.source, req.target, ctx) ?: return
-        val l = loaded[info.id] ?: return
-        scope.launch(l.dispatcher) {
-            val model = l.model
-            // an accelerator's first run is crash-guarded in runOn: never start with a warm-up
-            if (model.isClosed || l.runningRole != null || (model.processor != Processor.CPU && !l.checked)) return@launch
-            runCatching { model.generate(prompt.text, prompt.addSpecial, maxTokens = 0) }
-        }
+    /** True if translations use the user's context document (switched on and not empty). */
+    fun documentActive(): Boolean = currentDocument() != null
+
+    @Volatile private var parsedDocument: Pair<String, ContextDocument> = "" to ContextDocument.EMPTY
+
+    /** The user's context document if it is switched on and not empty (parsed once per change). */
+    private fun currentDocument(): ContextDocument? {
+        val s = settings()
+        if (!s.translationContext) return null
+        val cached = parsedDocument
+        val doc = if (cached.first == s.contextDocument) cached.second
+        else ContextDocument.parse(s.contextDocument).also { parsedDocument = s.contextDocument to it }
+        return doc.takeIf { !it.isEmpty }
     }
 
     /** Stops the generation that is running for [role] (all roles if null). */
@@ -495,7 +505,7 @@ class TranslationEngine(
             val src = Languages.require(p.source)
             val tgt = Languages.require(p.target)
             model.resetCache()
-            return runPieces(info, model, style, src, Request(p.text, src, tgt, Role.FINAL), p.text, null).takeIf { !it.cancelled }
+            return runPieces(info, model, style, src, Request(p.text, src, tgt, Role.FINAL, useDocument = false), p.text, null).takeIf { !it.cancelled }
         }
         val block = {
             try {
@@ -669,17 +679,16 @@ class TranslationEngine(
         var decode = 0.0
         var cancelled = false
         val echo = PromptFormat.echoNames(req.target)
-        val useContext = settings().translationContext && PromptFormat.supportsContext(style)
-        // earlier sentences, oldest first: the conversation's, then the pieces of this text
-        val history = if (useContext) req.context.toMutableList() else mutableListOf()
+        // the user's own context document (Hy-MT2 only): sentences as system message, fixed translations
+        val document = if (req.useDocument && PromptFormat.supportsDocument(style)) currentDocument() else null
         for (piece in pieces) {
             if (piece.text.isBlank()) {
                 out.append(piece.separatorAfter)
                 continue
             }
             val prefix = out.toString()
-            fun generateWith(context: PromptFormat.Context?): LlamaModel.Result {
-                val prompt = PromptFormat.build(style, src, req.target, piece.text, context) { user -> model.applyChatTemplate(user) }
+            fun generateWith(applied: ContextDocument.Applied?): LlamaModel.Result {
+                val prompt = PromptFormat.build(style, src, req.target, piece.text, applied) { user -> model.applyChatTemplate(user) }
                 val r = model.generate(
                     prompt = prompt.text,
                     addSpecial = prompt.addSpecial,
@@ -699,11 +708,11 @@ class TranslationEngine(
                 decode += r.decodeMs
                 return r
             }
-            val context = if (useContext) TranslationContext.join(TranslationContext.select(history)) else null
-            var r = generateWith(context)
+            val applied = document?.forText(piece.text)?.takeIf { !it.isEmpty }
+            var r = generateWith(applied)
             var pieceOut = TextNormalizer.cleanTranslation(r.text, piece.text, echo)
-            if (context != null && r.stop != LlamaModel.StopReason.CANCELLED && TranslationContext.failed(pieceOut, context)) {
-                // the model did not continue after the earlier translation: this sentence without context
+            if (applied != null && r.stop != LlamaModel.StopReason.CANCELLED && pieceOut.isBlank()) {
+                // no answer with the context document: this piece without it
                 r = generateWith(null)
                 pieceOut = TextNormalizer.cleanTranslation(r.text, piece.text, echo)
             }
@@ -712,7 +721,6 @@ class TranslationEngine(
                 cancelled = true
                 break
             }
-            if (useContext) history += ContextPair(piece.text, pieceOut)
         }
         val final = TextNormalizer.forLanguage(out.toString().trim(), req.target)
         return Result(

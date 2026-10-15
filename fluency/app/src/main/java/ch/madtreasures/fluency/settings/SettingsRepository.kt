@@ -48,8 +48,13 @@ data class AppSettings(
     val asrThreads: Int = 2,
     /** CPU or GPU for the translation models (automatic: measured once per model) */
     val accel: AccelMode = AccelMode.AUTO,
-    /** the previous sentences and their translations go into the prompt (ambiguous words) */
+    /** use the user's context document [contextDocument] (Hy-MT2) */
     val translationContext: Boolean = true,
+    /**
+     * the user's own sentences about what the conversations are about, and fixed translations as
+     * lines "Wort = Übersetzung" (see ContextDocument); empty = no context
+     */
+    val contextDocument: String = "",
     val showLatency: Boolean = true,
     val keepScreenOn: Boolean = true,
     val muteMicWhileSpeaking: Boolean = true,
@@ -79,6 +84,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         val asrThreads = intPreferencesKey("asrThreads")
         val accel = stringPreferencesKey("accel")
         val translationContext = booleanPreferencesKey("translationContext")
+        val contextDocument = stringPreferencesKey("contextDocument")
 
         /** until 1.0.0: GPU on/off (off = CPU only) */
         val useGpu = booleanPreferencesKey("useGpu")
@@ -111,6 +117,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         asrThreads = p[K.asrThreads] ?: defaults.asrThreads,
         accel = AccelMode.parse(p[K.accel]) ?: if (p[K.useGpu] == true) AccelMode.GPU else defaults.accel,
         translationContext = p[K.translationContext] ?: defaults.translationContext,
+        contextDocument = p[K.contextDocument] ?: defaults.contextDocument,
         showLatency = p[K.showLatency] ?: defaults.showLatency,
         keepScreenOn = p[K.keepScreenOn] ?: defaults.keepScreenOn,
         muteMicWhileSpeaking = p[K.muteMicWhileSpeaking] ?: defaults.muteMicWhileSpeaking,
@@ -150,6 +157,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
                 p[K.accel] = s.accel.name
                 p.remove(K.useGpu)
                 p[K.translationContext] = s.translationContext
+                p[K.contextDocument] = s.contextDocument
                 p[K.showLatency] = s.showLatency
                 p[K.keepScreenOn] = s.keepScreenOn
                 p[K.muteMicWhileSpeaking] = s.muteMicWhileSpeaking

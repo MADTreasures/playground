@@ -7,7 +7,6 @@ import ch.madtreasures.fluency.engine.asr.AsrEngine
 import ch.madtreasures.fluency.engine.asr.SAMPLE_RATE
 import ch.madtreasures.fluency.engine.asr.WhisperCppAsr
 import ch.madtreasures.fluency.engine.llm.AccelChoice
-import ch.madtreasures.fluency.engine.llm.ContextPair
 import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.models.ModelInfo
@@ -32,10 +31,10 @@ data class MtBench(
     /** prompt tokens of the repeated sentence, and how many of them came from the KV cache */
     val cachedPromptTokens: Int = 0,
     val cachedReusedTokens: Int = 0,
-    /** the first sentence from an empty cache without and with an earlier sentence as context */
+    /** the first sentence from an empty cache without and with the user's context document */
     val plainMs: Long = 0,
     val contextMs: Long = 0,
-    /** extra prompt tokens of the context; 0 = context is off (settings) */
+    /** extra prompt tokens of the context document; 0 = no document (or switched off) */
     val contextTokens: Int = 0,
 ) {
     val title: String get() = "$name · $processor"
@@ -81,7 +80,7 @@ data class BenchReport(
                     "- ${it.title}: Laden ${it.loadMs} ms, Ø ${"%.0f".format(it.avgMs)} ms/Satz, Prompt ${"%.0f".format(it.prefillTps)} Tok/s, " +
                         "Ausgabe ${"%.1f".format(it.decodeTps)} Tok/s, mit KV-Cache ${"%.0f".format(it.cachedMs)} ms " +
                         "(${it.cachedReusedTokens}/${it.cachedPromptTokens} Prompt-Tokens aus dem Cache)" +
-                        if (it.contextTokens > 0) ", mit Kontext ${it.contextMs} statt ${it.plainMs} ms (+${it.contextTokens} Prompt-Tokens)" else "",
+                        if (it.contextTokens > 0) ", mit Kontext-Dokument einmalig ${it.contextMs} statt ${it.plainMs} ms (+${it.contextTokens} Prompt-Tokens, danach aus dem Cache)" else "",
                 )
             }
         }
@@ -108,14 +107,6 @@ object BenchData {
     )
 
     const val TTS_SENTENCE = "Guten Tag! Das ist ein kurzer Test der Sprachausgabe."
-
-    /** An earlier sentence and its translation per direction: measures what context costs. */
-    val context = mapOf(
-        "de-en" to ContextPair("Ich teste gerade eine Übersetzungs-App auf meinem Handy.", "I am testing a translation app on my phone right now."),
-        "en-de" to ContextPair("We have a lot of work this week.", "Wir haben diese Woche viel Arbeit."),
-        "fr-de" to ContextPair("Nous fêtons l'anniversaire de ma mère.", "Wir feiern den Geburtstag meiner Mutter."),
-        "it-en" to ContextPair("Sono alla stazione centrale.", "I am at the central station."),
-    )
 }
 
 /** Runs the benchmark against everything that is installed. */
@@ -255,11 +246,12 @@ class Benchmark(
         }
         // repeat the last sentence: the whole prompt prefix is cached
         val cached = translation.translate(req(pairs.last(), m.id, p))
-        // the first sentence again from an empty cache, with an earlier sentence as context
-        val contextPair = BenchData.context["${pairs.first().source}-${pairs.first().target}"]
-        val withContext = contextPair?.let {
+        // the first sentence again from an empty cache, with the user's context document (if any)
+        val withContext = if (translation.documentActive()) {
             translation.resetCaches()
-            translation.translate(req(pairs.first(), m.id, p).copy(context = listOf(it)))
+            translation.translate(req(pairs.first(), m.id, p).copy(useDocument = true))
+        } else {
+            null
         }
         val plain = requireNotNull(first)
         val bench = MtBench(
@@ -282,5 +274,7 @@ class Benchmark(
         role = TranslationEngine.Role.TEXT,
         modelId = modelId,
         processor = p,
+        // comparable numbers: without the user's context document (measured separately)
+        useDocument = false,
     )
 }

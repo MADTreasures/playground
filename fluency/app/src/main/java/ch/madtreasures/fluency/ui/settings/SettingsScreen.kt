@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ch.madtreasures.fluency.engine.llm.AccelChoice
 import ch.madtreasures.fluency.engine.llm.AccelMode
+import ch.madtreasures.fluency.engine.llm.ContextDocument
 import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.settings.AppSettings
@@ -98,6 +99,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onRemeasure: () -> Unit = {},
     onUnblock: (Processor) -> Unit = {},
+    onEditContext: () -> Unit = {},
 ) {
     val s = state.settings
     Column(modifier.fillMaxSize()) {
@@ -121,12 +123,18 @@ fun SettingsScreen(
                     "Ein Qualitätsmodell (z. B. MiLMMT-46 4B) übersetzt am Satzende neu und ist dadurch langsamer.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Toggle("Zusammenhang beachten", s.translationContext) { v -> onChange { it.copy(translationContext = v) } }
+            Toggle("Kontext-Dokument verwenden", s.translationContext) { v -> onChange { it.copy(translationContext = v) } }
+            val doc = remember(s.contextDocument) { ContextDocument.parse(s.contextDocument) }
+            OutlinedButton(onClick = onEditContext, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    if (doc.isEmpty) "Kontext-Dokument schreiben"
+                    else "Kontext-Dokument bearbeiten (${doc.sentenceCount} Sätze, ${doc.terms.size} Begriffe)",
+                )
+            }
             Text(
-                "Die letzten zwei Sätze und ihre Übersetzung werden mitgegeben. So wählt das Modell bei mehrdeutigen " +
-                    "Wörtern die passende Bedeutung (z. B. „Nachrichten“ im Chat = messages, im Fernsehen = news) und " +
-                    "bleibt bei Du/Sie und Begriffen einheitlich. Kostet pro Satz einige Millisekunden (NPU) bis gut " +
-                    "hundert Millisekunden (CPU); ein Teil davon wird in Sprechpausen vorausberechnet.",
+                "Deine eigenen Sätze darüber, worum es in deinen Gesprächen geht, und feste Übersetzungen wie " +
+                    "„Nachrichten = messages“. Damit wählt Hy-MT2 bei mehrdeutigen Wörtern die Bedeutung, die du meinst. " +
+                    "Die App nimmt nur, was du dort schreibst, nichts automatisch.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
