@@ -6,18 +6,18 @@ Android-App (Kotlin, Jetpack Compose, Material 3) für das **Samsung Galaxy S26 
 Das Internet wird nur für den einmaligen Modell-Download gebraucht, danach funktioniert alles im
 Flugmodus.
 
-| Live | Gespräch | Text | Modelle | Kontext-Dokument | Benchmark |
+| Live | Gespräch | Text | Mehrdeutige Wörter | Wort bearbeiten | Benchmark |
 |---|---|---|---|---|---|
-| ![](docs/screenshots/01_live.png) | ![](docs/screenshots/04_conversation.png) | ![](docs/screenshots/05_text.png) | ![](docs/screenshots/06_models.png) | ![](docs/screenshots/10_context_document.png) | ![](docs/screenshots/07_benchmark.png) |
+| ![](docs/screenshots/01_live.png) | ![](docs/screenshots/04_conversation.png) | ![](docs/screenshots/05_text.png) | ![](docs/screenshots/10_ambiguous_words.png) | ![](docs/screenshots/11_ambiguous_word_editor.png) | ![](docs/screenshots/07_benchmark.png) |
 
 Die Screenshots sind Robolectric-Renderings (`ScreenshotTest`). Die Texte und Zahlen darin stammen
 aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Messungen**.
 
 ## Downloads
 
-- **Fertige App**: [`dist/Fluency-1.4.0.apk`](../dist/Fluency-1.4.0.apk) (arm64, signiert). Sie
-  installiert sich als Update über 1.0.0–1.3.0, die heruntergeladenen Modelle bleiben erhalten.
-- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.4.0.zip`](../dist/Fluency-AndroidStudio-1.4.0.zip)
+- **Fertige App**: [`dist/Fluency-1.5.0.apk`](../dist/Fluency-1.5.0.apk) (arm64, signiert). Sie
+  installiert sich als Update über 1.0.0–1.4.0, die heruntergeladenen Modelle bleiben erhalten.
+- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.5.0.zip`](../dist/Fluency-AndroidStudio-1.5.0.zip)
   (enthält alle nativen Quellen und die fertig gebauten NPU-Bibliotheken, keine Submodule)
 
 ## In Android Studio bauen
@@ -64,21 +64,43 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
    Satz, Prompt- und Ausgabe-Tokens/s, mit KV-Cache, ASR-Echtzeitfaktor und Piper.
 6. **„Deutsch (Schweiz)"** schreibt immer „ss" statt „ß" (Übersetzungen, Untertitel, Vorlesen).
    Die Oberfläche ist Deutsch in Schweizer Schreibweise.
-7. **Kontext-Dokument (eigene Sätze)**: Optionen → Übersetzung → „Kontext-Dokument schreiben“.
-   Du schreibst selbst, worum es in deinen Gesprächen geht, und ergänzt es, wann du willst. Die App
-   nimmt nur diese Sätze, nichts automatisch.
-   - Normale Zeilen sind Sätze, z. B. „Ich teste meine Übersetzungs-App auf dem Handy.“ Sie gehen
-     bei jeder Übersetzung als Systemnachricht an Hy-MT2 mit.
-   - Zeilen „Wort = Übersetzung“ (auch → oder ->) sind feste Übersetzungen, z. B. „Nachrichten =
-     messages“. Sie gelten nur für Sätze, in denen das Wort vorkommt, mit beliebiger Endung, und auch
-     in der Gegenrichtung (messages → Nachrichten).
-   - **Kosten:** Die Sätze stehen in jedem Prompt gleich vorne. Sie werden einmal berechnet (gleich
-     beim Laden des Modells) und kommen danach aus dem KV-Cache. Im Test kamen 56 von 65
-     Prompt-Tokens aus dem Cache, neu zu rechnen waren nur 9 statt 32 ohne Dokument. Feste Begriffe
-     kosten nur in Sätzen mit dem Wort ein paar Tokens.
-   - Gilt für Hy-MT2 (Standardmodell), nicht für MiLMMT-46. Abschaltbar mit „Kontext-Dokument
-     verwenden“. Der Benchmark misst ohne Dokument und zeigt die Kosten separat.
-   - Höchstens 2000 Zeichen, weil alles in jeden Prompt geht.
+7. **Mehrdeutige Wörter (eigenes Modul)**: Optionen → Übersetzung → „Mehrdeutige Wörter eintragen“.
+   Du trägst selbst ein, welche Wörter mehrere Bedeutungen haben: das Wort, die Sprachen, die
+   Übersetzungen und zu jeder Übersetzung Hinweiswörter. Beispiel: „Nachrichten“ → *messages*
+   (Hinweise: Chat, Handy, App, schreib\*) oder *news* (Hinweise: Fernseh\*, Radio, Zeitung). Die
+   erste Übersetzung ist der Standard.
+   - **Welche Bedeutung** gilt, entscheiden feste Regeln, kein Modell. Die erste passende gilt:
+     1. du hast sie für diesen Satz angetippt,
+     2. ein Hinweiswort genau einer Bedeutung steht im Satz,
+     3. es stand im Satz davor (Live und Gespräch: die vorherige Äusserung),
+     4. du hast sie früher in diesem Gespräch angetippt,
+     5. sonst der Standard.
+
+     In der Gegenrichtung (*messages* in einem englischen Satz) wird immer das eingetragene Wort genommen.
+   - **Vorschreiben und prüfen:** Die gewählte Bedeutung geht über Hy-MT2s offizielle
+     Begriffs-Vorlage in den Prompt. Danach prüft die App, ob sie in der Übersetzung steht.
+     - Fehlt sie, übersetzt die App ein zweites Mal und schreibt zusätzlich in die Systemnachricht:
+       `In this text, "Nachrichten" means "messages".` Der bessere der beiden Läufe zählt.
+     - Steht danach noch eine andere eingetragene Bedeutung im Text, wird sie ersetzt.
+   - **Sichtbar und änderbar:** Unter jeder Übersetzung steht das Wort als Chip, z. B.
+     „✓ Nachrichten → messages · Hinweis davor „Chat““. Antippen zeigt, warum diese Bedeutung gewählt
+     wurde und was die Prüfung ergab, und lässt eine andere wählen. Der Satz wird sofort neu
+     übersetzt. Spätere Sätze im selben Gespräch ohne Hinweiswort nehmen sie dann auch.
+   - **Erkannt** wird das Wort auch mit üblicher Endung (Nachricht/Nachrichten, Bank/Bänke/Banken,
+     Schüler/Schülerin), nicht aber in zusammengesetzten Wörtern (Bankraub, Sprachnachricht).
+     Hinweiswörter genauso; mit \* am Ende passen sie zu jedem Wort, das so anfängt
+     (Fernseh\* → Fernsehen, Fernseher).
+   - **Sätze ohne eingetragenes Wort** bekommen exakt denselben Prompt wie ohne Modul, also dieselbe
+     Übersetzung. Das ist mit dem echten Modell getestet.
+   - Gilt in Live, Gespräch und Text, für höchstens 300 Wörter, und lässt sich abschalten
+     („Mehrdeutige Wörter verwenden“). MiLMMT-46 kennt keine Vorgaben; dort wird nur geprüft und
+     nachkorrigiert. Feste Begriffe („Wort = Übersetzung“) aus einem 1.4.0-Kontext-Dokument werden
+     übernommen; die übrigen Sätze des Dokuments fallen weg.
+   - **Was „null Fehler“ hier heisst:** Garantiert ist, dass ein eingetragenes Wort nie mit einer
+     anderen eingetragenen Bedeutung stehen bleibt, und dass du siehst, welche Bedeutung genommen
+     wurde und warum. Nicht garantiert ist, dass die Regel trifft, was du meinst (dafür gibt es
+     Hinweiswörter und das Antippen), und der Rest des Satzes, den weiterhin das Modell übersetzt.
+     Null Fehler für beliebige Sätze kann kein Übersetzungsmodell versprechen, auch kein grosses.
 8. **GPU (Adreno) und NPU (Hexagon) für die Übersetzung**: Optionen → Leistung → „Rechenwerk für die
    Übersetzung“.
    - **Automatisch** (Standard): Beim ersten Laden eines Modells übersetzt die App dieselben zwei
@@ -210,36 +232,65 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
   hat (bei wachsenden Teilsätzen kommen z. B. 31 von 41 Tokens aus dem Cache). Tokens werden
   gestreamt (nur vollständige UTF-8-Zeichen), Abbruch geht jederzeit. Die Prompts sind die kürzesten
   offiziellen Formate (Hy-MT2-Chat-Template bzw. MiLMMT-Completion), Decoding greedy.
-  - **Kontext-Dokument:** Die Sätze des Nutzers stehen in der Systemnachricht des
-    Hunyuan-Chat-Templates (`<｜hy_begin▁of▁sentence｜>Sätze<｜hy_place▁holder▁no▁3｜><｜hy_User｜>…`),
-    feste Übersetzungen in Hy-MT2s offizieller Begriffs-Vorlage („Reference the following
-    translations: X translates to Y“).
-  - Gemessen auf 45 mehrdeutigen Sätzen (de↔en, echtes Hy-MT2 auf x86), mit einem Satz zum Thema je
-    Fall:
+  - **Mehrdeutige Wörter** (`engine/llm/AmbiguousWords.kt`, `TranslationEngine.runPieces`):
+    - Prompt: Hy-MT2s offizielle Begriffs-Vorlage („Reference the following translations:
+      Nachrichten translates to messages“, auf Chinesisch „参考下面的翻译“). Im zweiten Lauf steht
+      zusätzlich `In this text, "Nachrichten" means "messages".` in der Systemnachricht des
+      Hunyuan-Chat-Templates (`<｜hy_begin▁of▁sentence｜>…<｜hy_place▁holder▁no▁3｜><｜hy_User｜>…`).
+    - Ins Prompt kommt die Form, die im Satz steht (z. B. „Bänke“ für den Eintrag „Bank“). Der Satz
+      davor wird nur nach Hinweiswörtern durchsucht und geht nie ins Prompt.
+    - Prüfung und Ersetzen arbeiten mit denselben Wortformen wie das Erkennen: Wortgrenzen, übliche
+      Endungen, Gross/klein, Akzente und ß/ss egal; Chinesisch/Japanisch/Koreanisch ohne Wortgrenzen.
+    - Ergebnis je Wort (`WordUse`): Regel (Standard, Hinweis, Hinweis davor, deine Wahl, angetippt,
+      fest, Gegenrichtung) und Prüfung (geprüft, geprüft im 2. Durchlauf, nachkorrigiert, anders
+      formuliert). Daraus entstehen die Chips.
+    - Gemessen auf 41 mehrdeutigen Sätzen (26 Deutsch → Englisch, 15 Englisch → Deutsch), mit dem
+      echten Hy-MT2 auf x86 und demselben Code wie in der App (`AmbiguousWordsIntegrationTest`).
+      Je Satz gab es einen Eintrag mit der gewünschten Bedeutung und den anderen:
 
-    | Variante | richtig |
-    |---|---|
-    | ohne Kontext | 29 |
-    | Satz als Systemnachricht (gewählt) | 37 |
-    | Satz in Hy-MT2s Vorlage „[Background Information]“ | 35 |
-    | Satz als früherer Chat-Turn | 36 |
-    | fester Begriff allein | 38 von 41 |
-    | **Satz als Systemnachricht + fester Begriff (gewählt)** | **45** |
+      | | ohne Modul | mit Modul |
+      |---|---|---|
+      | **andere eingetragene Bedeutung in der Übersetzung (falsch)** | **8** | **0** |
+      | gewünschte Bedeutung im 1. Lauf geprüft | – | 35 |
+      | … erst im 2. Lauf (mit Systemsatz) | – | 4 |
+      | Vorgabe hatte ein zweites Wort ersetzt → Übersetzung ohne Vorgabe genommen | – | 1 |
+      | anders formuliert („fine“ → *Geldstrafe* statt *Bussgeld*, richtig) | – | 1 |
+      | Zeit pro Satz mit eingetragenem Wort (x86, 4 Threads, leerer Cache) | 913 ms | 1213 ms |
 
-  - Ein Dokument für alle Sätze („Ich teste meine Übersetzungs-App …“) löst die Nachrichten-Fälle,
-    lässt „Nachrichten“ im Fernsehen bei *news* und übersetzt das Dokument nie mit. In Sätzen zu
-    ganz anderen Themen kann es die Wortwahl verschieben (z. B. „tip“ → *Tipp* statt *Trinkgeld*);
-    dafür sind die festen Begriffe da.
-  - Bis 1.3.0 nahm die App automatisch die letzten zwei Sätze des Gesprächs. Das ist entfernt, auf
-    Wunsch: Der Nutzer will selbst bestimmen, welche Sätze gelten.
+    - Zeit: Klappt der 1. Lauf, kostet das Wort nur die paar Tokens der Vorlage (Benchmark-Satz auf
+      x86: +12 Prompt-Tokens, 1068 statt 1054 ms). Von den 41 schwierigen Sätzen brauchten 6 einen
+      zweiten Lauf und 1 einen dritten; daher im Schnitt +300 ms. Auf dem Handy nicht gemessen.
+
+    - Ohne Modul waren zusätzlich Sätze falsch, in denen keine andere eingetragene Bedeutung stand,
+      z. B. „Der Hahn ist undicht“ → *The horn is leaking* oder „One key is stuck“ → *Eine
+      Schlüsselkarte ist stecken geblieben*. Mit Modul stimmte das eingetragene Wort in allen 41
+      Sätzen (40 wörtlich, 1 als richtiges Synonym).
+    - **Nebenwirkungen, ehrlich gezählt** (in denselben 41 Sätzen):
+      - Einmal hat die Vorgabe noch ein anderes Wort ersetzt: „Put the suitcases in the trunk“ wurde
+        in beiden Läufen zu *Legen Sie die Kofferraum in den Kofferraum*. Die App erkennt das
+        (*Kofferraum* zweimal, *trunk* nur einmal) und nimmt die Übersetzung ohne Vorgabe, *Legen
+        Sie die Koffer in den Kofferraum*.
+      - Einmal wurde der Satz holpriger: „Er lässt mich nur ungern ans Steuer“ wurde zu *…let me
+        drive the steering wheel very much*; ohne Vorgabe kam *…let me drive the car* (richtig, nur
+        ohne das Wort). Die Vorgabe wird wörtlich genommen, deshalb Übersetzungen so eintragen, wie
+        sie in Sätze passen.
+      - Einmal fiel ein Artikel weg: *Hast du Streichholz?* (ohne Modul *Hast du einen
+        Streichholz?*, auch falsch).
+      - Den Rest des Satzes übersetzt weiterhin das Modell: „Morgen streichen wir die Decke“ wurde zu
+        *…remove the ceiling*. Das Wort stimmt, das Verb nicht (ohne Modul ebenso falsch).
+    - 8 Sätze ohne eingetragenes Wort (bei 31 eingetragenen Wörtern, darunter „Bankraub“ und
+      „Sprachnachricht“): gleiche Übersetzung, gleiche Prompt-Länge wie ohne Modul.
+  - Vorgeschichte: Bis 1.3.0 nahm die App automatisch die letzten zwei Sätze des Gesprächs mit, in
+    1.4.0 ein selbst geschriebenes Kontext-Dokument. Beides hilft oft, kann aber die Wortwahl in
+    anderen Sätzen verschieben (z. B. „tip“ → *Tipp* statt *Trinkgeld*) und zeigt nicht, was es
+    bewirkt hat. Deshalb ersetzt in 1.5.0 das Modul beides.
   - Getestet und verworfen: ein separates kleines Kontext-Modell, das aus Gespräch und Satz das
     Thema und die Bedeutung mehrdeutiger Wörter bestimmt (Qwen3.5-0.8B, LFM2.5-1.2B, Qwen3.5-2B,
     Okt. 2026):
-    - Es kam auf 28–33 richtig und brauchte auf x86 rund 2 s zusätzlich pro Satz.
+    - Es kam auf 28–33 von 45 richtig und brauchte auf x86 rund 2 s zusätzlich pro Satz.
     - Grund: Die kleinen Modelle erkennen die mehrdeutigen Wörter nicht. Qwen3.5-2B meldet fast
       immer „keine“, LFM2.5 liefert falsche Hinweise (z. B. crane = Storch).
-  - `maxTokens = 0` füllt nur den KV-Cache; so werden die Sätze des Dokuments beim Laden des
-    Modells vorausberechnet.
+  - `maxTokens = 0` füllt nur den KV-Cache, ohne etwas zu erzeugen.
 - **sherpa-onnx 1.13.8** (VAD, ASR, Piper) aus dem Quellcode gebaut gegen ONNX Runtime 1.28.0 (aus
   Maven), siehe `native/build-sherpa-onnx.sh`. Die gebaute `libsherpa-onnx-jni.so` liegt in
   `app/src/main/jniLibs`.
@@ -310,21 +361,28 @@ Tests laufen immer. Erwartete Ordnerstruktur (Standard: `test-models/` im Projek
 `llm/` (die drei GGUF-Dateien), `parakeet-v3/` (encoder/decoder/joiner.int8.onnx, tokens.txt,
 test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_vad_v5.onnx`.
 
-124 Tests in 24 Klassen, alle grün:
+141 Tests in 24 Klassen, alle grün:
 
 - **Logik**: Schweizer Schreibweise, Satz-Segmentierung, Spracherkennung per Stoppwörtern/Schrift,
   Prompt-Formate, Modell-Routing, Katalog (gepinnte URLs, SHA-256), **Downloader** (Fortsetzen nach
   Verbindungsabbruch, `.part` aus früherem Lauf, Server ignoriert Range, falscher Hash), WAV,
-  **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp).
-- **Kontext-Dokument**:
-  - Lesen: Sätze und feste Begriffe getrennt, Anführungszeichen, →/->, zu lange Zeilen bleiben
-    Sätze, Grenze 2000 Zeichen.
-  - Begriffe: nur wenn das Wort vorkommt (Wortanfang, beliebige Endung, Gross/klein), Gegenrichtung,
-    Chinesisch ohne Leerzeichen.
-  - Prompts: Systemnachricht, Begriffs-Vorlage englisch und chinesisch wie in der Modellkarte; der
-    Vorwärm-Teil ist Anfang jedes Prompts.
-  - Engine: Dokument in jedem Hy-MT2-Prompt, abschaltbar, nicht im Benchmark/CPU-GPU-NPU-Vergleich,
-    nicht bei MiLMMT; leere Antwort → ohne Dokument neu; Vorwärmen beim Laden.
+  **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp; der
+  Satz davor und die angetippten Bedeutungen gehen mit, die Wörter kommen an der Äusserung an).
+- **Mehrdeutige Wörter** (ohne Modell):
+  - Liste speichern und lesen, Sonderzeichen, höchstens 300 Wörter; feste Begriffe aus einem
+    1.4.0-Dokument werden übernommen.
+  - Wortformen: Nachricht/Nachrichten, Bank/Bänke/Banken, Schloss/Schloß/Schlosses,
+    battery/batteries, Schüler/Schülerin – aber nicht in Bankraub, Banker, Datenbank,
+    Sprachnachrichten, newspaper; Chinesisch ohne Leerzeichen; Hinweiswörter mit \*.
+  - Die Regeln in ihrer Reihenfolge; Hinweise zweier Bedeutungen entscheiden nichts; Gegenrichtung;
+    Sprachen (Schweizerdeutsch zählt als Deutsch).
+  - Prüfen und Ersetzen (Gross/klein, nie innerhalb anderer Wörter); Prüfungen im Editor (doppelt,
+    gleiche Sprache, Hinweiswort passt zu zwei Bedeutungen oder zum Wort selbst).
+  - Prompts: Begriffs-Vorlage englisch und chinesisch wie in der Modellkarte, Systemsatz im 2. Lauf;
+    ohne eingetragenes Wort der übliche Prompt.
+  - Engine mit Skript-Modell: geprüft, 2. Lauf, der bessere Lauf zählt, Ersetzen, Synonym, leere
+    Antwort, Vorgabe ersetzt noch ein anderes Wort (→ 2. Lauf bzw. ohne Vorgabe), Wort zweimal im
+    Satz, abgeschaltet, Benchmark-Beispiel, MiLMMT nur prüfen, Absätze einzeln.
 - **CPU/GPU/NPU-Wahl** mit simulierten Modellen auf CPU, GPU und NPU. Im Container gibt es weder
   eine Adreno-GPU noch eine Hexagon-NPU. Getestet wird dieselbe Engine-Logik wie auf dem Handy:
   - Das schnellste Rechenwerk übernimmt ohne Pause. Sind GPU und NPU langsamer, bleibt es bei der
@@ -347,17 +405,18 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
   - Parakeet (de/en/fr/es) und Whisper-turbo (inkl. Spracherkennung).
   - Silero VAD mit absoluten Segmentpositionen.
   - Schweizerdeutsch-Whisper über whisper.cpp, geladen als Q8_0 (gleicher Text wie mit Q5_0).
-  - **Kontext-Dokument mit Hy-MT2**:
-    - Der Satz aus dem Feldtest („…dass die Nachrichten getrennt werden“) wird mit dem Dokument
-      zu „…the messages are separated“ (ohne Dokument: „the news is separated“).
-    - „Bank = bench“ wird befolgt, auch rückwärts (bench → Bank).
-    - Unbeteiligte Sätze (Zoo, Bahnhof) bleiben unverändert.
-    - Nach dem Vorwärmen kommen die Sätze aus dem Cache.
+  - **Mehrdeutige Wörter mit Hy-MT2**:
+    - Die 41 Sätze der Messung oben: nie eine andere eingetragene Bedeutung, nie die Vorgabe öfter
+      als das Wort.
+    - Die Regeln Ende-zu-Ende: Hinweis im Satz davor („Chat“ → *messages*, „Fernseher“ → *news*),
+      Standard beim Satz aus dem Feldtest („…the messages are separated“), angetippt, Hinweis im
+      Satz („Park“ → *bench*, „Geld“ → *bank*), Gegenrichtung (*messages* → Nachrichten).
+    - Sätze ohne eingetragenes Wort: gleiche Übersetzung wie ohne Modul.
   - Echter Download von Hugging Face inkl. SHA-256 (Silero, 355 eSpeak-Dateien, Piper).
   - Piper spricht, Parakeet erkennt: „Guten Morgen, wie komme ich zum Bahnhof?"
   - **Live-Pipeline Ende-zu-Ende** (Audio → VAD → Parakeet → Hy-MT2) und der App-Benchmark
     (prüft u. a., dass ein wiederholter Prompt bis auf das letzte Token aus dem KV-Cache kommt, dass
-    die Kosten des Kontext-Dokuments gemessen werden und dass das Schweizer Modell als „Q8_0“
+    die Kosten eines mehrdeutigen Worts gemessen werden und dass das Schweizer Modell als „Q8_0“
     mitgemessen wird).
   - Die echte JNI meldet auf x86 „kein GPU-Backend“ und „kein NPU-Backend“; der Automatikmodus
     bleibt dann auf der CPU.
@@ -394,9 +453,9 @@ Hy-MT2 1.8B (Q4_K_M):
 
 Parakeet-TDT 0.6B v3: 365 ms für 6,6 s Audio (Echtzeitfaktor 0,055).
 
-Noch nicht auf dem Handy gemessen: die Kosten des Kontext-Dokuments (Zeile „mit Kontext-Dokument
-einmalig … statt … ms“, erscheint nur mit Dokument) und das Schweizer Modell als Q8_0 mit 6 Threads
-(eigene Zeile unter Spracherkennung).
+Noch nicht auf dem Handy gemessen: was ein mehrdeutiges Wort kostet (Benchmark-Zeile „Mit
+mehrdeutigem Wort … statt … ms“, gemessen mit einem eingebauten Beispielwort, nicht mit deiner
+Liste) und das Schweizer Modell als Q8_0 mit 6 Threads (eigene Zeile unter Spracherkennung).
 
 ## Was nur auf dem Handy getestet werden kann
 
@@ -407,8 +466,9 @@ einmalig … statt … ms“, erscheint nur mit Dokument) und das Schweizer Mode
   (i8mm/KleidiAI/SME2) nicht; dort ist Q8_0 nur gleich schnell bis etwas schneller (4,5 statt 5,3 s
   Encoder für 2,8 s Audio, langsamer Container). Erwartet wird auf dem Handy ein Mehrfaches, gemessen
   ist es nicht.
-- Kosten des Kontext-Dokuments auf NPU und CPU des Handys; die Qualität mit Dokument auf der NPU
-  (auf x86 nur CPU geprüft).
+- Mehrdeutige Wörter auf dem Handy: die Zeit pro Satz mit Wort auf NPU und CPU, ob die NPU die
+  Vorgabe genauso befolgt (auf x86 nur CPU geprüft), und die Bedienung der Chips (Antippen, Menü,
+  neu übersetzen, im Gesprächsmodus auf beiden Seiten).
 - Speicherverbrauch und Wärmeentwicklung bei langen Sitzungen.
 
 ## Lizenzen

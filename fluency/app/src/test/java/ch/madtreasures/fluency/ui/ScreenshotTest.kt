@@ -21,6 +21,9 @@ import ch.madtreasures.fluency.bench.MtBench
 import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.core.Latency
 import ch.madtreasures.fluency.engine.llm.AccelMode
+import ch.madtreasures.fluency.engine.llm.AmbiguousWord
+import ch.madtreasures.fluency.engine.llm.AmbiguousWords
+import ch.madtreasures.fluency.engine.llm.WordUse
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.models.ModelCatalog
 import ch.madtreasures.fluency.models.ModelState
@@ -38,7 +41,8 @@ import ch.madtreasures.fluency.ui.models.ModelsActions
 import ch.madtreasures.fluency.ui.models.ModelsScreen
 import ch.madtreasures.fluency.ui.models.ModelsUiState
 import ch.madtreasures.fluency.ui.settings.AccelUi
-import ch.madtreasures.fluency.ui.settings.ContextDocumentScreen
+import ch.madtreasures.fluency.ui.settings.AmbiguousWordsScreen
+import ch.madtreasures.fluency.ui.settings.EXAMPLE_WORD
 import ch.madtreasures.fluency.ui.settings.SettingsScreen
 import ch.madtreasures.fluency.ui.settings.SettingsUiState
 import ch.madtreasures.fluency.ui.text.ModelOption
@@ -95,9 +99,24 @@ class ScreenshotTest {
         Utterance(3, 0, de, en, "Kannst du mir sagen, wann der nächste Zug", "Can you tell me when the next train", false),
     )
 
+    /** the field-test word with the example entry: the chip under the translation (AmbiguousWordsIntegrationTest) */
+    private val withWord = listOf(
+        utterances[0],
+        // (no latency: these two were translated by the integration test, not timed in the pipeline)
+        Utterance(4, 0, de, en, "Ich habe dir vorhin im Chat geschrieben.", "I wrote to you in the chat just now.", true),
+        Utterance(5, 0, de, en, "Hast du meine Nachrichten schon gelesen?", "Have you already read my messages?", true,
+            words = listOf(
+                WordUse(
+                    EXAMPLE_WORD.key, "Nachrichten", 0, "Nachrichten", "messages", WordUse.Reason.HINT_BEFORE, "Chat",
+                    alternatives = listOf("news"), meanings = listOf("messages", "news"), status = WordUse.Status.CONFIRMED,
+                ),
+            )),
+        utterances[2],
+    )
+
     @Test fun live() = shoot("01_live") {
         Framed(Tab.LIVE) {
-            LiveScreen(LiveUiState(source = "de", target = "en", running = true, speechActive = true, level = 0.7f, utterances = utterances), LiveActions())
+            LiveScreen(LiveUiState(source = "de", target = "en", running = true, speechActive = true, level = 0.7f, utterances = withWord), LiveActions())
         }
     }
 
@@ -194,12 +213,19 @@ class ScreenshotTest {
         Framed(Tab.SETTINGS) { SettingsScreen(settingsState, onChange = {}, onBenchmark = {}) }
     }
 
-    @Test fun contextDocument() = shoot("10_context_document") {
-        ContextDocumentScreen(
-            text = "Ich teste meine Übersetzungs-App auf dem Handy.\nWir sprechen oft über Chat-Nachrichten und das Modell.\n" +
-                "Nachrichten = messages\nBank = bench",
-            onSave = {},
-            onBack = {},
-        )
+    private val wordList = AmbiguousWords.format(
+        listOf(
+            EXAMPLE_WORD,
+            AmbiguousWord("Bank", "de", "en", listOf(AmbiguousWord.Meaning("bench", listOf("Park", "sitzen")), AmbiguousWord.Meaning("bank", listOf("Geld", "Konto", "Kredit")))),
+            AmbiguousWord("Schloss", "de", "en", listOf(AmbiguousWord.Meaning("lock", listOf("Tür", "Schlüssel")), AmbiguousWord.Meaning("castle", listOf("Burg", "Ferien")))),
+        ),
+    )
+
+    @Test fun ambiguousWords() = shoot("10_ambiguous_words") {
+        AmbiguousWordsScreen(storage = wordList, defaultSource = "de", defaultTarget = "en", onSave = {}, onBack = {})
+    }
+
+    @Test fun ambiguousWordEditor() = shoot("11_ambiguous_word_editor") {
+        AmbiguousWordsScreen(storage = wordList, defaultSource = "de", defaultTarget = "en", onSave = {}, onBack = {}, initialEditing = 0)
     }
 }

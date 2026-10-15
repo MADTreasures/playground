@@ -8,6 +8,7 @@ import ch.madtreasures.fluency.engine.asr.SAMPLE_RATE
 import ch.madtreasures.fluency.engine.asr.SpeechChunk
 import ch.madtreasures.fluency.engine.audio.AudioSource
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
+import ch.madtreasures.fluency.engine.llm.WordUse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -103,14 +104,15 @@ class LivePipelineTest {
         override fun close() {}
     }
 
-    private class FakeTranslator : Translator {
+    /** [words]: what the module "Mehrdeutige Wörter" would report for a request */
+    private class FakeTranslator(val words: (TranslationEngine.Request) -> List<WordUse> = { emptyList() }) : Translator {
         val requests = Collections.synchronizedList(mutableListOf<TranslationEngine.Request>())
         override fun modelFor(role: TranslationEngine.Role, source: Language?, target: Language) = "m"
         override suspend fun translate(req: TranslationEngine.Request, onPartial: ((String) -> Unit)?): TranslationEngine.Result {
             requests += req
             onPartial?.invoke(req.text.take(3).uppercase())
             delay(15)
-            return TranslationEngine.Result(req.text.uppercase(), "m", "M", req.source, 15, 10, 0, 5, 1.0, 10.0, false)
+            return TranslationEngine.Result(req.text.uppercase(), "m", "M", req.source, 15, 10, 0, 5, 1.0, 10.0, false, words = words(req))
         }
         override fun cancel(role: TranslationEngine.Role?) {}
     }
@@ -127,10 +129,11 @@ class LivePipelineTest {
         speak: Boolean = false,
         autoStop: Long? = null,
         waitForAutoStop: Boolean = false,
+        translator: FakeTranslator = FakeTranslator(),
+        wordChoices: Map<String, Int> = emptyMap(),
     ): Triple<PipelineState, FakeTranslator, FakeSpeaker> = runBlocking {
         val samples = AtomicLong(0)
         val state = MutableStateFlow(PipelineState())
-        val translator = FakeTranslator()
         val speaker = FakeSpeaker()
         val audio = ScriptedAudio(script, samples)
         val p = LivePipeline(
@@ -146,6 +149,7 @@ class LivePipelineTest {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
             state = state,
             clock = { samples.get() * 1_000_000_000L / SAMPLE_RATE },
+            wordChoices = { wordChoices },
         )
         p.start()
         val total = script.sumOf { it.first }
@@ -190,6 +194,28 @@ class LivePipelineTest {
         val u = st.utterances.single()
         assertTrue(u.final)
         assertTrue(u.translation.isNotBlank())
+    }
+
+    /**
+     * The module "Mehrdeutige Wörter": every request carries the sentence before (only searched for
+     * hint words) and the meanings tapped in this conversation; the words come back with the utterance.
+     */
+    @Test fun theSentenceBeforeTheChoicesAndTheWords() {
+        val use = WordUse("de>en:nachrichten", "Nachrichten", 0, "Nachrichten", "messages", WordUse.Reason.HINT_BEFORE, "Chat")
+        val translator = FakeTranslator { req -> if (req.previousText != null) listOf(use) else emptyList() }
+        val (st, tr, _) = run(
+            listOf(0.3 to false, 1.2 to true, 0.8 to false, 2.2 to true, 0.8 to false),
+            translator = translator, wordChoices = mapOf("de>en:bank" to 1),
+        )
+        val (first, second) = st.utterances
+        assertTrue(first.words.isEmpty())
+        assertEquals(listOf(use), second.words)
+        assertTrue(tr.requests.all { it.wordChoices == mapOf("de>en:bank" to 1) })
+        assertTrue(tr.requests.filter { first.sourceText.startsWith(it.text) && it.previousText == null }.isNotEmpty())
+        // the requests of the second utterance (all after the first one is final) carry it
+        val ofSecond = tr.requests.filter { it.text.split(' ').size > first.sourceText.split(' ').size }
+        assertTrue(ofSecond.isNotEmpty())
+        assertTrue(ofSecond.all { it.previousText == first.sourceText })
     }
 
     @Test fun silenceProducesNothing() {

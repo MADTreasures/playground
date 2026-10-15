@@ -179,7 +179,7 @@ private fun MtCard(m: MtBench) {
             }
             Metric("Ø pro Satz", "%.0f ms".format(m.avgMs))
             Metric("Mit KV-Cache (Live-Teilübersetzung)", "%.0f ms".format(m.cachedMs))
-            if (m.contextTokens > 0) Metric("Mit Kontext-Dokument, einmalig (+${m.contextTokens} Tokens)", "${m.contextMs} statt ${m.plainMs} ms")
+            if (m.wordMs > 0) Metric("Mit mehrdeutigem Wort (+${m.wordTokens} Tokens)", "${m.wordMs} statt ${m.wordPlainMs} ms")
             Metric("Prompt-Verarbeitung", "%.0f Tokens/s".format(m.prefillTps))
             Metric("Textausgabe", "%.1f Tokens/s".format(m.decodeTps))
             Metric("Laden", "${m.loadMs} ms")

@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import ch.madtreasures.fluency.engine.llm.AccelMode
+import ch.madtreasures.fluency.engine.llm.AmbiguousWords
 import ch.madtreasures.fluency.models.ModelCatalog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -48,13 +49,10 @@ data class AppSettings(
     val asrThreads: Int = 2,
     /** CPU or GPU for the translation models (automatic: measured once per model) */
     val accel: AccelMode = AccelMode.AUTO,
-    /** use the user's context document [contextDocument] (Hy-MT2) */
-    val translationContext: Boolean = true,
-    /**
-     * the user's own sentences about what the conversations are about, and fixed translations as
-     * lines "Wort = Übersetzung" (see ContextDocument); empty = no context
-     */
-    val contextDocument: String = "",
+    /** use the module "Mehrdeutige Wörter" ([ambiguousWords]) */
+    val useAmbiguousWords: Boolean = true,
+    /** the user's ambiguous words with their meanings, storage format of AmbiguousWords */
+    val ambiguousWords: String = "",
     val showLatency: Boolean = true,
     val keepScreenOn: Boolean = true,
     val muteMicWhileSpeaking: Boolean = true,
@@ -83,8 +81,12 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         val llmThreads = intPreferencesKey("llmThreads")
         val asrThreads = intPreferencesKey("asrThreads")
         val accel = stringPreferencesKey("accel")
-        val translationContext = booleanPreferencesKey("translationContext")
+        val useAmbiguousWords = booleanPreferencesKey("useAmbiguousWords")
+        val ambiguousWords = stringPreferencesKey("ambiguousWords")
+
+        /** 1.4.0: context document; its "Wort = Übersetzung" lines become ambiguous words */
         val contextDocument = stringPreferencesKey("contextDocument")
+        val translationContext = booleanPreferencesKey("translationContext")
 
         /** until 1.0.0: GPU on/off (off = CPU only) */
         val useGpu = booleanPreferencesKey("useGpu")
@@ -95,6 +97,20 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
     }
 
     private val defaults = AppSettings()
+
+    /** The fixed translations of a 1.4.0 context document as entries for the live languages. */
+    private fun migrateContextDocument(doc: String?, liveSource: String?, liveTarget: String?): String {
+        if (doc.isNullOrBlank()) return defaults.ambiguousWords
+        val src = (liveSource ?: defaults.liveSource).takeIf { it != AUTO } ?: "de"
+        return AmbiguousWords.format(AmbiguousWords.fromContextDocument(doc, src, liveTarget ?: defaults.liveTarget))
+    }
+
+    /** 1.4.0's switch of the context document stays with the words taken over from it */
+    private fun migrateSwitch(p: Preferences): Boolean {
+        val off = p[K.translationContext] == false
+        return if (off && migrateContextDocument(p[K.contextDocument], p[K.liveSource], p[K.liveTarget]).isNotEmpty()) false
+        else defaults.useAmbiguousWords
+    }
 
     private fun read(p: Preferences) = AppSettings(
         liveSource = p[K.liveSource] ?: defaults.liveSource,
@@ -116,8 +132,8 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         llmThreads = p[K.llmThreads] ?: defaults.llmThreads,
         asrThreads = p[K.asrThreads] ?: defaults.asrThreads,
         accel = AccelMode.parse(p[K.accel]) ?: if (p[K.useGpu] == true) AccelMode.GPU else defaults.accel,
-        translationContext = p[K.translationContext] ?: defaults.translationContext,
-        contextDocument = p[K.contextDocument] ?: defaults.contextDocument,
+        useAmbiguousWords = p[K.useAmbiguousWords] ?: migrateSwitch(p),
+        ambiguousWords = p[K.ambiguousWords] ?: migrateContextDocument(p[K.contextDocument], p[K.liveSource], p[K.liveTarget]),
         showLatency = p[K.showLatency] ?: defaults.showLatency,
         keepScreenOn = p[K.keepScreenOn] ?: defaults.keepScreenOn,
         muteMicWhileSpeaking = p[K.muteMicWhileSpeaking] ?: defaults.muteMicWhileSpeaking,
@@ -156,8 +172,10 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
                 p[K.asrThreads] = s.asrThreads
                 p[K.accel] = s.accel.name
                 p.remove(K.useGpu)
-                p[K.translationContext] = s.translationContext
-                p[K.contextDocument] = s.contextDocument
+                p[K.useAmbiguousWords] = s.useAmbiguousWords
+                p[K.ambiguousWords] = s.ambiguousWords
+                p.remove(K.contextDocument)
+                p.remove(K.translationContext)
                 p[K.showLatency] = s.showLatency
                 p[K.keepScreenOn] = s.keepScreenOn
                 p[K.muteMicWhileSpeaking] = s.muteMicWhileSpeaking

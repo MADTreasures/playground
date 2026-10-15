@@ -37,7 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ch.madtreasures.fluency.engine.llm.AccelChoice
 import ch.madtreasures.fluency.engine.llm.AccelMode
-import ch.madtreasures.fluency.engine.llm.ContextDocument
+import ch.madtreasures.fluency.engine.llm.AmbiguousWords
 import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.settings.AppSettings
@@ -99,7 +99,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onRemeasure: () -> Unit = {},
     onUnblock: (Processor) -> Unit = {},
-    onEditContext: () -> Unit = {},
+    onEditWords: () -> Unit = {},
 ) {
     val s = state.settings
     Column(modifier.fillMaxSize()) {
@@ -123,18 +123,16 @@ fun SettingsScreen(
                     "Ein Qualitätsmodell (z. B. MiLMMT-46 4B) übersetzt am Satzende neu und ist dadurch langsamer.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Toggle("Kontext-Dokument verwenden", s.translationContext) { v -> onChange { it.copy(translationContext = v) } }
-            val doc = remember(s.contextDocument) { ContextDocument.parse(s.contextDocument) }
-            OutlinedButton(onClick = onEditContext, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    if (doc.isEmpty) "Kontext-Dokument schreiben"
-                    else "Kontext-Dokument bearbeiten (${doc.sentenceCount} Sätze, ${doc.terms.size} Begriffe)",
-                )
+            Toggle("Mehrdeutige Wörter verwenden", s.useAmbiguousWords) { v -> onChange { it.copy(useAmbiguousWords = v) } }
+            val words = remember(s.ambiguousWords) { AmbiguousWords.parse(s.ambiguousWords).size }
+            OutlinedButton(onClick = onEditWords, modifier = Modifier.fillMaxWidth()) {
+                Text(if (words == 0) "Mehrdeutige Wörter eintragen" else "Mehrdeutige Wörter bearbeiten ($words)")
             }
             Text(
-                "Deine eigenen Sätze darüber, worum es in deinen Gesprächen geht, und feste Übersetzungen wie " +
-                    "„Nachrichten = messages“. Damit wählt Hy-MT2 bei mehrdeutigen Wörtern die Bedeutung, die du meinst. " +
-                    "Die App nimmt nur, was du dort schreibst, nichts automatisch.",
+                "Du trägst Wörter mit mehreren Bedeutungen ein, z. B. „Nachrichten“ = messages oder news, und zu jeder " +
+                    "Bedeutung Hinweiswörter. Die App wählt die Bedeutung nach festen Regeln, erzwingt sie in der Übersetzung, " +
+                    "prüft das Ergebnis und zeigt das Wort unter der Übersetzung an – antippen wechselt die Bedeutung. " +
+                    "Sätze ohne eingetragenes Wort werden genau gleich übersetzt wie ohne Modul.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 

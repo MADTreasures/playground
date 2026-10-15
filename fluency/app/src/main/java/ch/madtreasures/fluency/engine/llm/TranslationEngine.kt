@@ -80,10 +80,18 @@ class TranslationEngine(
         /** force CPU, GPU or NPU (benchmark) */
         val processor: Processor? = null,
         /**
-         * apply the user's context document ([AppSettings.contextDocument]) if it is switched on;
-         * the benchmark and the CPU/GPU/NPU comparison leave it out
+         * apply the user's module "Mehrdeutige Wörter" ([AppSettings.ambiguousWords]) if it is
+         * switched on; the benchmark and the CPU/GPU/NPU comparison leave it out
          */
-        val useDocument: Boolean = true,
+        val useWords: Boolean = true,
+        /** the sentence before (live: the previous utterance): only searched for hint words */
+        val previousText: String? = null,
+        /** meanings chosen earlier in this conversation: entry key → meaning index */
+        val wordChoices: Map<String, Int> = emptyMap(),
+        /** meanings chosen by tapping for this sentence: entry key → meaning index (win over everything) */
+        val forcedWords: Map<String, Int> = emptyMap(),
+        /** entries to use instead of the user's list (benchmark example) */
+        val words: List<AmbiguousWord>? = null,
     )
 
     data class Result(
@@ -99,6 +107,8 @@ class TranslationEngine(
         val decodeMs: Double,
         val cancelled: Boolean,
         val processor: Processor = Processor.CPU,
+        /** the listed ambiguous words in the text and the meaning each got */
+        val words: List<WordUse> = emptyList(),
     ) {
         val tokensPerSecond: Double get() = if (decodeMs > 0) generatedTokens * 1000.0 / decodeMs else 0.0
     }
@@ -206,23 +216,7 @@ class TranslationEngine(
     /** Loads [ids] in the background so the first translation is fast. */
     suspend fun preload(ids: Collection<String>) {
         val infos = source.installedTranslationModels().filter { it.id in ids }
-        for (info in infos) runCatching { warmUpDocument(get(info)) }
-    }
-
-    /**
-     * Evaluates the system message (the sentences of the user's context document) on the loaded
-     * model, so that the first translation already finds it in the KV cache.
-     */
-    private suspend fun warmUpDocument(l: Loaded) {
-        if (l.info.promptStyle != PromptStyle.HY_MT) return
-        val sentences = currentDocument()?.sentences?.takeIf { it.isNotEmpty() } ?: return
-        val prompt = PromptFormat.hyMtDocumentPrefix(sentences)
-        withContext(l.dispatcher) {
-            val model = l.model
-            // an accelerator's first run is crash-guarded in runOn: never start with the warm-up
-            if (model.isClosed || (model.processor != Processor.CPU && !l.checked)) return@withContext
-            runCatching { model.generate(prompt.text, prompt.addSpecial, maxTokens = 0) }
-        }
+        for (info in infos) runCatching { get(info) }
     }
 
     // ------------------------------------------------------------------------------ loading
@@ -335,19 +329,15 @@ class TranslationEngine(
     /** Where model [id] runs, if it is loaded. */
     fun processorOf(id: String): Processor? = loaded[id]?.processor
 
-    /** True if translations use the user's context document (switched on and not empty). */
-    fun documentActive(): Boolean = currentDocument() != null
+    @Volatile private var parsedWords: Pair<String, List<AmbiguousWord>> = "" to emptyList()
 
-    @Volatile private var parsedDocument: Pair<String, ContextDocument> = "" to ContextDocument.EMPTY
-
-    /** The user's context document if it is switched on and not empty (parsed once per change). */
-    private fun currentDocument(): ContextDocument? {
+    /** The user's module "Mehrdeutige Wörter" if it is switched on (parsed once per change). */
+    private fun currentWords(): List<AmbiguousWord> {
         val s = settings()
-        if (!s.translationContext) return null
-        val cached = parsedDocument
-        val doc = if (cached.first == s.contextDocument) cached.second
-        else ContextDocument.parse(s.contextDocument).also { parsedDocument = s.contextDocument to it }
-        return doc.takeIf { !it.isEmpty }
+        if (!s.useAmbiguousWords) return emptyList()
+        val cached = parsedWords
+        return if (cached.first == s.ambiguousWords) cached.second
+        else AmbiguousWords.parse(s.ambiguousWords).also { parsedWords = s.ambiguousWords to it }
     }
 
     /** Stops the generation that is running for [role] (all roles if null). */
@@ -505,7 +495,7 @@ class TranslationEngine(
             val src = Languages.require(p.source)
             val tgt = Languages.require(p.target)
             model.resetCache()
-            return runPieces(info, model, style, src, Request(p.text, src, tgt, Role.FINAL, useDocument = false), p.text, null).takeIf { !it.cancelled }
+            return runPieces(info, model, style, src, Request(p.text, src, tgt, Role.FINAL, useWords = false), p.text, null).takeIf { !it.cancelled }
         }
         val block = {
             try {
@@ -679,16 +669,18 @@ class TranslationEngine(
         var decode = 0.0
         var cancelled = false
         val echo = PromptFormat.echoNames(req.target)
-        // the user's own context document (Hy-MT2 only): sentences as system message, fixed translations
-        val document = if (req.useDocument && PromptFormat.supportsDocument(style)) currentDocument() else null
+        // the user's module "Mehrdeutige Wörter": listed words get the meaning chosen by its rules
+        val entries = if (req.useWords) req.words ?: currentWords() else emptyList()
+        val usedWords = mutableListOf<WordUse>()
+        var previous = req.previousText
         for (piece in pieces) {
             if (piece.text.isBlank()) {
                 out.append(piece.separatorAfter)
                 continue
             }
             val prefix = out.toString()
-            fun generateWith(applied: ContextDocument.Applied?): LlamaModel.Result {
-                val prompt = PromptFormat.build(style, src, req.target, piece.text, applied) { user -> model.applyChatTemplate(user) }
+            fun generateWith(terms: List<PromptFormat.Term>, stateTerms: Boolean): LlamaModel.Result {
+                val prompt = PromptFormat.build(style, src, req.target, piece.text, terms, stateTerms) { user -> model.applyChatTemplate(user) }
                 val r = model.generate(
                     prompt = prompt.text,
                     addSpecial = prompt.addSpecial,
@@ -708,26 +700,80 @@ class TranslationEngine(
                 decode += r.decodeMs
                 return r
             }
-            val applied = document?.forText(piece.text)?.takeIf { !it.isEmpty }
-            var r = generateWith(applied)
-            var pieceOut = TextNormalizer.cleanTranslation(r.text, piece.text, echo)
-            if (applied != null && r.stop != LlamaModel.StopReason.CANCELLED && pieceOut.isBlank()) {
-                // no answer with the context document: this piece without it
-                r = generateWith(null)
-                pieceOut = TextNormalizer.cleanTranslation(r.text, piece.text, echo)
+            val uses = if (entries.isEmpty()) emptyList()
+            else AmbiguousWords.resolve(entries, piece.text, previous, src, req.target, req.wordChoices, req.forcedWords)
+            val terms = if (PromptFormat.supportsTerms(style)) uses.map { PromptFormat.Term(it.from, it.to) } else emptyList()
+            // per word: in the translation, more often than in the sentence (the meaning also replaced
+            // another word, e.g. "suitcases" → "Kofferraum" next to "trunk" → "Kofferraum"), or missing
+            fun fits(output: String, withTerms: Boolean) = uses.map { u ->
+                val n = AmbiguousWords.count(u.to, output)
+                if (n == 0) Fit.MISSING else if (withTerms && n > u.occurrences) Fit.REPEATED else Fit.OK
             }
+            fun score(f: List<Fit>) = f.count { it == Fit.REPEATED } * 100 + f.count { it == Fit.MISSING }
+            fun stopped(x: LlamaModel.Result) = x.stop == LlamaModel.StopReason.CANCELLED
+            var r = generateWith(terms, stateTerms = false)
+            var pieceOut = TextNormalizer.cleanTranslation(r.text, piece.text, echo)
+            var fit = fits(pieceOut, terms.isNotEmpty())
+            var found = WordUse.Status.CONFIRMED
+            // (also for live partials: a finished partial can become the final translation unchanged)
+            if (terms.isNotEmpty() && !stopped(r) && (score(fit) > 0 || pieceOut.isBlank())) {
+                // once more, with the meanings also stated in the system message; the better run counts
+                val r2 = generateWith(terms, stateTerms = true)
+                val out2 = TextNormalizer.cleanTranslation(r2.text, piece.text, echo)
+                val fit2 = fits(out2, withTerms = true)
+                if (stopped(r2) || out2.isNotBlank() && (pieceOut.isBlank() || score(fit2) <= score(fit))) {
+                    r = r2
+                    pieceOut = out2
+                    fit = fit2
+                    found = WordUse.Status.CONFIRMED_AFTER_HINT
+                }
+            }
+            if (terms.isNotEmpty() && !stopped(r) && (pieceOut.isBlank() || Fit.REPEATED in fit)) {
+                // no answer, or a meaning replaced another word in both runs: without the meanings,
+                // corrected below
+                val r3 = generateWith(emptyList(), stateTerms = false)
+                val out3 = TextNormalizer.cleanTranslation(r3.text, piece.text, echo)
+                if (stopped(r3) || out3.isNotBlank() || pieceOut.isBlank()) {
+                    r = r3
+                    pieceOut = out3
+                    fit = fits(out3, withTerms = false)
+                    found = WordUse.Status.CONFIRMED
+                }
+            }
+            var checked = uses.zip(fit) { u, f ->
+                u.copy(
+                    status = when (f) {
+                        Fit.OK -> found
+                        Fit.REPEATED -> WordUse.Status.REPEATED
+                        Fit.MISSING -> WordUse.Status.PLANNED
+                    },
+                )
+            }
+            // still missing: another listed meaning in the text is replaced, else it was a synonym
+            checked = checked.map { u ->
+                if (u.status != WordUse.Status.PLANNED) return@map u
+                val corrected = AmbiguousWords.correct(pieceOut, u)
+                if (corrected != null) {
+                    pieceOut = corrected
+                    u.copy(status = WordUse.Status.CORRECTED)
+                } else {
+                    u.copy(status = WordUse.Status.SYNONYM)
+                }
+            }
+            if (r.stop != LlamaModel.StopReason.CANCELLED) usedWords += checked
             out.append(pieceOut).append(piece.separatorAfter)
             if (r.stop == LlamaModel.StopReason.CANCELLED) {
                 cancelled = true
                 break
             }
+            previous = piece.text
         }
         val final = TextNormalizer.forLanguage(out.toString().trim(), req.target)
         return Result(
             text = final, modelId = info.id, modelName = info.name, sourceUsed = src,
             wallMs = (System.nanoTime() - t0) / 1_000_000, promptTokens = promptTokens, reusedTokens = reused,
             generatedTokens = generated, prefillMs = prefill, decodeMs = decode, cancelled = cancelled,
-            processor = model.processor,
+            processor = model.processor, words = usedWords,
         )
     }
 
@@ -736,6 +782,9 @@ class TranslationEngine(
         return if (any.isEmpty()) "Kein Übersetzungsmodell installiert – bitte unter „Modelle“ laden"
         else "Kein installiertes Modell kann ${req.source?.nameDe?.let { "$it → " } ?: ""}${req.target.nameDe}"
     }
+
+    /** how a listed word came out in one run */
+    private enum class Fit { OK, REPEATED, MISSING }
 
     private companion object {
         /** one thread at most, created on demand, ended after 30 s without work: no closing needed */
