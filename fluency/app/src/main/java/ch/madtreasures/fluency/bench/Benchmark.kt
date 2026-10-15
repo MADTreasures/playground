@@ -8,6 +8,7 @@ import ch.madtreasures.fluency.engine.asr.SAMPLE_RATE
 import ch.madtreasures.fluency.engine.asr.WhisperCppAsr
 import ch.madtreasures.fluency.engine.llm.AccelChoice
 import ch.madtreasures.fluency.engine.llm.AmbiguousWord
+import ch.madtreasures.fluency.engine.llm.WordCollection
 import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.models.ModelInfo
@@ -112,12 +113,9 @@ object BenchData {
 
     const val TTS_SENTENCE = "Guten Tag! Das ist ein kurzer Test der Sprachausgabe."
 
-    /** a sentence with an ambiguous word and an example entry for it (not the user's list) */
-    val WORD_SENTENCE = Sentence("de", "en", "Hast du meine Nachrichten von heute Morgen schon gelesen?")
-    val WORD_ENTRY = AmbiguousWord(
-        "Nachrichten", "de", "en",
-        listOf(AmbiguousWord.Meaning("messages", listOf("Chat", "Handy")), AmbiguousWord.Meaning("news", listOf("Fernseh*", "Radio"))),
-    )
+    /** a sentence with an ambiguous word whose hint word decides; the entry comes from the collection, not the user's list */
+    val WORD_SENTENCE = Sentence("de", "en", "Wir haben uns im Park auf eine Bank gesetzt und die Sonne genossen.")
+    val WORD_ENTRY: AmbiguousWord get() = WordCollection.entries.first { it.language == "de" && it.word == "Bank" }
 }
 
 /** Runs the benchmark against everything that is installed. */
@@ -274,7 +272,7 @@ class Benchmark(
             wordPlainMs = wordPlain?.wallMs ?: 0,
             wordMs = withWord?.wallMs ?: 0,
             wordTokens = if (wordPlain != null && withWord != null) (withWord.promptTokens - wordPlain.promptTokens).coerceAtLeast(0) else 0,
-            wordStatus = withWord?.words?.joinToString { "${it.from} → ${it.to}: ${it.statusLabel}" }.orEmpty(),
+            wordStatus = withWord?.words?.joinToString { "${it.from} → ${it.to ?: "?"}: ${it.statusLabel}" }.orEmpty(),
         )
         return bench to texts
     }

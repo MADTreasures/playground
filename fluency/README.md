@@ -15,9 +15,9 @@ aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Mes
 
 ## Downloads
 
-- **Fertige App**: [`dist/Fluency-1.5.0.apk`](../dist/Fluency-1.5.0.apk) (arm64, signiert). Sie
-  installiert sich als Update über 1.0.0–1.4.0, die heruntergeladenen Modelle bleiben erhalten.
-- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.5.0.zip`](../dist/Fluency-AndroidStudio-1.5.0.zip)
+- **Fertige App**: [`dist/Fluency-1.6.0.apk`](../dist/Fluency-1.6.0.apk) (arm64, signiert). Sie
+  installiert sich als Update über 1.0.0–1.5.0, die heruntergeladenen Modelle bleiben erhalten.
+- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.6.0.zip`](../dist/Fluency-AndroidStudio-1.6.0.zip)
   (enthält alle nativen Quellen und die fertig gebauten NPU-Bibliotheken, keine Submodule)
 
 ## In Android Studio bauen
@@ -64,43 +64,68 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
    Satz, Prompt- und Ausgabe-Tokens/s, mit KV-Cache, ASR-Echtzeitfaktor und Piper.
 6. **„Deutsch (Schweiz)"** schreibt immer „ss" statt „ß" (Übersetzungen, Untertitel, Vorlesen).
    Die Oberfläche ist Deutsch in Schweizer Schreibweise.
-7. **Mehrdeutige Wörter (eigenes Modul)**: Optionen → Übersetzung → „Mehrdeutige Wörter eintragen“.
-   Du trägst selbst ein, welche Wörter mehrere Bedeutungen haben: das Wort, die Sprachen, die
-   Übersetzungen und zu jeder Übersetzung Hinweiswörter. Beispiel: „Nachrichten“ → *messages*
-   (Hinweise: Chat, Handy, App, schreib\*) oder *news* (Hinweise: Fernseh\*, Radio, Zeitung). Die
-   erste Übersetzung ist der Standard.
-   - **Welche Bedeutung** gilt, entscheiden feste Regeln, kein Modell. Die erste passende gilt:
-     1. du hast sie für diesen Satz angetippt,
-     2. ein Hinweiswort genau einer Bedeutung steht im Satz,
-     3. es stand im Satz davor (Live und Gespräch: die vorherige Äusserung),
-     4. du hast sie früher in diesem Gespräch angetippt,
-     5. sonst der Standard.
+7. **Mehrdeutige Wörter**: Optionen → Übersetzung → „Mehrdeutige Wörter bearbeiten“. Wörter mit
+   mehreren Bedeutungen, in Deutsch, Englisch, Französisch, Italienisch, Spanisch und Portugiesisch.
+   - **Mitgeliefert:** eine Sammlung von 132 häufigen Doppeldeutungen, z. B.:
+     - Deutsch: Bank, Schloss, Leiter, Decke, Steuer, Gericht, Zug (auch die Stadt), Pass, Note,
+       Strom, Kater …
+     - Englisch: bill, date, match, key, tip, fine, ticket, cell …
+     - Französisch: avocat, livre, vol, temps, glace, pièce …
+     - Italienisch: riso, pesca, calcio, borsa …
+     - Spanisch: gato, muñeca, cola, carta …
+     - Portugiesisch: manga, rede, conta …
+     - Schweizer Wörter, die das Modell anders versteht: Estrich (Dachboden), zügeln (umziehen),
+       Kasten (Schrank), Stift (Lehrling).
 
-     In der Gegenrichtung (*messages* in einem englischen Satz) wird immer das eingetragene Wort genommen.
-   - **Vorschreiben und prüfen:** Die gewählte Bedeutung geht über Hy-MT2s offizielle
-     Begriffs-Vorlage in den Prompt. Danach prüft die App, ob sie in der Übersetzung steht.
-     - Fehlt sie, übersetzt die App ein zweites Mal und schreibt zusätzlich in die Systemnachricht:
-       `In this text, "Nachrichten" means "messages".` Der bessere der beiden Läufe zählt.
-     - Steht danach noch eine andere eingetragene Bedeutung im Text, wird sie ersetzt.
-   - **Sichtbar und änderbar:** Unter jeder Übersetzung steht das Wort als Chip, z. B.
-     „✓ Nachrichten → messages · Hinweis davor „Chat““. Antippen zeigt, warum diese Bedeutung gewählt
-     wurde und was die Prüfung ergab, und lässt eine andere wählen. Der Satz wird sofort neu
-     übersetzt. Spätere Sätze im selben Gespräch ohne Hinweiswort nehmen sie dann auch.
-   - **Erkannt** wird das Wort auch mit üblicher Endung (Nachricht/Nachrichten, Bank/Bänke/Banken,
-     Schüler/Schülerin), nicht aber in zusammengesetzten Wörtern (Bankraub, Sprachnachricht).
-     Hinweiswörter genauso; mit \* am Ende passen sie zu jedem Wort, das so anfängt
-     (Fernseh\* → Fernsehen, Fernseher).
-   - **Sätze ohne eingetragenes Wort** bekommen exakt denselben Prompt wie ohne Modul, also dieselbe
-     Übersetzung. Das ist mit dem echten Modell getestet.
-   - Gilt in Live, Gespräch und Text, für höchstens 300 Wörter, und lässt sich abschalten
-     („Mehrdeutige Wörter verwenden“). MiLMMT-46 kennt keine Vorgaben; dort wird nur geprüft und
-     nachkorrigiert. Feste Begriffe („Wort = Übersetzung“) aus einem 1.4.0-Kontext-Dokument werden
-     übernommen; die übrigen Sätze des Dokuments fallen weg.
-   - **Was „null Fehler“ hier heisst:** Garantiert ist, dass ein eingetragenes Wort nie mit einer
-     anderen eingetragenen Bedeutung stehen bleibt, und dass du siehst, welche Bedeutung genommen
-     wurde und warum. Nicht garantiert ist, dass die Regel trifft, was du meinst (dafür gibt es
-     Hinweiswörter und das Antippen), und der Rest des Satzes, den weiterhin das Modell übersetzt.
-     Null Fehler für beliebige Sätze kann kein Übersetzungsmodell versprechen, auch kein grosses.
+     Du kannst alles ändern, löschen oder eigene Wörter eintragen. „Sammlung ergänzen“ holt später
+     neue Sammlungswörter dazu, ohne deine Änderungen zu überschreiben.
+   - **Ein Eintrag gilt für alle Zielsprachen:** Jede Bedeutung hat eine kurze Beschreibung
+     („Sitzbank“), Hinweiswörter und Übersetzungen in jede Sprache, z. B. Sitzbank → bench / banc /
+     panchina. Wo eine Sprache für alle Bedeutungen dasselbe Wort hat (spanisch „banco“), lässt die
+     App das Wort in Ruhe. Für Deutsch (Schweiz) gibt es eigene Übersetzungen, wo sie abweichen
+     (Busse, Billett, Konfitüre, Glace).
+   - **Welche Bedeutung**, nach festen Regeln, die erste passende gilt:
+     1. du hast sie für diesen Satz angetippt;
+     2. ein Hinweiswort genau einer Bedeutung steht im Satz;
+     3. du hast sie früher im Gespräch angetippt;
+     4. bei Wörtern mit Standard: ein Hinweiswort im Satz davor, sonst die erste Bedeutung;
+     5. **sonst gibt die App nichts vor.** Das Modell entscheidet, die Übersetzung bleibt genau so,
+        wie sie ohne Modul wäre. Die App zeigt nur an, welche Bedeutung das Modell genommen hat, und
+        warnt, wenn ein Hinweiswort im Satz davor dagegen spricht.
+
+     Im Gespräch zählt als „Satz davor“ die vorherige Äusserung samt ihrer Übersetzung, also auch
+     die Worte des Gegenübers in deiner Sprache.
+   - **Vorschreiben und prüfen:** Eine gewählte Bedeutung geht über Hy-MT2s offizielle
+     Begriffs-Vorlage in den Prompt. Danach prüft die App die Übersetzung:
+     - Fehlt die Bedeutung, übersetzt sie ein zweites Mal mit Systemsatz
+       (`In this text, "Bank" means "bench".`); der bessere Lauf zählt.
+     - Steht dann eine andere eingetragene Bedeutung im Text, wird sie ersetzt.
+     - Steht die Vorgabe öfter da als das Wort im Satz (sie hat noch ein anderes Wort ersetzt),
+       nimmt die App die Übersetzung ohne Vorgabe.
+   - **Sichtbar und änderbar:** Unter jeder Übersetzung steht das Wort als Chip:
+     - Eine Vorgabe ist hervorgehoben: „✓ Bank → bench · Hinweis „im Park““.
+     - Eine Entscheidung des Modells ist leiser und hat ein Auge statt eines Häkchens:
+       „Nachrichten → messages · Modell“.
+     - Eine Warnung ist rot.
+
+     Antippen zeigt Grund und Prüfung und lässt eine andere Bedeutung wählen. Der Satz wird sofort
+     neu übersetzt, und die Wahl gilt für das ganze Gespräch.
+   - **Erkannt** wird ein Wort mit den üblichen Endungen seiner Sprache: Bank/Bänke/Banken,
+     banca/banche, journal/journaux, avião/aviões, battery/batteries. Nicht erkannt wird es in
+     zusammengesetzten Wörtern (Bankraub). Deutsche Nomen zählen nur gross geschrieben („Steuer“,
+     nicht „steuern“), denn die Spracherkennung schreibt sie so. Hinweiswörter mit \* am Ende
+     passen zu jedem Wort, das so anfängt (Fernseh\* → Fernsehen, Fernseher).
+   - Gilt in Live, Gespräch und Text und lässt sich abschalten. MiLMMT-46 kennt keine Vorgaben;
+     dort wird nur geprüft und nachkorrigiert. Wörter aus 1.5.0 bleiben erhalten (mit Standard),
+     ebenso die festen Begriffe eines 1.4.0-Kontext-Dokuments.
+   - **Was „null Fehler“ hier heisst:**
+     - Eine vorgegebene Bedeutung bleibt nie mit einer anderen eingetragenen Bedeutung stehen.
+     - Ohne Hinweiswort ändert die Sammlung an der Übersetzung nichts.
+     - Du siehst bei jedem eingetragenen Wort, was passiert ist, und kannst es mit einem Tipp ändern.
+
+     Nicht garantiert ist, dass ein Hinweiswort im Einzelfall passt, und der Rest des Satzes, den
+     weiterhin das Modell übersetzt. Null Fehler für beliebige Sätze kann kein Übersetzungsmodell
+     versprechen.
 8. **GPU (Adreno) und NPU (Hexagon) für die Übersetzung**: Optionen → Leistung → „Rechenwerk für die
    Übersetzung“.
    - **Automatisch** (Standard): Beim ersten Laden eines Modells übersetzt die App dieselben zwei
@@ -232,58 +257,87 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
   hat (bei wachsenden Teilsätzen kommen z. B. 31 von 41 Tokens aus dem Cache). Tokens werden
   gestreamt (nur vollständige UTF-8-Zeichen), Abbruch geht jederzeit. Die Prompts sind die kürzesten
   offiziellen Formate (Hy-MT2-Chat-Template bzw. MiLMMT-Completion), Decoding greedy.
-  - **Mehrdeutige Wörter** (`engine/llm/AmbiguousWords.kt`, `TranslationEngine.runPieces`):
-    - Prompt: Hy-MT2s offizielle Begriffs-Vorlage („Reference the following translations:
-      Nachrichten translates to messages“, auf Chinesisch „参考下面的翻译“). Im zweiten Lauf steht
-      zusätzlich `In this text, "Nachrichten" means "messages".` in der Systemnachricht des
-      Hunyuan-Chat-Templates (`<｜hy_begin▁of▁sentence｜>…<｜hy_place▁holder▁no▁3｜><｜hy_User｜>…`).
-    - Ins Prompt kommt die Form, die im Satz steht (z. B. „Bänke“ für den Eintrag „Bank“). Der Satz
-      davor wird nur nach Hinweiswörtern durchsucht und geht nie ins Prompt.
-    - Prüfung und Ersetzen arbeiten mit denselben Wortformen wie das Erkennen: Wortgrenzen, übliche
-      Endungen, Gross/klein, Akzente und ß/ss egal; Chinesisch/Japanisch/Koreanisch ohne Wortgrenzen.
-    - Ergebnis je Wort (`WordUse`): Regel (Standard, Hinweis, Hinweis davor, deine Wahl, angetippt,
-      fest, Gegenrichtung) und Prüfung (geprüft, geprüft im 2. Durchlauf, nachkorrigiert, anders
-      formuliert). Daraus entstehen die Chips.
-    - Gemessen auf 41 mehrdeutigen Sätzen (26 Deutsch → Englisch, 15 Englisch → Deutsch), mit dem
-      echten Hy-MT2 auf x86 und demselben Code wie in der App (`AmbiguousWordsIntegrationTest`).
-      Je Satz gab es einen Eintrag mit der gewünschten Bedeutung und den anderen:
+  - **Mehrdeutige Wörter** (`engine/llm/AmbiguousWords.kt`, `WordCollection.kt`, `TranslationEngine.runPieces`):
+    - Prompt: Hy-MT2s offizielle Begriffs-Vorlage („Reference the following translations: Bank
+      translates to bench“, auf Chinesisch „参考下面的翻译“). Im zweiten Lauf steht zusätzlich
+      `In this text, "Bank" means "bench".` in der Systemnachricht des Hunyuan-Chat-Templates.
+      Ins Prompt kommt die Form, die im Satz steht. Der Satz davor wird nur nach Hinweiswörtern
+      durchsucht und geht nie ins Prompt.
+    - Wortformen je Sprache, ohne Wörterbuch:
+      - Deutsch: Endungen -e/-en/-n/-s/-es/-in/-innen, Umlaute; Nomen nur gross geschrieben.
+      - Englisch: -s/-es/-ies/-ves/-ing/-ed.
+      - Französisch: -s/-x/-e/-aux.
+      - Italienisch: Plural mit gleichem Geschlecht, also foglio/fogli, aber nicht foglia;
+        banca/banche, aber nicht pesce.
+      - Spanisch: -s/-es/-ces.
+      - Portugiesisch: -ões/-ães/-is/-ns.
+      - Allgemein: Akzente und ß/ss egal, ñ zählt.
+      - Nicht in zusammengesetzten Wörtern; Chinesisch, Japanisch, Koreanisch ohne Wortgrenzen.
+      - Ein Hinweiswort zählt nie innerhalb des Worts selbst.
+      - Unregelmässige Formen stehen im Eintrag („Schlösser“, „mice“).
+    - Die Sammlung wird durch Tests geprüft:
+      - Jedes Hinweiswort wählt seine Bedeutung.
+      - Kein Hinweiswort passt zu zwei Bedeutungen.
+      - Jede Bedeutung ist in alle fünf anderen Kernsprachen übersetzt.
+
+      Die Tests haben beim Schreiben echte Fehler gefunden: „brems*“ passte zu „Bremse“ selbst,
+      „office“ (Stempel) steckte in „post office“ (Briefmarke), englisch „news“ wurde zu „new“
+      gekürzt, italienisch „pesca“ traf „pesce“.
+    - **Gemessen mit dem echten Hy-MT2** (x86, derselbe Code wie in der App,
+      `AmbiguousWordsIntegrationTest`), nur mit der Sammlung, ohne dass jemand etwas einträgt.
+      Gezählt wird, ob die richtige Bedeutung bzw. eine andere eingetragene Bedeutung in der
+      Übersetzung steht:
 
       | | ohne Modul | mit Modul |
       |---|---|---|
-      | **andere eingetragene Bedeutung in der Übersetzung (falsch)** | **8** | **0** |
-      | gewünschte Bedeutung im 1. Lauf geprüft | – | 35 |
-      | … erst im 2. Lauf (mit Systemsatz) | – | 4 |
-      | Vorgabe hatte ein zweites Wort ersetzt → Übersetzung ohne Vorgabe genommen | – | 1 |
-      | anders formuliert („fine“ → *Geldstrafe* statt *Bussgeld*, richtig) | – | 1 |
-      | Zeit pro Satz mit eingetragenem Wort (x86, 4 Threads, leerer Cache) | 913 ms | 1213 ms |
+      | 40 Sätze der früheren Messung (de→en, en→de), Satz davor nur als Hinweis: richtig | 23 | **31** |
+      | … davon mit falscher Bedeutung | 8 | **4** |
+      | 32 neue Sätze in anderen Richtungen (de→fr/it/es, en→fr/it/es, fr/it/es/pt→de/en, Schweizer Wörter): richtig | 20 | **31** |
+      | … davon mit falscher Bedeutung | 4 | **0** |
+      | richtige Übersetzung durch das Modul falsch geworden | – | **0** |
 
-    - Zeit: Klappt der 1. Lauf, kostet das Wort nur die paar Tokens der Vorlage (Benchmark-Satz auf
-      x86: +12 Prompt-Tokens, 1068 statt 1054 ms). Von den 41 schwierigen Sätzen brauchten 6 einen
-      zweiten Lauf und 1 einen dritten; daher im Schnitt +300 ms. Auf dem Handy nicht gemessen.
+      - In den 40 früheren Sätzen gab die App 18-mal eine Bedeutung vor, weil ein Hinweiswort im
+        Satz stand. 22-mal entschied das Modell, und die Übersetzung blieb gleich.
+      - Die 8 Warnungen („Hinweis davor spricht dagegen“) waren alle berechtigt. Ein Tipp auf den
+        Chip hätte jeden dieser Sätze korrigiert.
+      - Offen blieben z. B. „Die Nachrichten kommen aber nicht an“ (*news*, mit Warnung) und der
+        Satz aus dem Feldtest, dessen Satz davor kein Hinweiswort hat (*news*, ohne Warnung). Nach
+        einem Tipp gilt *messages* für das ganze Gespräch.
+      - Einmal stimmt die Zählung zu streng: „Wir zügeln nächsten Monat nach Bern“ wurde richtig
+        zu *Nous déménagerons…*. Das Futur von *déménager* erkennt die Prüfung nicht, darum steht
+        dort „anders formuliert“.
+      - Die neuen Sätze habe ich für den Test geschrieben, die Hinweiswörter auch. Echte Gespräche
+        können schlechter abschneiden.
+    - **Nebenwirkungen, ehrlich gezählt:** Steht die Vorgabe im Satz, stimmt das Wort. Das Modell
+      passt aber den Rest nicht immer an. In rund 5 von 50 Sätzen mit Vorgabe holperte es:
+      - falscher Artikel oder falsches Geschlecht: *einen Robbe*, *un grulla*, *im Hängematten*;
+      - ein Nachbarwort verschoben: „Er lässt mich nur ungern ans Steuer“ → *He only refuses to let
+        me drive the wheel*; „Der Hahn tropft“ → *Il rubinetto … si è bagnato*.
 
-    - Ohne Modul waren zusätzlich Sätze falsch, in denen keine andere eingetragene Bedeutung stand,
-      z. B. „Der Hahn ist undicht“ → *The horn is leaking* oder „One key is stuck“ → *Eine
-      Schlüsselkarte ist stecken geblieben*. Mit Modul stimmte das eingetragene Wort in allen 41
-      Sätzen (40 wörtlich, 1 als richtiges Synonym).
-    - **Nebenwirkungen, ehrlich gezählt** (in denselben 41 Sätzen):
-      - Einmal hat die Vorgabe noch ein anderes Wort ersetzt: „Put the suitcases in the trunk“ wurde
-        in beiden Läufen zu *Legen Sie die Kofferraum in den Kofferraum*. Die App erkennt das
-        (*Kofferraum* zweimal, *trunk* nur einmal) und nimmt die Übersetzung ohne Vorgabe, *Legen
-        Sie die Koffer in den Kofferraum*.
-      - Einmal wurde der Satz holpriger: „Er lässt mich nur ungern ans Steuer“ wurde zu *…let me
-        drive the steering wheel very much*; ohne Vorgabe kam *…let me drive the car* (richtig, nur
-        ohne das Wort). Die Vorgabe wird wörtlich genommen, deshalb Übersetzungen so eintragen, wie
-        sie in Sätze passen.
-      - Einmal fiel ein Artikel weg: *Hast du Streichholz?* (ohne Modul *Hast du einen
-        Streichholz?*, auch falsch).
-      - Den Rest des Satzes übersetzt weiterhin das Modell: „Morgen streichen wir die Decke“ wurde zu
-        *…remove the ceiling*. Das Wort stimmt, das Verb nicht (ohne Modul ebenso falsch).
-    - 8 Sätze ohne eingetragenes Wort (bei 31 eingetragenen Wörtern, darunter „Bankraub“ und
-      „Sprachnachricht“): gleiche Übersetzung, gleiche Prompt-Länge wie ohne Modul.
+      Ohne Modul waren dieselben Sätze meist schlimmer falsch (*Seelöwe*, *grúa* = Baukran, *gallo*
+      = Hahn als Tier).
+    - Die Vorgabe ersetzte auch schon ein zweites Wort: „Put the suitcases in the trunk“ wurde zu
+      *Legen Sie die Kofferraum in den Kofferraum*. Die App erkennt das (*Kofferraum* zweimal,
+      *trunk* nur einmal) und nimmt die Übersetzung ohne Vorgabe.
+    - Wie zuverlässig die Vorgabe selbst ist (1.5.0, 41 Sätze, je ein Eintrag mit der gewünschten
+      Bedeutung):
+      - 35-mal im 1. Lauf übernommen, 4-mal im 2. Lauf;
+      - 1-mal ohne Vorgabe genommen (Kofferraum), 1-mal ein richtiges Synonym;
+      - nie eine andere eingetragene Bedeutung.
+    - **Zeit:** Klappt der 1. Lauf, kostet das Wort nur die paar Tokens der Vorlage (Benchmark-Satz
+      „…im Park auf eine Bank…“: +10 Prompt-Tokens; auf dem geteilten x86-Container einmal 1054 →
+      1068 ms, einmal 1241 → 1398 ms, die Zeiten schwanken dort stark). Bei schwierigen Sätzen
+      kommt manchmal ein zweiter Lauf dazu: über die 41 Sätze von 1.5.0 im Schnitt +300 ms auf
+      x86. Ohne Vorgabe kostet das Modul nichts. Auf dem Handy nicht gemessen.
+    - Sätze ohne eingetragenes Wort (11 Sätze in vier Sprachen, mit der ganzen Sammlung, darunter
+      „Bankraub“, „Sprachnachricht“, „das Boot steuern“): gleiche Übersetzung, gleiche
+      Prompt-Länge wie ohne Modul.
   - Vorgeschichte: Bis 1.3.0 nahm die App automatisch die letzten zwei Sätze des Gesprächs mit, in
     1.4.0 ein selbst geschriebenes Kontext-Dokument. Beides hilft oft, kann aber die Wortwahl in
     anderen Sätzen verschieben (z. B. „tip“ → *Tipp* statt *Trinkgeld*) und zeigt nicht, was es
-    bewirkt hat. Deshalb ersetzt in 1.5.0 das Modul beides.
+    bewirkt hat. Deshalb ersetzte in 1.5.0 das Modul beides. 1.5.0 kannte nur selbst eingetragene
+    Wörter für ein Sprachpaar und gab ohne Hinweis immer die 1. Bedeutung vor; 1.6.0 bringt die
+    mehrsprachige Sammlung und lässt ohne Hinweis das Modell entscheiden.
   - Getestet und verworfen: ein separates kleines Kontext-Modell, das aus Gespräch und Satz das
     Thema und die Bedeutung mehrdeutiger Wörter bestimmt (Qwen3.5-0.8B, LFM2.5-1.2B, Qwen3.5-2B,
     Okt. 2026):
@@ -361,7 +415,7 @@ Tests laufen immer. Erwartete Ordnerstruktur (Standard: `test-models/` im Projek
 `llm/` (die drei GGUF-Dateien), `parakeet-v3/` (encoder/decoder/joiner.int8.onnx, tokens.txt,
 test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_vad_v5.onnx`.
 
-141 Tests in 24 Klassen, alle grün:
+157 Tests in 26 Klassen, alle grün:
 
 - **Logik**: Schweizer Schreibweise, Satz-Segmentierung, Spracherkennung per Stoppwörtern/Schrift,
   Prompt-Formate, Modell-Routing, Katalog (gepinnte URLs, SHA-256), **Downloader** (Fortsetzen nach
@@ -369,20 +423,38 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
   **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp; der
   Satz davor und die angetippten Bedeutungen gehen mit, die Wörter kommen an der Äusserung an).
 - **Mehrdeutige Wörter** (ohne Modell):
-  - Liste speichern und lesen, Sonderzeichen, höchstens 300 Wörter; feste Begriffe aus einem
-    1.4.0-Dokument werden übernommen.
-  - Wortformen: Nachricht/Nachrichten, Bank/Bänke/Banken, Schloss/Schloß/Schlosses,
-    battery/batteries, Schüler/Schülerin – aber nicht in Bankraub, Banker, Datenbank,
-    Sprachnachrichten, newspaper; Chinesisch ohne Leerzeichen; Hinweiswörter mit \*.
-  - Die Regeln in ihrer Reihenfolge; Hinweise zweier Bedeutungen entscheiden nichts; Gegenrichtung;
-    Sprachen (Schweizerdeutsch zählt als Deutsch).
-  - Prüfen und Ersetzen (Gross/klein, nie innerhalb anderer Wörter); Prüfungen im Editor (doppelt,
-    gleiche Sprache, Hinweiswort passt zu zwei Bedeutungen oder zum Wort selbst).
+  - Wortformen in sechs Sprachen, u. a.:
+    - Deutsch: Bank/Bänke/Banken, aber nicht Bankraub, Banker, Datenbank; „Steuer“ nicht in
+      „steuern“, „Pass“ nicht in „passen“.
+    - Englisch: battery/batteries, knife/knives, date/dating, aber „news“ nicht in „new“.
+    - Französisch: journal/journaux, aber nicht „bancaire“.
+    - Italienisch: banca/banche, foglio/fogli ohne foglia, pesca/pesche ohne pesce.
+    - Spanisch: luz/luces, año ohne ano.
+    - Portugiesisch: avião/aviões, papel/papéis.
+    - Chinesisch ohne Leerzeichen; Hinweiswörter mit \*, als Wendung, nie im Wort selbst.
+  - Speichern und Lesen (auch das Format von 1.5.0), höchstens 500 Wörter, Übernahme der festen
+    Begriffe aus 1.4.0, Zusammenführen mit der Sammlung, ohne eigene Wörter zu überschreiben.
+  - Die Regeln in ihrer Reihenfolge, für alle Zielsprachen:
+    - ohne Hinweis entscheidet das Modell; der Satz davor warnt nur;
+    - Wörter mit Standard; angetippt; deine Wahl gilt für jede Zielsprache;
+    - spanisch „banco“ bleibt in Ruhe; Deutsch (Schweiz) mit eigenen Wörtern;
+    - unbekannte Ausgangssprache wird nur dafür erraten.
+  - Welche Bedeutung das Modell genommen hat; Prüfen und Ersetzen (auch Synonyme); Prüfungen im
+    Editor.
+  - **Die ganze Sammlung** (132 Wörter):
+    - jedes Hinweiswort wählt seine Bedeutung, keines passt zu zwei Bedeutungen;
+    - jede Bedeutung ist in alle anderen Kernsprachen übersetzt;
+    - jedes Wort ist für mindestens eine Zielsprache mehrdeutig;
+    - jeder Eintrag liesse sich im Editor speichern.
   - Prompts: Begriffs-Vorlage englisch und chinesisch wie in der Modellkarte, Systemsatz im 2. Lauf;
-    ohne eingetragenes Wort der übliche Prompt.
-  - Engine mit Skript-Modell: geprüft, 2. Lauf, der bessere Lauf zählt, Ersetzen, Synonym, leere
-    Antwort, Vorgabe ersetzt noch ein anderes Wort (→ 2. Lauf bzw. ohne Vorgabe), Wort zweimal im
-    Satz, abgeschaltet, Benchmark-Beispiel, MiLMMT nur prüfen, Absätze einzeln.
+    ohne Vorgabe der übliche Prompt.
+  - Engine mit Skript-Modell:
+    - Modell entscheidet: erkannt bzw. nicht erkannt;
+    - Vorgabe geprüft, 2. Lauf, der bessere Lauf zählt;
+    - Ersetzen, Synonym, jedes eingetragene Synonym zählt;
+    - leere Antwort; die Vorgabe ersetzt noch ein anderes Wort (→ 2. Lauf bzw. ohne Vorgabe);
+    - keine Übersetzung für die Zielsprache; Warnung aus dem Satz davor;
+    - angetippt, abgeschaltet, Benchmark-Beispiel, MiLMMT nur prüfen, Absätze einzeln.
 - **CPU/GPU/NPU-Wahl** mit simulierten Modellen auf CPU, GPU und NPU. Im Container gibt es weder
   eine Adreno-GPU noch eine Hexagon-NPU. Getestet wird dieselbe Engine-Logik wie auf dem Handy:
   - Das schnellste Rechenwerk übernimmt ohne Pause. Sind GPU und NPU langsamer, bleibt es bei der
@@ -405,13 +477,12 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
   - Parakeet (de/en/fr/es) und Whisper-turbo (inkl. Spracherkennung).
   - Silero VAD mit absoluten Segmentpositionen.
   - Schweizerdeutsch-Whisper über whisper.cpp, geladen als Q8_0 (gleicher Text wie mit Q5_0).
-  - **Mehrdeutige Wörter mit Hy-MT2**:
-    - Die 41 Sätze der Messung oben: nie eine andere eingetragene Bedeutung, nie die Vorgabe öfter
-      als das Wort.
-    - Die Regeln Ende-zu-Ende: Hinweis im Satz davor („Chat“ → *messages*, „Fernseher“ → *news*),
-      Standard beim Satz aus dem Feldtest („…the messages are separated“), angetippt, Hinweis im
-      Satz („Park“ → *bench*, „Geld“ → *bank*), Gegenrichtung (*messages* → Nachrichten).
-    - Sätze ohne eingetragenes Wort: gleiche Übersetzung wie ohne Modul.
+  - **Mehrdeutige Wörter mit Hy-MT2**, nur mit der Sammlung:
+    - die 40 früheren und 32 neuen Sätze der Messung oben: nie eine richtige Übersetzung falsch
+      gemacht, weniger falsche Bedeutungen;
+    - ohne Vorgabe dieselbe Übersetzung wie ohne Modul;
+    - die Regeln Ende-zu-Ende (Hinweis im Satz, Warnung, angetippt, für das Gespräch gemerkt);
+    - 11 Sätze ohne eingetragenes Wort in vier Sprachen: gleiche Übersetzung, gleiche Prompt-Länge.
   - Echter Download von Hugging Face inkl. SHA-256 (Silero, 355 eSpeak-Dateien, Piper).
   - Piper spricht, Parakeet erkennt: „Guten Morgen, wie komme ich zum Bahnhof?"
   - **Live-Pipeline Ende-zu-Ende** (Audio → VAD → Parakeet → Hy-MT2) und der App-Benchmark
@@ -466,9 +537,10 @@ Liste) und das Schweizer Modell als Q8_0 mit 6 Threads (eigene Zeile unter Sprac
   (i8mm/KleidiAI/SME2) nicht; dort ist Q8_0 nur gleich schnell bis etwas schneller (4,5 statt 5,3 s
   Encoder für 2,8 s Audio, langsamer Container). Erwartet wird auf dem Handy ein Mehrfaches, gemessen
   ist es nicht.
-- Mehrdeutige Wörter auf dem Handy: die Zeit pro Satz mit Wort auf NPU und CPU, ob die NPU die
-  Vorgabe genauso befolgt (auf x86 nur CPU geprüft), und die Bedienung der Chips (Antippen, Menü,
-  neu übersetzen, im Gesprächsmodus auf beiden Seiten).
+- Mehrdeutige Wörter auf dem Handy: die Zeit pro Satz mit Vorgabe auf NPU und CPU, ob die NPU die
+  Vorgabe genauso befolgt (auf x86 nur CPU geprüft), die Bedienung der Chips (Antippen, Menü, neu
+  übersetzen, im Gesprächsmodus), die Liste mit 132 Wörtern (Suche, Sprachfilter), und wie sich die
+  Sammlung in echten Gesprächen schlägt – die Testsätze und die Hinweiswörter stammen beide von mir.
 - Speicherverbrauch und Wärmeentwicklung bei langen Sitzungen.
 
 ## Lizenzen

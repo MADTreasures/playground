@@ -62,7 +62,7 @@ class BenchmarkIntegrationTest {
         assertTrue(report.mt.all { it.cachedPromptTokens > 10 && it.cachedReusedTokens == it.cachedPromptTokens - 1 })
         // what an ambiguous word costs (example entry, not the user's list): Hy-MT2 gets the meaning
         // in the prompt, MiLMMT is only checked; the word is never left with another listed meaning
-        assertTrue(report.mt.all { it.wordMs > 0 && it.wordPlainMs > 0 && it.wordStatus.startsWith("Nachrichten → messages") })
+        assertTrue(report.mt.all { it.wordMs > 0 && it.wordPlainMs > 0 && it.wordStatus.startsWith("Bank → bench") })
         assertTrue(report.mt.filter { it.modelId == ModelCatalog.HY_MT2 }.all { it.wordTokens > 5 })
         assertTrue(report.mt.filter { it.modelId != ModelCatalog.HY_MT2 }.all { it.wordTokens == 0 })
         assertTrue(report.asText().contains("mit mehrdeutigem Wort"))

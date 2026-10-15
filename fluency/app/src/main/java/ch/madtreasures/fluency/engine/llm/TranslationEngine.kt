@@ -84,8 +84,11 @@ class TranslationEngine(
          * switched on; the benchmark and the CPU/GPU/NPU comparison leave it out
          */
         val useWords: Boolean = true,
-        /** the sentence before (live: the previous utterance): only searched for hint words */
-        val previousText: String? = null,
+        /**
+         * the sentence before and its translation (live: the previous utterance): only searched for
+         * hint words, never in the prompt
+         */
+        val previousTexts: List<String> = emptyList(),
         /** meanings chosen earlier in this conversation: entry key → meaning index */
         val wordChoices: Map<String, Int> = emptyMap(),
         /** meanings chosen by tapping for this sentence: entry key → meaning index (win over everything) */
@@ -672,7 +675,7 @@ class TranslationEngine(
         // the user's module "Mehrdeutige Wörter": listed words get the meaning chosen by its rules
         val entries = if (req.useWords) req.words ?: currentWords() else emptyList()
         val usedWords = mutableListOf<WordUse>()
-        var previous = req.previousText
+        var previous = req.previousTexts
         for (piece in pieces) {
             if (piece.text.isBlank()) {
                 out.append(piece.separatorAfter)
@@ -702,11 +705,13 @@ class TranslationEngine(
             }
             val uses = if (entries.isEmpty()) emptyList()
             else AmbiguousWords.resolve(entries, piece.text, previous, src, req.target, req.wordChoices, req.forcedWords)
-            val terms = if (PromptFormat.supportsTerms(style)) uses.map { PromptFormat.Term(it.from, it.to) } else emptyList()
-            // per word: in the translation, more often than in the sentence (the meaning also replaced
+            // the meanings the app chose and can give to the model; the others: the model decides
+            val given = uses.filter { it.chosen && it.to != null }
+            val terms = if (PromptFormat.supportsTerms(style)) given.map { PromptFormat.Term(it.from, it.to!!) } else emptyList()
+            // per given word: in the translation, more often than in the sentence (the meaning also replaced
             // another word, e.g. "suitcases" → "Kofferraum" next to "trunk" → "Kofferraum"), or missing
-            fun fits(output: String, withTerms: Boolean) = uses.map { u ->
-                val n = AmbiguousWords.count(u.to, output)
+            fun fits(output: String, withTerms: Boolean) = given.map { u ->
+                val n = AmbiguousWords.countAny(output, u.accepted, u.target)
                 if (n == 0) Fit.MISSING else if (withTerms && n > u.occurrences) Fit.REPEATED else Fit.OK
             }
             fun score(f: List<Fit>) = f.count { it == Fit.REPEATED } * 100 + f.count { it == Fit.MISSING }
@@ -740,7 +745,7 @@ class TranslationEngine(
                     found = WordUse.Status.CONFIRMED
                 }
             }
-            var checked = uses.zip(fit) { u, f ->
+            var checkedGiven = given.zip(fit) { u, f ->
                 u.copy(
                     status = when (f) {
                         Fit.OK -> found
@@ -750,7 +755,7 @@ class TranslationEngine(
                 )
             }
             // still missing: another listed meaning in the text is replaced, else it was a synonym
-            checked = checked.map { u ->
+            checkedGiven = checkedGiven.map { u ->
                 if (u.status != WordUse.Status.PLANNED) return@map u
                 val corrected = AmbiguousWords.correct(pieceOut, u)
                 if (corrected != null) {
@@ -760,13 +765,23 @@ class TranslationEngine(
                     u.copy(status = WordUse.Status.SYNONYM)
                 }
             }
+            val byKey = checkedGiven.associateBy { it.key }
+            val checked = uses.map { u ->
+                when {
+                    u.chosen && u.to != null -> byKey.getValue(u.key)
+                    u.chosen -> u.copy(status = WordUse.Status.NO_TRANSLATION)
+                    // the model decided: which meaning did it take?
+                    else -> AmbiguousWords.detect(pieceOut, u)?.let { i -> u.copy(meaningIndex = i, status = WordUse.Status.DETECTED) }
+                        ?: u.copy(status = WordUse.Status.UNCLEAR)
+                }
+            }
             if (r.stop != LlamaModel.StopReason.CANCELLED) usedWords += checked
             out.append(pieceOut).append(piece.separatorAfter)
             if (r.stop == LlamaModel.StopReason.CANCELLED) {
                 cancelled = true
                 break
             }
-            previous = piece.text
+            previous = listOf(piece.text)
         }
         val final = TextNormalizer.forLanguage(out.toString().trim(), req.target)
         return Result(

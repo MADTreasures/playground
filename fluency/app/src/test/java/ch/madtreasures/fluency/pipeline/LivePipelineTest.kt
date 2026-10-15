@@ -201,8 +201,8 @@ class LivePipelineTest {
      * hint words) and the meanings tapped in this conversation; the words come back with the utterance.
      */
     @Test fun theSentenceBeforeTheChoicesAndTheWords() {
-        val use = WordUse("de>en:nachrichten", "Nachrichten", 0, "Nachrichten", "messages", WordUse.Reason.HINT_BEFORE, "Chat")
-        val translator = FakeTranslator { req -> if (req.previousText != null) listOf(use) else emptyList() }
+        val use = WordUse("de:nachrichten", "Nachrichten", "Nachrichten", 0, WordUse.Reason.HINT, "Chat")
+        val translator = FakeTranslator { req -> if (req.previousTexts.isNotEmpty()) listOf(use) else emptyList() }
         val (st, tr, _) = run(
             listOf(0.3 to false, 1.2 to true, 0.8 to false, 2.2 to true, 0.8 to false),
             translator = translator, wordChoices = mapOf("de>en:bank" to 1),
@@ -211,11 +211,12 @@ class LivePipelineTest {
         assertTrue(first.words.isEmpty())
         assertEquals(listOf(use), second.words)
         assertTrue(tr.requests.all { it.wordChoices == mapOf("de>en:bank" to 1) })
-        assertTrue(tr.requests.filter { first.sourceText.startsWith(it.text) && it.previousText == null }.isNotEmpty())
+        assertTrue(tr.requests.filter { first.sourceText.startsWith(it.text) && it.previousTexts.isEmpty() }.isNotEmpty())
         // the requests of the second utterance (all after the first one is final) carry it
         val ofSecond = tr.requests.filter { it.text.split(' ').size > first.sourceText.split(' ').size }
         assertTrue(ofSecond.isNotEmpty())
-        assertTrue(ofSecond.all { it.previousText == first.sourceText })
+        // what was said before and its translation (in conversation mode: the other person's words in my language)
+        assertTrue(ofSecond.all { it.previousTexts == listOf(first.sourceText, first.translation) })
     }
 
     @Test fun silenceProducesNothing() {

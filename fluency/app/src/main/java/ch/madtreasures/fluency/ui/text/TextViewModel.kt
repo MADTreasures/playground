@@ -137,7 +137,7 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
      * meaning wherever the word occurs in it.
      */
     fun chooseMeaning(use: WordUse, index: Int) {
-        if (!use.switchable || index == use.meaningIndex) return
+        if (!use.switchable || (use.chosen && index == use.meaningIndex)) return
         local.update { it.copy(forcedWords = it.forcedWords + (use.key to index)) }
         translate(role = Role.TEXT)
     }

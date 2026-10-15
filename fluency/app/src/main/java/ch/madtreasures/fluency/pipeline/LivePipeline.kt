@@ -468,12 +468,14 @@ class LivePipeline(
     private fun normalizeSource(text: String): String = TextNormalizer.forLanguage(text.trim(), config.source)
 
     /**
-     * A translation request for utterance [id]. The utterance before is passed only so that hint
-     * words of the user's ambiguous words are also found there; it never goes into the prompt.
+     * A translation request for utterance [id]. The utterance before (what was said and its
+     * translation, so also the other person's words in conversation mode) is passed only so that hint
+     * words of the ambiguous words are found there; it never goes into the prompt.
      */
     private fun request(id: Long, text: String, role: Role): TranslationEngine.Request {
-        val previous = state.value.utterances.lastOrNull { it.id < id && it.final && it.sourceText.isNotBlank() }?.sourceText
-        return TranslationEngine.Request(text, config.source, config.target, role, previousText = previous, wordChoices = wordChoices())
+        val before = state.value.utterances.lastOrNull { it.id < id && it.final && it.sourceText.isNotBlank() }
+        val previous = listOfNotNull(before?.sourceText, before?.translation?.takeIf { it.isNotBlank() })
+        return TranslationEngine.Request(text, config.source, config.target, role, previousTexts = previous, wordChoices = wordChoices())
     }
 
     private fun newUtterance(): Long {

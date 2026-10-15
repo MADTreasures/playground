@@ -21,8 +21,8 @@ import ch.madtreasures.fluency.bench.MtBench
 import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.core.Latency
 import ch.madtreasures.fluency.engine.llm.AccelMode
-import ch.madtreasures.fluency.engine.llm.AmbiguousWord
 import ch.madtreasures.fluency.engine.llm.AmbiguousWords
+import ch.madtreasures.fluency.engine.llm.WordCollection
 import ch.madtreasures.fluency.engine.llm.WordUse
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.models.ModelCatalog
@@ -42,7 +42,6 @@ import ch.madtreasures.fluency.ui.models.ModelsScreen
 import ch.madtreasures.fluency.ui.models.ModelsUiState
 import ch.madtreasures.fluency.ui.settings.AccelUi
 import ch.madtreasures.fluency.ui.settings.AmbiguousWordsScreen
-import ch.madtreasures.fluency.ui.settings.EXAMPLE_WORD
 import ch.madtreasures.fluency.ui.settings.SettingsScreen
 import ch.madtreasures.fluency.ui.settings.SettingsUiState
 import ch.madtreasures.fluency.ui.text.ModelOption
@@ -99,16 +98,24 @@ class ScreenshotTest {
         Utterance(3, 0, de, en, "Kannst du mir sagen, wann der nächste Zug", "Can you tell me when the next train", false),
     )
 
-    /** the field-test word with the example entry: the chip under the translation (AmbiguousWordsIntegrationTest) */
+    /** two words of the collection: one given because of a hint word, one the model decided (AmbiguousWordsIntegrationTest) */
+    private val bank = WordCollection.entries.first { it.word == "Bank" }
+    private val nachrichten = WordCollection.entries.first { it.word == "Nachrichten" }
     private val withWord = listOf(
         utterances[0],
         // (no latency: these two were translated by the integration test, not timed in the pipeline)
-        Utterance(4, 0, de, en, "Ich habe dir vorhin im Chat geschrieben.", "I wrote to you in the chat just now.", true),
+        Utterance(4, 0, de, en, "Wir haben uns im Park auf eine Bank gesetzt.", "We sat on a bench in the park.", true,
+            words = listOf(
+                WordUse(
+                    bank.key, "Bank", "Bank", 0, WordUse.Reason.HINT, "im Park", bank.meanings.map { it.label },
+                    bank.meanings.map { it.into("en") }, target = "en", status = WordUse.Status.CONFIRMED,
+                ),
+            )),
         Utterance(5, 0, de, en, "Hast du meine Nachrichten schon gelesen?", "Have you already read my messages?", true,
             words = listOf(
                 WordUse(
-                    EXAMPLE_WORD.key, "Nachrichten", 0, "Nachrichten", "messages", WordUse.Reason.HINT_BEFORE, "Chat",
-                    alternatives = listOf("news"), meanings = listOf("messages", "news"), status = WordUse.Status.CONFIRMED,
+                    nachrichten.key, "Nachrichten", "Nachrichten", 0, WordUse.Reason.MODEL, null, nachrichten.meanings.map { it.label },
+                    nachrichten.meanings.map { it.into("en") }, target = "en", status = WordUse.Status.DETECTED,
                 ),
             )),
         utterances[2],
@@ -213,19 +220,13 @@ class ScreenshotTest {
         Framed(Tab.SETTINGS) { SettingsScreen(settingsState, onChange = {}, onBenchmark = {}) }
     }
 
-    private val wordList = AmbiguousWords.format(
-        listOf(
-            EXAMPLE_WORD,
-            AmbiguousWord("Bank", "de", "en", listOf(AmbiguousWord.Meaning("bench", listOf("Park", "sitzen")), AmbiguousWord.Meaning("bank", listOf("Geld", "Konto", "Kredit")))),
-            AmbiguousWord("Schloss", "de", "en", listOf(AmbiguousWord.Meaning("lock", listOf("Tür", "Schlüssel")), AmbiguousWord.Meaning("castle", listOf("Burg", "Ferien")))),
-        ),
-    )
+    private val wordList = AmbiguousWords.format(WordCollection.entries)
 
     @Test fun ambiguousWords() = shoot("10_ambiguous_words") {
-        AmbiguousWordsScreen(storage = wordList, defaultSource = "de", defaultTarget = "en", onSave = {}, onBack = {})
+        AmbiguousWordsScreen(storage = wordList, defaultLanguage = "de", onSave = {}, onBack = {})
     }
 
     @Test fun ambiguousWordEditor() = shoot("11_ambiguous_word_editor") {
-        AmbiguousWordsScreen(storage = wordList, defaultSource = "de", defaultTarget = "en", onSave = {}, onBack = {}, initialEditing = 0)
+        AmbiguousWordsScreen(storage = wordList, defaultLanguage = "de", onSave = {}, onBack = {}, initialEditing = 0)
     }
 }

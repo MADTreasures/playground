@@ -166,15 +166,17 @@ abstract class PipelineHost(protected val c: AppContainer) : ViewModel() {
      * and later sentences of this conversation without a hint word use it too.
      */
     fun chooseMeaning(u: Utterance, use: WordUse, index: Int) {
-        if (!use.switchable || index == use.meaningIndex) return
+        // (the meaning the model took can be tapped too: then it is given and remembered)
+        if (!use.switchable || (use.chosen && index == use.meaningIndex)) return
         wordChoices[use.key] = index
         viewModelScope.launch {
-            val previous = pipelineState.value.utterances.lastOrNull { it.id < u.id && it.final && it.sourceText.isNotBlank() }?.sourceText
+            val before = pipelineState.value.utterances.lastOrNull { it.id < u.id && it.final && it.sourceText.isNotBlank() }
+            val previous = listOfNotNull(before?.sourceText, before?.translation?.takeIf { it.isNotBlank() })
             runCatching {
                 c.translationEngine.translate(
                     TranslationEngine.Request(
                         u.sourceText, u.source, u.target, Role.FINAL,
-                        previousText = previous, wordChoices = HashMap(wordChoices), forcedWords = mapOf(use.key to index),
+                        previousTexts = previous, wordChoices = HashMap(wordChoices), forcedWords = mapOf(use.key to index),
                     ),
                 )
             }.onSuccess { r ->

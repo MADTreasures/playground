@@ -129,10 +129,10 @@ fun SettingsScreen(
                 Text(if (words == 0) "Mehrdeutige Wörter eintragen" else "Mehrdeutige Wörter bearbeiten ($words)")
             }
             Text(
-                "Du trägst Wörter mit mehreren Bedeutungen ein, z. B. „Nachrichten“ = messages oder news, und zu jeder " +
-                    "Bedeutung Hinweiswörter. Die App wählt die Bedeutung nach festen Regeln, erzwingt sie in der Übersetzung, " +
-                    "prüft das Ergebnis und zeigt das Wort unter der Übersetzung an – antippen wechselt die Bedeutung. " +
-                    "Sätze ohne eingetragenes Wort werden genau gleich übersetzt wie ohne Modul.",
+                "Wörter mit mehreren Bedeutungen in Deutsch, Englisch, Französisch, Italienisch, Spanisch und Portugiesisch – " +
+                    "eine mitgelieferte Sammlung, die du ändern und ergänzen kannst. Steht ein Hinweiswort im Satz, gibt die App " +
+                    "dem Modell die Bedeutung vor und prüft sie; sonst entscheidet das Modell und die App zeigt unter der " +
+                    "Übersetzung, welche Bedeutung es genommen hat. Antippen wechselt sie.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 

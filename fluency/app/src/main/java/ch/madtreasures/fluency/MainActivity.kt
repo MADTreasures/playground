@@ -325,8 +325,7 @@ private fun AmbiguousWordsRoute(c: AppContainer, onBack: () -> Unit) {
     val settings by c.settingsRepository.settings.collectAsStateWithLifecycle()
     AmbiguousWordsScreen(
         storage = settings.ambiguousWords,
-        defaultSource = settings.liveSource,
-        defaultTarget = settings.liveTarget,
+        defaultLanguage = settings.liveSource,
         onSave = { storage -> c.settingsRepository.update { it.copy(ambiguousWords = storage) } },
         onBack = onBack,
     )

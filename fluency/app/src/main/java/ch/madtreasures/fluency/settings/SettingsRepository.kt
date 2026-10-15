@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import ch.madtreasures.fluency.engine.llm.AccelMode
 import ch.madtreasures.fluency.engine.llm.AmbiguousWords
+import ch.madtreasures.fluency.engine.llm.WordCollection
 import ch.madtreasures.fluency.models.ModelCatalog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -53,6 +54,8 @@ data class AppSettings(
     val useAmbiguousWords: Boolean = true,
     /** the user's ambiguous words with their meanings, storage format of AmbiguousWords */
     val ambiguousWords: String = "",
+    /** version of the built-in collection already added to [ambiguousWords] (0 = not yet) */
+    val wordCollection: Int = 0,
     val showLatency: Boolean = true,
     val keepScreenOn: Boolean = true,
     val muteMicWhileSpeaking: Boolean = true,
@@ -83,6 +86,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         val accel = stringPreferencesKey("accel")
         val useAmbiguousWords = booleanPreferencesKey("useAmbiguousWords")
         val ambiguousWords = stringPreferencesKey("ambiguousWords")
+        val wordCollection = intPreferencesKey("wordCollection")
 
         /** 1.4.0: context document; its "Wort = Übersetzung" lines become ambiguous words */
         val contextDocument = stringPreferencesKey("contextDocument")
@@ -104,6 +108,14 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         val src = (liveSource ?: defaults.liveSource).takeIf { it != AUTO } ?: "de"
         return AmbiguousWords.format(AmbiguousWords.fromContextDocument(doc, src, liveTarget ?: defaults.liveTarget))
     }
+
+    /**
+     * The built-in collection is added once (after an update: the user's own words stay and win);
+     * words deleted later do not come back by themselves ("Sammlung ergänzen").
+     */
+    private fun withCollection(p: Preferences, words: String): String =
+        if ((p[K.wordCollection] ?: 0) >= WordCollection.VERSION) words
+        else AmbiguousWords.format(AmbiguousWords.merge(AmbiguousWords.parse(words), WordCollection.entries))
 
     /** 1.4.0's switch of the context document stays with the words taken over from it */
     private fun migrateSwitch(p: Preferences): Boolean {
@@ -133,7 +145,8 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         asrThreads = p[K.asrThreads] ?: defaults.asrThreads,
         accel = AccelMode.parse(p[K.accel]) ?: if (p[K.useGpu] == true) AccelMode.GPU else defaults.accel,
         useAmbiguousWords = p[K.useAmbiguousWords] ?: migrateSwitch(p),
-        ambiguousWords = p[K.ambiguousWords] ?: migrateContextDocument(p[K.contextDocument], p[K.liveSource], p[K.liveTarget]),
+        ambiguousWords = withCollection(p, p[K.ambiguousWords] ?: migrateContextDocument(p[K.contextDocument], p[K.liveSource], p[K.liveTarget])),
+        wordCollection = WordCollection.VERSION,
         showLatency = p[K.showLatency] ?: defaults.showLatency,
         keepScreenOn = p[K.keepScreenOn] ?: defaults.keepScreenOn,
         muteMicWhileSpeaking = p[K.muteMicWhileSpeaking] ?: defaults.muteMicWhileSpeaking,
@@ -174,6 +187,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
                 p.remove(K.useGpu)
                 p[K.useAmbiguousWords] = s.useAmbiguousWords
                 p[K.ambiguousWords] = s.ambiguousWords
+                p[K.wordCollection] = s.wordCollection
                 p.remove(K.contextDocument)
                 p.remove(K.translationContext)
                 p[K.showLatency] = s.showLatency
