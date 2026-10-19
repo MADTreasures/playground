@@ -5,6 +5,7 @@ import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.core.Wav
 import ch.madtreasures.fluency.engine.asr.AsrEngine
 import ch.madtreasures.fluency.engine.asr.SAMPLE_RATE
+import ch.madtreasures.fluency.engine.asr.WhisperCppAsr
 import ch.madtreasures.fluency.engine.llm.AccelChoice
 import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
@@ -41,6 +42,8 @@ data class AsrBench(
     val audioSeconds: Double,
     val decodeMs: Long,
     val text: String,
+    /** how the model runs, e.g. "Q8_0, 6 Threads" (whisper.cpp) */
+    val detail: String = "",
 ) {
     val rtf: Double get() = decodeMs / 1000.0 / audioSeconds
 }
@@ -78,7 +81,8 @@ data class BenchReport(
         choices.forEach { appendLine("→ $it") }
         if (asr.isNotEmpty()) appendLine("\nSpracherkennung:")
         asr.forEach {
-            appendLine("- ${it.name}: Laden ${it.loadMs} ms, ${it.decodeMs} ms für ${"%.1f".format(it.audioSeconds)} s Audio (RTF ${"%.3f".format(it.rtf)})")
+            val detail = it.detail.takeIf { d -> d.isNotEmpty() }?.let { d -> " ($d)" }.orEmpty()
+            appendLine("- ${it.name}$detail: Laden ${it.loadMs} ms, ${it.decodeMs} ms für ${"%.1f".format(it.audioSeconds)} s Audio (RTF ${"%.3f".format(it.rtf)})")
         }
         if (tts.isNotEmpty()) appendLine("\nSprachausgabe:")
         tts.forEach { appendLine("- ${it.name}: ${it.synthMs} ms für ${"%.1f".format(it.audioSeconds)} s (RTF ${"%.3f".format(it.rtf)})") }
@@ -177,14 +181,17 @@ class Benchmark(
                 val texts = mutableListOf<String>()
                 for ((lang, clip) in clips) {
                     val l = Languages.byCode(lang)
-                    if (!m.supports(lang) && !m.custom && m.languages.isNotEmpty()) continue
+                    // the Swiss German model ("de-CH") is measured with the German clip
+                    val swiss = lang == "de" && m.supports("de-CH")
+                    if (!m.supports(lang) && !swiss && !m.custom && m.languages.isNotEmpty()) continue
                     val r = engine.transcribe(clip.samples, l)
                     total += r.millis
                     secs += clip.seconds
                     texts += "[$lang] ${r.text}"
                 }
                 if (secs > 0) {
-                    report = report.copy(asr = report.asr + AsrBench(m.id, m.name, loadMs, secs, total, texts.joinToString("\n")))
+                    val detail = (engine as? WhisperCppAsr)?.let { "${it.weightType.uppercase()}, ${it.threads} Threads" }.orEmpty()
+                    report = report.copy(asr = report.asr + AsrBench(m.id, m.name, loadMs, secs, total, texts.joinToString("\n"), detail))
                     update(report)
                 }
             }

@@ -51,6 +51,8 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
         val latency: Latency? = null,
         val modelName: String? = null,
         val detectedSource: String? = null,
+        /** the language the model translated from (also when it was detected) */
+        val sourceCode: String? = null,
         val error: String? = null,
         val translateWhileTyping: Boolean = true,
     )
@@ -107,6 +109,7 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
                             ),
                             modelName = res.modelName,
                             detectedSource = if (source == null) res.sourceUsed?.nameDe else null,
+                            sourceCode = source?.code ?: res.sourceUsed?.code,
                         )
                     }
                 }
@@ -123,9 +126,10 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
     private fun swapsOf(l: Local, target: String, version: Int): List<WordSwap> {
         val language = Languages.byCode(target) ?: return emptyList()
         if (l.output.isBlank()) return emptyList()
-        val key = "$version|$target|${l.input}|${l.output}"
+        val key = "$version|${l.sourceCode}|$target|${l.input}|${l.output}"
         swapCache?.let { if (it.first == key) return it.second }
-        return runCatching { c.wordGroups.swaps(l.output, l.input, language) }.getOrDefault(emptyList())
+        val from = l.sourceCode?.let(Languages::byCode)
+        return runCatching { c.wordGroups.swaps(l.output, l.input, language, from) }.getOrDefault(emptyList())
             .also { swapCache = key to it }
     }
 

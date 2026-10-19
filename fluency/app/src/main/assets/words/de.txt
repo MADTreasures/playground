@@ -3,76 +3,93 @@
 # Formen eines Wortes mit Komma, in jedem Wort gleich geordnet (z. B. Einzahl, Mehrzahl).
 # In Klammern eine Erklärung. Nach „<“ optional Wörter des Originaltexts: dann erscheint die
 # Gruppe nur, wenn eines davon im Original steht (Endungen werden mitgefunden, „Bank“ findet „Bänke“).
-Affe, Affen | Overall, Overalls < mono
-Anwalt, Anwälte | Avocado, Avocados < avocat
-Baguette, Baguettes (Brot) | Essstäbchen | Zauberstab, Zauberstäbe < baguette
+# „[de] Deutsch“ usw.: die folgenden Gruppen gelten für Übersetzungen aus dieser Sprache,
+# „[*]“ für Übersetzungen aus allen Sprachen.
+
+[en] Englisch
 Bank, Banken (Geldinstitut) | Ufer < bank
-Bild, Bilder (Gemälde) | Wandtafel, Wandtafeln | Tabelle, Tabellen < tableau
-Blatt, Blätter (Laubblatt) | Klinge, Klingen < hoja
-Brief, Briefe | Buchstabe, Buchstaben < letter
-Brief, Briefe | Karte, Karten (Spielkarte) | Speisekarte, Speisekarten < carta
-Briefmarke, Briefmarken | Stempel < stamp
-Brille, Brillen | Gläser (Trinkgläser) < glasses
-Brust, Brüste (Brustkorb) | Truhe, Truhen < chest
-Buch, Bücher | Pfund < livre
-Bussgeld (Busse) | gut (in Ordnung) | fein < fine
-Büro, Büros | Schreibtisch, Schreibtische < bureau
-Datum, Daten | Date, Dates (Verabredung) | Dattel, Datteln < date
-Eis (Speiseeis) | Spiegel < glace
-Fels (Stein) | Rock (Rockmusik) < rock
-Fledermaus, Fledermäuse | Schläger < bat
-Flug, Flüge | Diebstahl, Diebstähle < vol
-Frühling | Feder (Sprungfeder) | Quelle < spring
-Fussball | Tritt (Fusstritt) | Kalzium < calcio
-Hals, Hälse | Paket, Pakete < collo
-Handfläche, Handflächen | Palme, Palmen < palm
-Heilung | Pfarrer < cura
-Kartoffel, Kartoffeln | Papst, Päpste < papa
-Katze, Katzen | Wagenheber < gato
-Kerze, Kerzen | Segel < vela
-Kiste, Kisten (Schachtel) | Kasse, Kassen < caixa
-Kofferraum, Kofferräume | Stamm, Stämme (Baumstamm) | Rüssel < trunk
-Kran, Kräne (Baukran) | Kranich, Kraniche < crane
-Kugelschreiber (Schreibstift) | Feder (Vogelfeder) | Penne (Nudeln) < penna
-Landkarte, Landkarten | Speisekarte, Speisekarten | Karte, Karten (Bankkarte) < carte
-Licht | leicht (Gewicht) < light
-Marmelade (Konfitüre) | Stau < jam
-Messe (Jahrmarkt) | fair (gerecht) | hell (Haut, Haar) < fair
-Netz, Netze | Hängematte, Hängematten < rede
-Ordner (Mappe) | Paste < pasta
-Orgel, Orgeln (Musikinstrument) | Organ, Organe (Körperorgan) < organ
-Pfirsich | Fischen < pêche, pesca
-Pflanze | Stock (Stockwerk) | Werk (Fabrik) < planta
-Pflanze, Pflanzen | Stadtplan, Stadtpläne < pianta
-Pflanze, Pflanzen | Werk, Werke (Fabrik) < plant
-Post | Stelle (Job) < poste
-Puppe, Puppen | Handgelenk, Handgelenke < muñeca
-Rechnung, Rechnungen | Geldschein, Geldscheine | Gesetzentwurf, Gesetzentwürfe < bill
-Rechnung, Rechnungen | Konto, Konten (Bankkonto) < conta
-Reis | Lachen < riso
 Rinde (Baumrinde) | Bellen < bark
+Fledermaus, Fledermäuse | Schläger < bat
+Rechnung, Rechnungen | Geldschein, Geldscheine | Gesetzentwurf, Gesetzentwürfe < bill
+Zelle, Zellen (Gefängniszelle) | Handy, Handys (Mobiltelefon) < cell
+Wechselgeld | Veränderung < change
+Brust, Brüste (Brustkorb) | Truhe, Truhen < chest
+Trainer | Reisebus, Reisebusse < coach
+Kran, Kräne (Baukran) | Kranich, Kraniche < crane
+Datum, Daten | Date, Dates (Verabredung) | Dattel, Datteln < date
+Messe (Jahrmarkt) | fair (gerecht) | hell (Haut, Haar) < fair
+Ventilator, Ventilatoren | Fan, Fans (Anhänger) < fan
+Bussgeld (Busse) | gut (in Ordnung) | fein < fine
+Wohnung | Platten (Reifenpanne) | flach < flat
+Brille, Brillen | Gläser (Trinkgläser) < glasses
+Marmelade (Konfitüre) | Stau < jam
+Schlüssel | Taste, Tasten | Tonart, Tonarten < key
+Brief, Briefe | Buchstabe, Buchstaben < letter
+Licht | leicht (Gewicht) < light
+Streichholz, Streichhölzer | Spiel, Spiele < match
+Orgel, Orgeln (Musikinstrument) | Organ, Organe (Körperorgan) < organ
+Handfläche, Handflächen | Palme, Palmen < palm
+Pflanze, Pflanzen | Werk, Werke (Fabrik) < plant
+Schüler | Pupille, Pupillen < pupil
+Fels (Stein) | Rock (Rockmusik) < rock
+Waage, Waagen | Massstab, Massstäbe | Schuppe, Schuppen | Tonleiter, Tonleitern < scale
 Robbe, Robben | Dichtung, Dichtungen | Siegel < seal
 Satz, Sätze | Strafe, Strafen (Urteil) < sentence
-Schaum | Mousse (Dessert) | Moos < mousse
-Schlüssel | Taste, Tasten | Tonart, Tonarten < key
-Schraube, Schrauben | Rebe, Reben (Weinrebe) < vite
-Schwanz | Schlange (Warteschlange) | Leim < cola
-Schüler | Pupille, Pupillen < pupil
+Frühling | Feder (Sprungfeder) | Quelle < spring
+Briefmarke, Briefmarken | Stempel < stamp
 Stern, Sterne (Himmelsstern) | Star, Stars (berühmte Person) < star
-Streichholz, Streichhölzer | Spiel, Spiele < match
-Säge, Sägen | Gebirge < sierra
-Tasche, Taschen (Tüte) | Börse, Börsen < borsa, bolsa
-Ticket, Tickets (Fahrkarte, Eintritt) | Strafzettel < ticket
 Tisch, Tische | Tabelle, Tabellen < table
-Trainer | Reisebus, Reisebusse < coach
+Ticket, Tickets (Fahrkarte, Eintritt) | Strafzettel < ticket
 Trinkgeld, Trinkgelder | Tipp, Tipps (Ratschlag) | Spitze, Spitzen < tip
-Ventilator, Ventilatoren | Fan, Fans (Anhänger) < fan
-Waage, Waagen | Massstab, Massstäbe | Schuppe, Schuppen | Tonleiter, Tonleitern < scale
-Wechselgeld | Veränderung < change
-Wohnung | Platten (Reifenpanne) | flach < flat
-Zeit | Wetter < temps, tiempo
-Zelle, Zellen (Gefängniszelle) | Handy, Handys (Mobiltelefon) < cell
-Zimmer | Kammer, Kammern (Parlamentskammer) < camera
+Kofferraum, Kofferräume | Stamm, Stämme (Baumstamm) | Rüssel < trunk
+
+[fr] Französisch
+Anwalt, Anwälte | Avocado, Avocados < avocat
+Baguette, Baguettes (Brot) | Essstäbchen | Zauberstab, Zauberstäbe < baguette
+Büro, Büros | Schreibtisch, Schreibtische < bureau
+Landkarte, Landkarten | Speisekarte, Speisekarten | Karte, Karten (Bankkarte) < carte
+Eis (Speiseeis) | Spiegel < glace
+Buch, Bücher | Pfund < livre
+Schaum | Mousse (Dessert) | Moos < mousse
+Pfirsich | Fischen < pêche
 Zimmer | Münze, Münzen | Theaterstück, Theaterstücke | Teil, Teile (Ersatzteil) < pièce
+Post | Stelle (Job) < poste
+Bild, Bilder (Gemälde) | Wandtafel, Wandtafeln | Tabelle, Tabellen < tableau
+Zeit | Wetter < temps
+Flug, Flüge | Diebstahl, Diebstähle < vol
+
+[it] Italienisch
+Tasche, Taschen | Börse, Börsen < borsa
+Fussball | Tritt (Fusstritt) | Kalzium < calcio
+Zimmer | Kammer, Kammern (Parlamentskammer) < camera
+Hals, Hälse | Paket, Pakete < collo
+Brief, Briefe | Buchstabe, Buchstaben < lettera
+Kugelschreiber (Schreibstift) | Feder (Vogelfeder) | Penne (Nudeln) < penna
+Pfirsich | Fischen < pesca
+Pflanze, Pflanzen | Stadtplan, Stadtpläne < pianta
+Reis | Lachen < riso
 Zinssatz, Zinssätze | Dachs, Dachse < tasso
+Schraube, Schrauben | Rebe, Reben (Weinrebe) < vite
+
+[es] Spanisch
+Tasche, Taschen (Tüte) | Börse, Börsen < bolsa
+Brief, Briefe | Karte, Karten (Spielkarte) | Speisekarte, Speisekarten < carta
+Schwanz | Schlange (Warteschlange) | Leim < cola
+Heilung | Pfarrer < cura
+Katze, Katzen | Wagenheber < gato
+Blatt, Blätter (Laubblatt) | Klinge, Klingen < hoja
+Affe, Affen | Overall, Overalls < mono
+Puppe, Puppen | Handgelenk, Handgelenke < muñeca
+Kartoffel, Kartoffeln | Papst, Päpste < papa
+Pflanze | Stock (Stockwerk) | Werk (Fabrik) < planta
+Säge, Sägen | Gebirge < sierra
+Zeit | Wetter < tiempo
+Kerze, Kerzen | Segel < vela
+
+[pt] Portugiesisch
+Kiste, Kisten (Schachtel) | Kasse, Kassen < caixa
+Rechnung, Rechnungen | Konto, Konten (Bankkonto) < conta
 Ärmel | Mango, Mangos < manga
+Ordner (Mappe) | Paste < pasta
+Netz, Netze | Hängematte, Hängematten < rede
+Kerze, Kerzen | Segel < vela

@@ -192,6 +192,7 @@ private fun AsrCard(a: AsrBench) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text(a.name, style = MaterialTheme.typography.titleMedium)
+            if (a.detail.isNotEmpty()) Text(a.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Metric("Erkennung", "${a.decodeMs} ms für ${"%.1f".format(a.audioSeconds)} s Audio")
             Metric("Echtzeitfaktor", "%.3f".format(a.rtf))
             Metric("Laden", "${a.loadMs} ms")

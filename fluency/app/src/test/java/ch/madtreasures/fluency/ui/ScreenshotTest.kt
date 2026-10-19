@@ -42,6 +42,9 @@ import ch.madtreasures.fluency.ui.models.ModelsUiState
 import ch.madtreasures.fluency.ui.settings.AccelUi
 import ch.madtreasures.fluency.ui.settings.SettingsScreen
 import ch.madtreasures.fluency.ui.settings.SettingsUiState
+import ch.madtreasures.fluency.ui.settings.SourceLanguagesActions
+import ch.madtreasures.fluency.ui.settings.SourceLanguagesScreen
+import ch.madtreasures.fluency.ui.settings.SourceLanguagesUiState
 import ch.madtreasures.fluency.ui.settings.WordListActions
 import ch.madtreasures.fluency.ui.settings.WordListEntry
 import ch.madtreasures.fluency.ui.settings.WordListScreen
@@ -233,13 +236,25 @@ class ScreenshotTest {
     private val store by lazy { WordGroupStore(File("build/tmp/screenshot-words").apply { deleteRecursively() }) { File("src/main/assets/words/$it.txt").takeIf(File::exists)?.readText() } }
 
     @Test fun wordLists() = shoot("11_word_lists") {
-        val entries = WordGroupStore.languages.map { WordListEntry(it.code, it.nameDe, store.groups(it.code).size, false) }
-        Framed(Tab.SETTINGS) { WordListsScreen(entries, onOpen = {}, onBack = {}) }
+        val entries = WordGroupStore.languages.map { WordListEntry(it.code, it.nameDe, store.groups(it.code).size) }
+        Framed(Tab.SETTINGS) { WordListsScreen(entries, favorites = setOf("en", "it"), onOpen = {}, onFavorite = {}, onBack = {}) }
     }
 
-    @Test fun wordList() = shoot("12_word_list") {
+    @Test fun wordSources() = shoot("12_word_sources") {
+        val counts = store.groups("en").groupingBy { it.language }.eachCount()
+        val entries = listOf(WordListEntry(null, "Alle Sprachen", counts[null] ?: 0)) +
+            WordGroupStore.sourcesFor("en").map { WordListEntry(it.code, it.nameDe, counts[it.code] ?: 0) }
         Framed(Tab.SETTINGS) {
-            WordListScreen(WordListUiState("en", "Englisch", store.groups("en"), changed = false, hasDefaults = true), WordListActions())
+            SourceLanguagesScreen(
+                SourceLanguagesUiState("en", "Englisch", entries, favorites = setOf("de"), changed = false, hasDefaults = true),
+                SourceLanguagesActions(),
+            )
+        }
+    }
+
+    @Test fun wordPair() = shoot("13_word_pair") {
+        Framed(Tab.SETTINGS) {
+            WordListScreen(WordListUiState("en", "Englisch", "de", "Deutsch", store.groups("en").filter { it.language == "de" }), WordListActions())
         }
     }
 }

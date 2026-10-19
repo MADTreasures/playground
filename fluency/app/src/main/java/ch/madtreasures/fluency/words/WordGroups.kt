@@ -1,5 +1,6 @@
 package ch.madtreasures.fluency.words
 
+import ch.madtreasures.fluency.core.Languages
 import java.text.Normalizer
 import java.util.concurrent.ConcurrentHashMap
 
@@ -17,8 +18,10 @@ data class GroupWord(val forms: List<String>, val note: String = "") {
  *
  * @param sources the group is only offered when the original text contains one of these words
  *   (endings included: "Bank" also finds "Banken" and "Bänke"); empty = always
+ * @param language the language of the original text the group is for ("de"; Swiss German counts
+ *   as German); null = translations from every language
  */
-data class WordGroup(val words: List<GroupWord>, val sources: List<String> = emptyList())
+data class WordGroup(val words: List<GroupWord>, val sources: List<String> = emptyList(), val language: String? = null)
 
 /** A possible replacement in a translation: [found] at [range] becomes [replacement]. */
 data class WordSwap(
@@ -33,10 +36,12 @@ data class WordSwap(
  * The word lists: file format, finding their words in a translation and replacing them. Pure text
  * work, the translation model is not involved.
  *
- * File format, one group per line:
+ * File format (one file per target language), one group per line:
  * `bench, benches (Sitzbank) | bank, banks (Geldinstitut) < Bank`
  * words separated by "|", forms of a word by ",", an explanation in brackets, after "<" the words
- * of the original text the group belongs to. Lines starting with "#" are comments.
+ * of the original text the group belongs to. A line `[de] Deutsch` starts the groups for
+ * translations from German, `[*]` the ones for every language (also the lines before the first
+ * section). Lines starting with "#" are comments.
  */
 object WordGroups {
     /** per language (every translation is searched for all of them) */
@@ -44,7 +49,25 @@ object WordGroups {
 
     // ------------------------------------------------------------------------------- file format
 
-    fun parse(text: String): List<WordGroup> = text.lineSequence().mapNotNull(::parseLine).take(MAX_GROUPS).toList()
+    fun parse(text: String): List<WordGroup> {
+        var language: String? = null
+        val out = ArrayList<WordGroup>()
+        for (line in text.lineSequence()) {
+            val section = SECTION.find(line.trim())
+            if (section != null) {
+                language = languageCode(section.groupValues[1])
+                continue
+            }
+            parseLine(line)?.let { out += it.copy(language = language) }
+            if (out.size >= MAX_GROUPS) break
+        }
+        return out
+    }
+
+    /** "de", "de-CH" (as German), "*" or "" (every language: null) */
+    fun languageCode(code: String): String? = code.trim().takeUnless { it.isEmpty() || it == "*" }?.let(WordGroupStore::fileCode)
+
+    private val SECTION = Regex("^\\[([^\\]]*)]")
 
     /** one line of the file; null for comments, empty lines and lines with fewer than two words */
     fun parseLine(line: String): WordGroup? {
@@ -71,7 +94,24 @@ object WordGroups {
         w.forms.joinToString(", ") + if (w.note.isNotEmpty()) " (${w.note})" else ""
     } + if (g.sources.isNotEmpty()) " < " + g.sources.joinToString(", ") else ""
 
-    fun format(groups: List<WordGroup>): String = groups.joinToString("") { formatLine(it) + "\n" }
+    /** the lines of [groups], in sections per language of the original (every language first) */
+    fun format(groups: List<WordGroup>): String {
+        val sb = StringBuilder()
+        val order = Languages.sortedForPicker.map { it.code }
+        val byLanguage = groups.groupBy { it.language }
+        val languages = byLanguage.keys.sortedWith(compareBy({ it != null }, { order.indexOf(it).let { i -> if (i < 0) order.size else i } }, { it }))
+        for (language in languages) {
+            sb.append('\n').append(sectionLine(language)).append('\n')
+            byLanguage.getValue(language).forEach { sb.append(formatLine(it)).append('\n') }
+        }
+        return sb.toString()
+    }
+
+    /** whether [text] has sections (files of 1.7.0 have none) */
+    fun hasSections(text: String): Boolean = text.lineSequence().any { SECTION.containsMatchIn(it.trim()) }
+
+    fun sectionLine(language: String?): String =
+        if (language == null) "[*] Alle Sprachen" else "[$language] ${Languages.byCode(language)?.nameDe ?: language}"
 
     /** the whole file of one language, with an explanation of the format on top */
     fun fileText(languageName: String, groups: List<WordGroup>): String = header(languageName) + format(groups)
@@ -82,6 +122,8 @@ object WordGroups {
         |# Formen eines Wortes mit Komma, in jedem Wort gleich geordnet (z. B. Einzahl, Mehrzahl).
         |# In Klammern eine Erklärung. Nach „<“ optional Wörter des Originaltexts: dann erscheint die
         |# Gruppe nur, wenn eines davon im Original steht (Endungen werden mitgefunden, „Bank“ findet „Bänke“).
+        |# „[de] Deutsch“ usw.: die folgenden Gruppen gelten für Übersetzungen aus dieser Sprache,
+        |# „[*]“ für Übersetzungen aus allen Sprachen.
         |
     """.trimMargin()
 
@@ -91,10 +133,10 @@ object WordGroups {
     /** an explanation as typed by the user */
     fun cleanNote(s: String): String = s.replace(Regex("[|<←\\n\\r]"), " ").replace(SPACES, " ").trim()
 
-    /** same words (first forms, ignoring case) - such groups are one entry */
+    /** same language and words (first forms, ignoring case) - such groups are one entry */
     fun sameWords(a: WordGroup, b: WordGroup): Boolean = key(a) == key(b)
 
-    private fun key(g: WordGroup): Set<String> = g.words.map { it.text.lowercase() }.toSet()
+    private fun key(g: WordGroup): Pair<String?, Set<String>> = g.language to g.words.map { it.text.lowercase() }.toSet()
 
     /** [list] plus the groups of [more] whose words are not in it yet */
     fun merge(list: List<WordGroup>, more: List<WordGroup>): List<WordGroup> {
@@ -112,12 +154,21 @@ object WordGroups {
      * places do not overlap (the longer one wins: "post office" before "office").
      *
      * @param swissSpelling the translation is Swiss Standard German: "ss" instead of "ß"
+     * @param sourceLanguage the language of [source]; null = unknown (automatic): groups of every language
      */
-    fun swaps(translation: String, source: String, groups: List<WordGroup>, swissSpelling: Boolean = false): List<WordSwap> {
+    fun swaps(
+        translation: String,
+        source: String,
+        groups: List<WordGroup>,
+        swissSpelling: Boolean = false,
+        sourceLanguage: String? = null,
+    ): List<WordSwap> {
         if (translation.isBlank() || groups.isEmpty()) return emptyList()
         val original by lazy { Original(source) }
+        val from = sourceLanguage?.let(WordGroupStore::fileCode)
         val hits = ArrayList<Hit>()
         for (g in groups) {
+            if (g.language != null && from != null && g.language != from) continue
             if (g.sources.isNotEmpty() && !original.mentions(g.sources)) continue
             g.words.forEachIndexed { wi, w ->
                 w.forms.forEachIndexed { fi, f ->

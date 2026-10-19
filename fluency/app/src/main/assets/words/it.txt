@@ -3,109 +3,128 @@
 # Formen eines Wortes mit Komma, in jedem Wort gleich geordnet (z. B. Einzahl, Mehrzahl).
 # In Klammern eine Erklärung. Nach „<“ optional Wörter des Originaltexts: dann erscheint die
 # Gruppe nur, wenn eines davon im Original steht (Endungen werden mitgefunden, „Bank“ findet „Bänke“).
-ala, ali (Vogel- oder Flugzeugflügel) | pianoforte a coda, pianoforti a coda (Konzertklavier) < Flügel
-allenatore, allenatori (Trainer) | pullman (Reisebus) < coach
-alunno, alunni (Schüler) | pupilla, pupille (Pupille) < pupil
-appartamento, appartamenti (Wohnung) | gomma a terra, gomme a terra (Reifenpanne) | piatto, piatti (flach) < flat
-armadio, armadi (Schrank (Schweiz)) | cassa, casse (Kiste) < Kasten
-avvocato, avvocati (Anwalt) | avocado < avocat
-bagagliaio, bagagliai (Kofferraum) | tronco, tronchi (Baumstamm) | proboscide, proboscidi (Rüssel) < trunk
-baguette (Brot) | bacchette (Essstäbchen) | bacchetta (Zauberstab) < baguette
-bambola, bambole (Puppe) | polso, polsi (Handgelenk) < muñeca
-banca, banche (Geldinstitut) | riva, rive (Ufer) < bank
-biglietto, biglietti (Fahrkarte, Eintritt) | multa, multe (Strafzettel) < ticket
-bilancia, bilance (Waage) | scala, scale (Massstab) | squama, squame (Schuppe) < scale
-candela, candele (Kerze) | vela, vele (Segel) < vela
-cappella, cappelle (kleine Kirche) | banda, bande (Musikgruppe) < Kapelle
-cartella (Ordner, Mappe) | pasta (Paste) < pasta
-cella, celle (Gefängniszelle) | cellula, cellule (Körperzelle) | cellulare, cellulari (Mobiltelefon) < cell
-chiave, chiavi (Schlüssel) | tasto, tasti (Taste) | tonalità (Tonart) < key
-coda (Schwanz) | fila (Warteschlange) | colla (Leim) < cola
-contadino, contadini (Landwirt) | pedone, pedoni (Schachfigur) < Bauer
-conto, conti (Rechnung) | banconota, banconote (Geldschein) | disegno di legge, disegni di legge (Gesetzentwurf) < bill
-coperta, coperte (Bettdecke) | soffitto, soffitti (Zimmerdecke) < Decke
-corrente, correnti (Elektrizität) | fiume, fiumi (grosser Fluss) < Strom
-corridoio, corridoi (Flur) | marcia, marce (beim Auto) | portata, portate (beim Essen) < Gang
-corridore, corridori (Sportler) | alfiere, alfieri (Schachfigur) | passatoia, passatoie (schmaler Teppich) < Läufer
-corso, corsi (Lehrgang) | cambio, cambi (Wechselkurs) < Kurs
-corteccia (Baumrinde) | abbaio (Bellen) < bark
-cura, cure (Heilung) | prete, preti (Pfarrer) < cura
-data, date (Datum) | appuntamento, appuntamenti (Verabredung) | dattero, datteri (Dattel) < date
+# „[de] Deutsch“ usw.: die folgenden Gruppen gelten für Übersetzungen aus dieser Sprache,
+# „[*]“ für Übersetzungen aus allen Sprachen.
+
+[de] Deutsch
+tacco, tacchi (am Schuh) | paragrafo, paragrafi (im Text) < Absatz
 espressione, espressioni (Wort, Wendung) | stampa, stampe (Gedrucktes) < Ausdruck
-fiammifero, fiammiferi (Streichholz) | partita, partite (Spiel) < match
-fiera (Messe, Jahrmarkt) | giusto (gerecht) | chiaro (hell (Haut, Haar)) < fair
-fiera, fiere (Ausstellung) | messa, messe (Gottesdienst) < Messe
-foca, foche (Robbe) | guarnizione, guarnizioni (Dichtung) | sigillo, sigilli (Siegel) < seal
-foglia, foglie (Laubblatt) | foglio, fogli (Blatt Papier) | lama, lame (Klinge) < hoja
-foglio, fogli (Blatt Papier) | foglia, foglie (vom Baum) < Blatt, feuille, folha
-francobollo, francobolli (Briefmarke) | timbro, timbri (Stempel) < stamp
-frase, frasi (Satz) | condanna, condanne (Strafe, Urteil) < sentence
-freno, freni (am Fahrzeug) | tafano, tafani (Insekt) < Bremse
-gatto, gatti (Katze) | cric (Wagenheber) < gato
-gatto, gatti (männliche Katze) | postumi (nach zu viel Alkohol) < Kater
-gelato (Speiseeis) | specchio (Spiegel) | ghiaccio (gefrorenes Wasser) < glace
-gol (im Sport) | cancello, cancelli (Eingang) < Tor
-gonna (Kleidungsstück) | rock (Musik) < Rock
-lenticchia, lenticchie (Hülsenfrucht) | lente, lenti (Optik) < Linse
-lettera, lettere (Brief) | carta, carte (Spielkarte) | menù (Speisekarte) < carta
-libro, libri (Buch) | sterlina, sterline (Pfund) < livre
-luce (Licht) | leggero (leicht (Gewicht)) < light
-madre, madri (Mama) | dado, dadi (Schraubenmutter) < Mutter
-magazzino, magazzini (Warenlager) | campo, campi (Ferienlager) < Lager
-mancia, mance (Trinkgeld) | consiglio, consigli (Ratschlag) | punta, punte (Spitze) < tip
-manica, maniche (Ärmel) | mango < manga
-mappa, mappe (Landkarte) | menù (Speisekarte) | carta, carte (Bankkarte) < carte
-marmellata (Konfitüre) | ingorgo (Stau) < jam
-mascella, mascelle (Knochen) | pino, pini (Nadelbaum) < Kiefer
-mazzo, mazzi (Blumenstrauss) | struzzo, struzzi (Laufvogel) < Strauss
-messaggi (Mitteilungen (Chat, SMS)) | notizie (Neuigkeiten (TV, Radio)) < Nachrichten
-muffa (Pilz) | cavallo bianco (weisses Pferd) < Schimmel
-multa (Busse) | bene (gut, in Ordnung) | fine (fein) < fine
-occhiali (Brille) | bicchieri (Trinkgläser) < glasses
 palla, palle (Spielball) | ballo, balli (Tanzfest) < Ball
-palmo, palmi (Handfläche) | palma, palme (Palme) < palm
-panchina, panchine (Sitzbank) | banca, banche (Geldinstitut) < Bank, banco
-passaporto, passaporti (Reisepass) | passo, passi (Bergpass) | passaggio, passaggi (Zuspiel im Sport) < Pass
-patata, patate (Kartoffel) | papa, papi (Papst) < papa
-penna, penne (Schreibstift) | apprendista, apprendisti (Lehrling (Schweiz)) < Stift
+panchina, panchine (Sitzbank) | banca, banche (Geldinstitut) < Bank
+contadino, contadini (Landwirt) | pedone, pedoni (Schachfigur) < Bauer
 pera, pere (Frucht) | lampadina, lampadine (Glühbirne) < Birne
-petto, petti (Brustkorb) | baule, bauli (Truhe) < chest
-piano, piani (Stockwerk) | bastone, bastoni (Stab) < Stock
-pianta, piante (Pflanze) | impianto, impianti (Werk, Fabrik) < plant
-pianta, piante (Pflanze) | piano, piani (Stockwerk) | impianto, impianti (Fabrik, Werk) < planta
-piatto, piatti (Speise) | tribunale, tribunali (Justiz) < Gericht
-pipistrello, pipistrelli (Fledermaus) | mazza, mazze (Schläger) < bat
+foglio, fogli (Blatt Papier) | foglia, foglie (vom Baum) < Blatt
+freno, freni (am Fahrzeug) | tafano, tafani (Insekt) < Bremse
+signora, signore (Frau) | regina, regine (Schachfigur) < Dame
+coperta, coperte (Bettdecke) | soffitto, soffitti (Zimmerdecke) < Decke
+soffitta (Dachboden (Schweiz)) | massetto (Bodenbelag) < Estrich
 piuma, piume (Vogelfeder) | molla, molle (Sprungfeder) < Feder
-pony (kleines Pferd) | frangia, frange (Frisur) < Pony
-posta (Post) | posto (Stelle, Job) < poste
-primavera (Frühling) | molla (Sprungfeder) | sorgente (Quelle) < spring
-quadro, quadri (Gemälde) | lavagna, lavagne (Wandtafel) | tabella, tabelle (Tabelle) < tableau
-resto (Wechselgeld) | cambiamento (Veränderung) < change
-rete, reti (Netz) | amaca, amache (Hängematte) < rede
-roccia (Fels, Stein) | rock (Rockmusik) < rock
+ala, ali (Vogel- oder Flugzeugflügel) | pianoforte a coda, pianoforti a coda (Konzertklavier) < Flügel
+corridoio, corridoi (Flur) | marcia, marce (beim Auto) | portata, portate (beim Essen) < Gang
+piatto, piatti (Speise) | tribunale, tribunali (Justiz) < Gericht
 rubinetto, rubinetti (Wasserhahn) | gallo, galli (Tier) < Hahn
+cappella, cappelle (kleine Kirche) | banda, bande (Musikgruppe) < Kapelle
+armadio, armadi (Schrank (Schweiz)) | cassa, casse (Kiste) < Kasten
+gatto, gatti (männliche Katze) | postumi (nach zu viel Alkohol) < Kater
+mascella, mascelle (Knochen) | pino, pini (Nadelbaum) < Kiefer
+corso, corsi (Lehrgang) | cambio, cambi (Wechselkurs) < Kurs
+magazzino, magazzini (Warenlager) | campo, campi (Ferienlager) < Lager
+corridore, corridori (Sportler) | alfiere, alfieri (Schachfigur) | passatoia, passatoie (schmaler Teppich) < Läufer
 scala, scale (Gerät zum Hochsteigen) | responsabile, responsabili (Chef, Verantwortlicher) < Leiter
-scatola, scatole (Kiste, Schachtel) | cassa, casse (Kasse) < caixa
-schiuma (Schaum) | mousse (Dessert) | muschio (Moos) < mousse
-scimmia, scimmie (Affe) | tuta, tute (Overall) < mono
-sega, seghe (Säge) | catena montuosa, catene montuose (Gebirge) < sierra
+lenticchia, lenticchie (Hülsenfrucht) | lente, lenti (Optik) < Linse
+topo, topi (Tier) | mouse (Computermaus) < Maus
+fiera, fiere (Ausstellung) | messa, messe (Gottesdienst) < Messe
+madre, madri (Mama) | dado, dadi (Schraubenmutter) < Mutter
+messaggi (Mitteilungen (Chat, SMS)) | notizie (Neuigkeiten (TV, Radio)) < Nachrichten
+voto, voti (Schulnote) | nota, note (Musiknote) | banconota, banconote (Geldschein) < Note
+passaporto, passaporti (Reisepass) | passo, passi (Bergpass) | passaggio, passaggi (Zuspiel im Sport) < Pass
+pony (kleines Pferd) | frangia, frange (Frisur) < Pony
+gonna (Kleidungsstück) | rock (Musik) < Rock
+sportello, sportelli (Kundenschalter) | interruttore, interruttori (Lichtschalter) < Schalter
+muffa (Pilz) | cavallo bianco (weisses Pferd) < Schimmel
 serpente, serpenti (Tier) | fila, file (Warteschlange) < Schlange
 serratura, serrature (Türschloss) | castello, castelli (Burg, Palast) < Schloss
-signora, signore (Frau) | regina, regine (Schachfigur) < Dame
-soffitta (Dachboden (Schweiz)) | massetto (Bodenbelag) < Estrich
-sportello, sportelli (Kundenschalter) | interruttore, interruttori (Lichtschalter) < Schalter
-stanza, stanze (Zimmer) | moneta, monete (Münze) | opera teatrale, opere teatrali (Theaterstück) | pezzo, pezzi (Teil, Ersatzteil) < pièce
-stella, stelle (Himmelsstern) | star (berühmte Person) < star
+volante, volanti (Lenkrad) | tassa, tasse (Abgabe an den Staat) < Steuer
+penna, penne (Schreibstift) | apprendista, apprendisti (Lehrling (Schweiz)) < Stift
+piano, piani (Stockwerk) | bastone, bastoni (Stab) < Stock
+mazzo, mazzi (Blumenstrauss) | struzzo, struzzi (Laufvogel) < Strauss
+corrente, correnti (Elektrizität) | fiume, fiumi (grosser Fluss) < Strom
 suono (Klang) | argilla (Lehm) < Ton
-tacco, tacchi (am Schuh) | paragrafo, paragrafi (im Text) < Absatz
-tavolo, tavoli (Tisch) | tabella, tabelle (Tabelle) < table
-topo, topi (Tier) | mouse (Computermaus) < Maus, mouse, mice, souris
-traslocare (umziehen (Schweiz)) | frenare (bändigen) < zügeln, zügle, zügelst, zügelt, gezügelt
+gol (im Sport) | cancello, cancelli (Eingang) < Tor
 trasloco, traslochi (Wohnungswechsel) | sfilata, sfilate (Festumzug) < Umzug
 treno, treni (Eisenbahn) | mossa, mosse (Spielzug) < Zug
-ufficio, uffici (Büro) | scrivania, scrivanie (Schreibtisch) < bureau
-unghia, unghie (Fingernagel) | chiodo, chiodi (Metallnagel) < nail
+traslocare (umziehen (Schweiz)) | frenare (bändigen) < zügeln, zügle, zügelst, zügelt, gezügelt
+
+[en] Englisch
+banca, banche (Geldinstitut) | riva, rive (Ufer) < bank
+corteccia (Baumrinde) | abbaio (Bellen) < bark
+pipistrello, pipistrelli (Fledermaus) | mazza, mazze (Schläger) < bat
+conto, conti (Rechnung) | banconota, banconote (Geldschein) | disegno di legge, disegni di legge (Gesetzentwurf) < bill
+cella, celle (Gefängniszelle) | cellula, cellule (Körperzelle) | cellulare, cellulari (Mobiltelefon) < cell
+resto (Wechselgeld) | cambiamento (Veränderung) < change
+petto, petti (Brustkorb) | baule, bauli (Truhe) < chest
+allenatore, allenatori (Trainer) | pullman (Reisebus) < coach
+data, date (Datum) | appuntamento, appuntamenti (Verabredung) | dattero, datteri (Dattel) < date
+fiera (Messe, Jahrmarkt) | giusto (gerecht) | chiaro (hell (Haut, Haar)) < fair
 ventilatore, ventilatori (Ventilator) | tifoso, tifosi (Anhänger) < fan
-volante, volanti (Lenkrad) | tassa, tasse (Abgabe an den Staat) < Steuer
+multa (Busse) | bene (gut, in Ordnung) | fine (fein) < fine
+appartamento, appartamenti (Wohnung) | gomma a terra, gomme a terra (Reifenpanne) | piatto, piatti (flach) < flat
+occhiali (Brille) | bicchieri (Trinkgläser) < glasses
+marmellata (Konfitüre) | ingorgo (Stau) < jam
+chiave, chiavi (Schlüssel) | tasto, tasti (Taste) | tonalità (Tonart) < key
+luce (Licht) | leggero (leicht (Gewicht)) < light
+fiammifero, fiammiferi (Streichholz) | partita, partite (Spiel) < match
+topo, topi (Tier) | mouse (Computermaus) < mouse, mice
+unghia, unghie (Fingernagel) | chiodo, chiodi (Metallnagel) < nail
+palmo, palmi (Handfläche) | palma, palme (Palme) < palm
+pianta, piante (Pflanze) | impianto, impianti (Werk, Fabrik) < plant
+alunno, alunni (Schüler) | pupilla, pupille (Pupille) < pupil
+roccia (Fels, Stein) | rock (Rockmusik) < rock
+bilancia, bilance (Waage) | scala, scale (Massstab) | squama, squame (Schuppe) < scale
+foca, foche (Robbe) | guarnizione, guarnizioni (Dichtung) | sigillo, sigilli (Siegel) < seal
+frase, frasi (Satz) | condanna, condanne (Strafe, Urteil) < sentence
+primavera (Frühling) | molla (Sprungfeder) | sorgente (Quelle) < spring
+francobollo, francobolli (Briefmarke) | timbro, timbri (Stempel) < stamp
+stella, stelle (Himmelsstern) | star (berühmte Person) < star
+tavolo, tavoli (Tisch) | tabella, tabelle (Tabelle) < table
+biglietto, biglietti (Fahrkarte, Eintritt) | multa, multe (Strafzettel) < ticket
+mancia, mance (Trinkgeld) | consiglio, consigli (Ratschlag) | punta, punte (Spitze) < tip
+bagagliaio, bagagliai (Kofferraum) | tronco, tronchi (Baumstamm) | proboscide, proboscidi (Rüssel) < trunk
+
+[fr] Französisch
+avvocato, avvocati (Anwalt) | avocado < avocat
+baguette (Brot) | bacchette (Essstäbchen) | bacchetta (Zauberstab) < baguette
+ufficio, uffici (Büro) | scrivania, scrivanie (Schreibtisch) < bureau
+mappa, mappe (Landkarte) | menù (Speisekarte) | carta, carte (Bankkarte) < carte
+foglio, fogli (Blatt Papier) | foglia, foglie (Laubblatt) < feuille
+gelato (Speiseeis) | specchio (Spiegel) | ghiaccio (gefrorenes Wasser) < glace
+libro, libri (Buch) | sterlina, sterline (Pfund) < livre
+schiuma (Schaum) | mousse (Dessert) | muschio (Moos) < mousse
+stanza, stanze (Zimmer) | moneta, monete (Münze) | opera teatrale, opere teatrali (Theaterstück) | pezzo, pezzi (Teil, Ersatzteil) < pièce
+posta (Post) | posto (Stelle, Job) < poste
+topo, topi (Tier) | mouse (Computermaus) < souris
+quadro, quadri (Gemälde) | lavagna, lavagne (Wandtafel) | tabella, tabelle (Tabelle) < tableau
 volo, voli (Flug) | furto, furti (Diebstahl) < vol
-voto, voti (Schulnote) | nota, note (Musiknote) | banconota, banconote (Geldschein) < Note
+
+[es] Spanisch
+banca, banche (Geldinstitut) | panchina, panchine (Sitzbank) < banco
+lettera, lettere (Brief) | carta, carte (Spielkarte) | menù (Speisekarte) < carta
+coda (Schwanz) | fila (Warteschlange) | colla (Leim) < cola
+cura, cure (Heilung) | prete, preti (Pfarrer) < cura
+gatto, gatti (Katze) | cric (Wagenheber) < gato
+foglia, foglie (Laubblatt) | foglio, fogli (Blatt Papier) | lama, lame (Klinge) < hoja
+scimmia, scimmie (Affe) | tuta, tute (Overall) < mono
+bambola, bambole (Puppe) | polso, polsi (Handgelenk) < muñeca
+patata, patate (Kartoffel) | papa, papi (Papst) < papa
+pianta, piante (Pflanze) | piano, piani (Stockwerk) | impianto, impianti (Fabrik, Werk) < planta
+sega, seghe (Säge) | catena montuosa, catene montuose (Gebirge) < sierra
+candela, candele (Kerze) | vela, vele (Segel) < vela
+
+[pt] Portugiesisch
+banca, banche (Geldinstitut) | panchina, panchine (Sitzbank) < banco
+scatola, scatole (Kiste, Schachtel) | cassa, casse (Kasse) < caixa
+foglia, foglie (Laubblatt) | foglio, fogli (Blatt Papier) < folha
+manica, maniche (Ärmel) | mango < manga
+cartella (Ordner, Mappe) | pasta (Paste) < pasta
+rete, reti (Netz) | amaca, amache (Hängematte) < rede
+candela, candele (Kerze) | vela, vele (Segel) < vela

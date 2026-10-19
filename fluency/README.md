@@ -6,25 +6,32 @@ Android-App (Kotlin, Jetpack Compose, Material 3) für das **Samsung Galaxy S26 
 Das Internet wird nur für den einmaligen Modell-Download gebraucht, danach funktioniert alles im
 Flugmodus.
 
-| Live | Wort ersetzen (Finger auf dem Knopf) | Wortliste Englisch | Gespräch | Text |
+| Live | Wort ersetzen (Finger auf dem Knopf) | Wortlisten | Englisch: Sprache des Originals | Deutsch → Englisch |
 |---|---|---|---|---|
-| ![](docs/screenshots/01_live.png) | ![](docs/screenshots/10_word_preview.png) | ![](docs/screenshots/12_word_list.png) | ![](docs/screenshots/04_conversation.png) | ![](docs/screenshots/05_text.png) |
+| ![](docs/screenshots/01_live.png) | ![](docs/screenshots/10_word_preview.png) | ![](docs/screenshots/11_word_lists.png) | ![](docs/screenshots/12_word_sources.png) | ![](docs/screenshots/13_word_pair.png) |
+
+| Gespräch | Text | Modelle | Benchmark | Optionen |
+|---|---|---|---|---|
+| ![](docs/screenshots/04_conversation.png) | ![](docs/screenshots/05_text.png) | ![](docs/screenshots/06_models.png) | ![](docs/screenshots/07_benchmark.png) | ![](docs/screenshots/08_settings.png) |
 
 Die Screenshots sind Robolectric-Renderings (`ScreenshotTest`). Die Texte und Zahlen darin stammen
 aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Messungen**; die zwei
 falschen Übersetzungen im Live-Bild („bank“, „news“) sind von Hand gesetzt, um die Knöpfe zu zeigen.
 
-**Version 1.7.0 baut auf 1.2.0 auf.** Die Änderungen von 1.3.0 bis 1.6.0 sind zurückgenommen:
-kontextbezogene Übersetzung, Kontextdokument, das Modul „Mehrdeutige Wörter“ (das dem Modell
-Bedeutungen vorgab) und die schnellere Schweizerdeutsch-Erkennung. Die Übersetzung läuft wieder
-genau wie in 1.2.0. Neu ist nur eines: **doppeldeutige Wörter unter der Übersetzung ersetzen**
-(Funktion 8).
+**Version 1.8.0 baut auf 1.2.0 auf.**
+- **Zurückgenommen** sind die Änderungen von 1.3.0 bis 1.6.0 an der Übersetzung:
+  kontextbezogene Übersetzung, Kontextdokument und das Modul „Mehrdeutige Wörter“, das dem Modell
+  Bedeutungen vorgab. Die Übersetzung läuft wieder genau wie in 1.2.0.
+- **Wieder eingebaut** ist die schnellere Schweizerdeutsch-Erkennung aus 1.3.0 (Q8_0, mehr Threads).
+- **Neu**: doppeldeutige Wörter unter der Übersetzung ersetzen (Funktion 8). Seit 1.8.0 sind die
+  Wortlisten nach Sprachpaaren geordnet, und Sprachen lassen sich favorisieren.
 
 ## Downloads
 
-- **Fertige App**: [`dist/Fluency-1.7.0.apk`](../dist/Fluency-1.7.0.apk) (arm64, signiert). Sie
-  installiert sich als Update über 1.0.0 bis 1.6.0, die heruntergeladenen Modelle bleiben erhalten.
-- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.7.0.zip`](../dist/Fluency-AndroidStudio-1.7.0.zip)
+- **Fertige App**: [`dist/Fluency-1.8.0.apk`](../dist/Fluency-1.8.0.apk) (arm64, signiert). Sie
+  installiert sich als Update über 1.0.0 bis 1.7.0, die heruntergeladenen Modelle und deine
+  Wortlisten bleiben erhalten.
+- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.8.0.zip`](../dist/Fluency-AndroidStudio-1.8.0.zip)
   (enthält alle nativen Quellen und die fertig gebauten NPU-Bibliotheken, keine Submodule)
 
 ## In Android Studio bauen
@@ -99,20 +106,32 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
      geänderten Text. Gross am Satzanfang bleibt gross, „Deutsch (Schweiz)“ bekommt „ss“. Artikel
      und Endungen passt die App nicht an („der Bank“ → „der Ufer“); dafür kann man auch ganze
      Ausdrücke eintragen.
-   - **Wortlisten**: Optionen → „Doppeldeutige Wörter“ → pro Sprache ein eigenes Fenster und eine
-     eigene Textdatei (`files/words/en.txt` usw.; Deutsch (Schweiz) nutzt die deutsche Liste).
-     Ansehen, suchen, Gruppen hinzufügen, ändern und löschen, die ganze Datei als Text bearbeiten,
-     exportieren, importieren (ersetzen oder ergänzen) und zur Startliste zurück.
-   - Eine **Gruppe** sind Wörter einer Sprache, die beim Übersetzen verwechselt werden können, mit
-     ihren Formen und einer Erklärung, z. B. `bench, benches (Sitzbank) | bank, banks (Geldinstitut)
-     < Bank`. Die Formen sind in jedem Wort gleich geordnet, so wird „banks“ zu „benches“. Nach „<“
-     stehen optional Wörter des Originals: Dann erscheint der Knopf nur, wenn eines davon im
-     Originaltext steht (mit Endungen und Umlauten, „Bank“ findet auch „Banken“ und „Bänke“). Ohne
-     diese Angabe bekäme z. B. jedes „time“ einen Knopf „→ weather“.
-   - **Startlisten** für Deutsch (73 Gruppen), Englisch (83), Französisch (101), Italienisch (106),
-     Spanisch (100) und Portugiesisch (107), abgeleitet aus der Sammlung von 1.6.0, mit Mehrzahlformen
-     und deutschen Erklärungen. Solange man eine Liste nicht ändert, kommt sie aus der App; eine
-     spätere Version kann sie also verbessern.
+   - **Wortlisten** in Optionen → „Doppeldeutige Wörter“, in drei Ebenen:
+     1. **Sprache der Übersetzung**, z. B. Englisch. Jede hat ihre eigene Textdatei
+        (`files/words/en.txt` usw.; Deutsch (Schweiz) nutzt die deutsche).
+     2. **Sprache des Originals** mit der Anzahl Doppeldeutungen, z. B. Deutsch (45), Französisch (14).
+     3. **Die Seite des Sprachpaars** mit allen Doppeldeutungen, z. B. Deutsch → Englisch:
+        „Bank: bench ↔ bank (Sitzbank ↔ Geldinstitut)“. Hier kann man suchen, hinzufügen, ändern,
+        löschen und die Seite als Text bearbeiten.
+   - Mit dem **Stern** wird eine Sprache Favorit und steht oben, sowohl bei den Sprachen der
+     Übersetzung als auch bei denen des Originals.
+   - Pro Sprache der Übersetzung gibt es: Datei exportieren, importieren (ersetzen oder ergänzen),
+     zur Startliste zurück und alles löschen. „Alle Sprachen“ sammelt Doppeldeutungen, die bei
+     jeder Sprache des Originals gelten.
+   - Eine **Doppeldeutung** ist ein Wort des Originals mit den Übersetzungen, die verwechselt werden
+     können, samt ihren Formen und Bedeutungen. In der Datei sieht das so aus:
+     `bench, benches (Sitzbank) | bank, banks (Geldinstitut) < Bank` unter `[de] Deutsch`.
+     - Die Formen sind in jeder Übersetzung gleich geordnet, so wird „banks“ zu „benches“.
+     - Der Knopf erscheint nur, wenn das Original in dieser Sprache ist und das Wort darin steht,
+       mit Endungen und Umlauten („Bank“ findet auch „Banken“ und „Bänke“).
+     - Bei „Automatisch erkennen“ zählt nur das Wort. Ohne Wort im Original gilt die Doppeldeutung
+       bei jedem Satz aus dieser Sprache.
+   - **Startlisten** für Deutsch (78 Doppeldeutungen), Englisch (91), Französisch (105), Italienisch
+     (113), Spanisch (102) und Portugiesisch (111), je nach Sprache des Originals geordnet.
+     - Abgeleitet aus der Sammlung von 1.6.0, mit Mehrzahlformen und deutschen Erklärungen.
+     - Solange man eine Liste nicht ändert, kommt sie aus der App; eine spätere Version kann sie
+       also verbessern. Eine in 1.7.0 geänderte Datei ohne Sprachabschnitte landet unter
+       „Alle Sprachen“.
    - Eigene Wörter aus der Liste „Mehrdeutige Wörter“ von 1.5.0/1.6.0 werden beim ersten Start in die
      neuen Listen übernommen (die Einträge der mitgelieferten Sammlung sind schon in den Startlisten).
    - Ausschalten: Optionen → „Wörter zum Ersetzen unter der Übersetzung“.
@@ -132,7 +151,7 @@ Geprüft auf Hugging Face am 6.10.2026. Es gibt Nachfolger der im Auftrag genann
 | Übersetzung sehr schnell (optional) | Xiaomi MiLMMT-46-1B v1.0 Q4_K_M | 0.81 GB | 46 | Gemma Terms |
 | Spracherkennung live | **NVIDIA Parakeet-TDT-0.6B-v3** int8 (sherpa-onnx) | 0.67 GB | 25 europ., automatische Erkennung | CC-BY-4.0 |
 | Spracherkennung Fallback | **Whisper large-v3-turbo** int8 (sherpa-onnx) | 1.04 GB | ~100 | MIT |
-| Schweizerdeutsch (Mundart → Hochdeutsch) | Whisper-large-v3-turbo-Finetune von Flurin17, GGML q5_0 (whisper.cpp) | 0.57 GB | gsw → de | CC-BY-NC-4.0 (privat ok) |
+| Schweizerdeutsch (Mundart → Hochdeutsch) | Whisper-large-v3-turbo-Finetune von Flurin17, GGML q5_0 (whisper.cpp), läuft als Q8_0 | 0.57 GB | gsw → de | CC-BY-NC-4.0 (privat ok) |
 | Sprachaktivität | **Silero VAD v5** | 2 MB | – | MIT |
 | Sprachausgabe | Android-TTS (nur Offline-Stimmen), optional **Piper** (Thorsten de, Lessac en, Siwis fr, Paola it, Davefx es, Tugão pt) | je 63 MB + 18 MB eSpeak-Daten | 6 | CC0 / CC-BY / … |
 
@@ -152,6 +171,20 @@ Begründung:
   Vorab-Erkennung pro Sprechpause) und wird nur für die Ausgangssprache „Deutsch (Schweiz)"
   verwendet. Der Encoder-Kontext wird an die Länge der Äusserung angepasst (`audio_ctx`). Auf x86
   sinkt die Zeit für 2,8 s Audio damit von 14,5 s auf 3,1 s, bei identischem Ergebnis.
+  - **Läuft als Q8_0** (eingeführt in 1.3.0, seit 1.8.0 wieder drin): Die Datei hat Q5_0-Gewichte.
+    Für Q5_0 hat ggml auf ARM keine schnellen Matrix-Kernels (kein i8mm, kein KleidiAI, kein
+    Repacking). Beim Laden werden die Gewichte deshalb nach Q8_0 umgewandelt
+    (`app/src/main/cpp/whisper_q8.h`). Das ist exakt: Ein Q5_0-Wert ist (q − 16) · d mit q = 0…31,
+    das passt mit derselben Skala d in ein int8. Es wird nichts auf den Speicher geschrieben, die
+    geprüfte Originaldatei bleibt, im RAM sind es 0,86 statt 0,57 GB. Auf dem Handy rechnen damit
+    KleidiAI-Kernels (i8mm bzw. SME2) den Encoder.
+  - Ehrlich gesagt: Die Umwandlung ist exakt, aber KleidiAI rechnet Q8_0 intern mit einer int8-Skala
+    pro Gewichtszeile und quantisiert die Aktivierungen pro Zeile. Das ist nicht bitgleich zu Q5_0,
+    entspricht aber dem int8-Modus von CTranslate2/faster-whisper, mit dem die Schweizer
+    Whisper-Modelle verbreitet laufen. Auf x86 (ohne KleidiAI) ist der Text identisch.
+  - Whisper bekommt so viele Threads wie die Übersetzung (Standard 6, mindestens 4) statt 4. Die
+    Übersetzung läuft vorher oder nachher und auf diesem Handy ohnehin auf der NPU.
+  - Der Benchmark misst das Schweizer Modell mit (Hochdeutsch-Clip) und zeigt „Q8_0, 6 Threads“.
 - Die Modelle sind **nicht in der APK**. Beim ersten Start lädt „Empfohlene laden" Hy-MT2, Parakeet
   und Silero VAD (1.8 GB).
 
@@ -219,7 +252,8 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
 - **sherpa-onnx 1.13.8** (VAD, ASR, Piper) aus dem Quellcode gebaut gegen ONNX Runtime 1.28.0 (aus
   Maven), siehe `native/build-sherpa-onnx.sh`. Die gebaute `libsherpa-onnx-jni.so` liegt in
   `app/src/main/jniLibs`.
-- **whisper.cpp 1.9.5** für Schweizerdeutsch, statisch in `libfluency_jni.so`.
+- **whisper.cpp 1.9.5** für Schweizerdeutsch, statisch in `libfluency_jni.so`. Q5_0-Modelle werden
+  beim Laden exakt nach Q8_0 umgewandelt (siehe Modelle).
 - Native Libraries werden bei der Installation entpackt (`useLegacyPackaging = true`). Das ist nötig,
   weil die App die passende `libggml-cpu-*.so`, die Backends und die NPU-Programme im
   Bibliotheksordner sucht und lädt. Alle ARM-Bibliotheken sind 16-KB-ausgerichtet; die
@@ -285,7 +319,7 @@ Tests laufen immer. Erwartete Ordnerstruktur (Standard: `test-models/` im Projek
 `llm/` (die drei GGUF-Dateien), `parakeet-v3/` (encoder/decoder/joiner.int8.onnx, tokens.txt,
 test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_vad_v5.onnx`.
 
-140 Tests in 26 Klassen, alle grün:
+146 Tests in 26 Klassen, alle grün:
 
 - **Logik**: Schweizer Schreibweise, Satz-Segmentierung, Spracherkennung per Stoppwörtern/Schrift,
   Prompt-Formate, Modell-Routing, Katalog (gepinnte URLs, SHA-256), **Downloader** (Fortsetzen nach
@@ -312,7 +346,8 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
   - MiLMMT 1B/4B, inkl. Schwedisch.
   - Parakeet (de/en/fr/es) und Whisper-turbo (inkl. Spracherkennung).
   - Silero VAD mit absoluten Segmentpositionen.
-  - Schweizerdeutsch-Whisper über whisper.cpp.
+  - Schweizerdeutsch-Whisper über whisper.cpp, geladen als Q8_0 (gleicher Text wie mit Q5_0); der
+    App-Benchmark misst es als „Q8_0, 4 Threads“ mit.
   - Echter Download von Hugging Face inkl. SHA-256 (Silero, 355 eSpeak-Dateien, Piper).
   - Piper spricht, Parakeet erkennt: „Guten Morgen, wie komme ich zum Bahnhof?"
   - **Live-Pipeline Ende-zu-Ende** (Audio → VAD → Parakeet → Hy-MT2) und der App-Benchmark
@@ -320,7 +355,10 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
   - Die echte JNI meldet auf x86 „kein GPU-Backend“ und „kein NPU-Backend“; der Automatikmodus
     bleibt dann auf der CPU.
 - **Wortlisten** (Funktion 8):
-  - Dateiformat lesen und schreiben (Formen, Erklärungen mit Klammern, Originalwörter, Kommentare).
+  - Dateiformat lesen und schreiben (Formen, Erklärungen mit Klammern, Originalwörter, Kommentare,
+    Abschnitte pro Sprache des Originals; Schweiz = Deutsch).
+  - Eine Doppeldeutung für Deutsch erscheint bei deutschem und schweizerischem Original, nicht bei
+    französischem; bei unbekannter Sprache (automatisch) zählt nur das Wort.
   - Wörter in der Übersetzung finden: nur ganze Wörter („bankrupt“ und „Bankkonto“ nicht), ß = ss,
     Ausdrücke aus mehreren Wörtern, Apostrophe, Chinesisch ohne Leerzeichen, koreanische Endungen.
   - Originalwörter mit Endungen und Umlauten („Bänke“, „Banken“, „Schlösser“).
@@ -330,12 +368,16 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
   - Speicher: eine Datei pro Sprache, Startliste bis zur ersten Änderung, zurücksetzen,
     Deutsch (Schweiz) = Deutsch, Ergänzen ohne Doppelte, Text speichern.
   - Übernahme der eigenen Wörter aus 1.5.0/1.6.0.
-  - Startlisten: jede Zeile lesbar, keine doppelte Gruppe, kein „ß“; **jede Form jedes Wortes wird
-    gefunden und bietet die anderen Wörter an**.
-  - Bedienung (Robolectric): Gruppe ändern, neue Gruppe (erst ab zwei Wörtern speicherbar), löschen;
-    am Knopf Finger drauf → Wort markiert, wegziehen → nichts ersetzt, tippen → ersetzt.
-- **Robolectric-Screenshots** aller Bildschirme (`docs/screenshots`), dazu die Wortlisten
-  (`11_word_lists`, `12_word_list`) und der gedrückte Knopf mit markiertem Wort (`10_word_preview`).
+  - Startlisten: genau so geschrieben, wie die App schreibt; jede Doppeldeutung hat ihre Sprache und
+    ihr Wort des Originals; keine doppelte, kein „ß“; **jede Form jedes Wortes wird gefunden und
+    bietet die anderen an**.
+  - Bedienung (Robolectric): Doppeldeutung ändern, neu anlegen (erst ab zwei Übersetzungen
+    speicherbar, bekommt die Sprache der Seite), löschen, ohne die anderen Sprachen anzufassen;
+    Stern setzt und entfernt Favoriten; die Sprachen öffnen ihre Seiten; am Knopf Finger drauf →
+    Wort markiert, wegziehen → nichts ersetzt, tippen → ersetzt.
+- **Robolectric-Screenshots** aller Bildschirme (`docs/screenshots`), dazu die drei Ebenen der
+  Wortlisten (`11_word_lists`, `12_word_sources`, `13_word_pair`) und der gedrückte Knopf mit
+  markiertem Wort (`10_word_preview`).
 
 Messwerte auf dem Container (4 vCPU x86, nur Korrektheitsreferenz, das Handy ist schneller):
 Hy-MT2 17 Tok/s, MiLMMT-1B 23 Tok/s, MiLMMT-4B 7 Tok/s, Parakeet RTF 0.12. Live-Pipeline vom
@@ -376,10 +418,12 @@ Parakeet-TDT 0.6B v3: 365 ms für 6,6 s Audio (Echtzeitfaktor 0,055).
   Startlisten bei echten Gesprächen einen passenden Knopf zeigen.
 - Export und Import der Wortlisten über die Android-Dateiauswahl.
 - Die Übernahme eigener Wörter aus 1.6.0 mit deinen echten Daten (getestet mit Beispielzeilen) und
-  das Update von 1.6.0 auf 1.7.0 ohne Verlust der Modelle.
+  das Update ohne Verlust der Modelle.
 - Foreground-Service-Downloads im Hintergrund, Benachrichtigungen, SAF-Dateiimport.
-- Schweizerdeutsch-Qualität mit echter Mundart (getestet wurde nur Hochdeutsch-Audio) und dessen
-  Tempo auf dem Handy.
+- Schweizerdeutsch-Qualität mit echter Mundart (getestet wurde nur Hochdeutsch-Audio).
+- Wie viel schneller Schweizerdeutsch als Q8_0 auf dem Handy ist. Auf x86 gibt es die ARM-Kernels
+  (i8mm/KleidiAI/SME2) nicht; dort ist Q8_0 nur gleich schnell bis etwas schneller. Erwartet wird
+  auf dem Handy ein Mehrfaches, gemessen ist es noch nicht (der Benchmark der App zeigt es).
 - Speicherverbrauch und Wärmeentwicklung bei langen Sitzungen.
 
 ## Lizenzen

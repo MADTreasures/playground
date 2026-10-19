@@ -3,104 +3,120 @@
 # Formen eines Wortes mit Komma, in jedem Wort gleich geordnet (z. B. Einzahl, Mehrzahl).
 # In Klammern eine Erklärung. Nach „<“ optional Wörter des Originaltexts: dann erscheint die
 # Gruppe nur, wenn eines davon im Original steht (Endungen werden mitgefunden, „Bank“ findet „Bänke“).
-addition, additions (Rechnung) | billet, billets (Geldschein) | projet de loi, projets de loi (Gesetzentwurf) < bill
-addition, additions (Rechnung) | compte, comptes (Bankkonto) < conta
-agriculteur, agriculteurs (Landwirt) | pion, pions (Schachfigur) < Bauer
-aile, ailes (Vogel- oder Flugzeugflügel) | piano à queue, pianos à queue (Konzertklavier) < Flügel
-allumette, allumettes (Streichholz) | match, matchs (Spiel) < match
-amende (Busse) | bien (gut, in Ordnung) | fin (fein) < fine
-appartement, appartements (Wohnung) | crevaison, crevaisons (Reifenpanne) | plat, plats (flach) < flat
-armoire, armoires (Schrank (Schweiz)) | caisse, caisses (Kiste) < Kasten
-balance, balances (Waage) | échelle, échelles (Massstab) | écaille, écailles (Schuppe) | gamme, gammes (Tonleiter) < scale
-balle, balles (Spielball) | bal, bals (Tanzfest) < Ball
-banc, bancs (Sitzbank) | banque, banques (Geldinstitut) < Bank, banco
-banque, banques (Geldinstitut) | rive, rives (Ufer) < bank
-billet, billets (Fahrkarte, Eintritt) | contravention, contraventions (Strafzettel) < ticket
-bougie, bougies (Kerze) | voile, voiles (Segel) < vela
-bouquet, bouquets (Blumenstrauss) | autruche, autruches (Laufvogel) < Strauss
-boîte, boîtes (Kiste, Schachtel) | caisse, caisses (Kasse) < caixa
-but, buts (im Sport) | portail, portails (Eingang) < Tor
-cellule, cellules (Gefängniszelle) | portable, portables (Mobiltelefon) < cell
-chapelle, chapelles (kleine Kirche) | fanfare, fanfares (Musikgruppe) < Kapelle
-chat, chats (Katze) | cric, crics (Wagenheber) < gato
-chauve-souris, chauves-souris (Fledermaus) | batte, battes (Schläger) < bat
-clé, clés (Schlüssel) | touche, touches (Taste) | tonalité, tonalités (Tonart) < key
-coffre, coffres (Kofferraum) | tronc, troncs (Baumstamm) | trompe, trompes (Rüssel) < trunk
-confiture (Konfitüre) | embouteillage (Stau) < jam
-cou, cous (Hals) | colis (Paket) < collo
-couloir, couloirs (Flur) | vitesse, vitesses (beim Auto) | plat, plats (beim Essen) < Gang
-courant, courants (Elektrizität) | fleuve, fleuves (grosser Fluss) < Strom
-coureur, coureurs (Sportler) | fou, fous (Schachfigur) | tapis (schmaler Teppich) < Läufer
-cours (Lehrgang) | taux de change (Wechselkurs) < Kurs
-couverture, couvertures (Bettdecke) | plafond, plafonds (Zimmerdecke) < Decke
-date, dates (Datum) | rendez-vous (Verabredung) | datte, dattes (Dattel) < date
-dossier (Ordner, Mappe) | pâte (Paste) < pasta
-déménagement, déménagements (Wohnungswechsel) | défilé, défilés (Festumzug) < Umzug
-déménager (umziehen (Schweiz)) | refréner (bändigen) < zügeln, zügle, zügelst, zügelt, gezügelt
-entraîneur, entraîneurs (Trainer) | car, cars (Reisebus) < coach
-entrepôt, entrepôts (Warenlager) | camp, camps (Ferienlager) < Lager
+# „[de] Deutsch“ usw.: die folgenden Gruppen gelten für Übersetzungen aus dieser Sprache,
+# „[*]“ für Übersetzungen aus allen Sprachen.
+
+[de] Deutsch
+talon, talons (am Schuh) | paragraphe, paragraphes (im Text) < Absatz
 expression, expressions (Wort, Wendung) | impression, impressions (Gedrucktes) < Ausdruck
-feuille, feuilles (Laubblatt) | lame, lames (Klinge) < hoja
-foire (Messe, Jahrmarkt) | juste (gerecht) | clair (hell (Haut, Haar)) < fair
-football (Fussball) | coup de pied (Fusstritt) | calcium (Kalzium) < calcio
-frein, freins (am Fahrzeug) | taon, taons (Insekt) < Bremse
-grenier, greniers (Dachboden (Schweiz)) | chape, chapes (Bodenbelag) < Estrich
-guichet, guichets (Kundenschalter) | interrupteur, interrupteurs (Lichtschalter) < Schalter
-guérison, guérisons (Heilung) | curé, curés (Pfarrer) < cura
-jupe (Kleidungsstück) | rock (Musik) < Rock
-lettre, lettres (Brief) | carte, cartes (Spielkarte) < carta
-lumière (Licht) | léger (leicht (Gewicht)) < light
-lunettes (Brille) | verres (Trinkgläser) < glasses
-manche, manches (Ärmel) | mangue, mangues (Mango) < manga
-matou (männliche Katze) | gueule de bois (nach zu viel Alkohol) < Kater
-messages (Mitteilungen (Chat, SMS)) | informations (Neuigkeiten (TV, Radio)) < Nachrichten
-moisissure (Pilz) | cheval blanc (weisses Pferd) < Schimmel
-monnaie (Wechselgeld) | changement (Veränderung) < change
-mâchoire, mâchoires (Knochen) | pin, pins (Nadelbaum) < Kiefer
-mère, mères (Mama) | écrou, écrous (Schraubenmutter) < Mutter
-note, notes (Schulnote) | billet, billets (Geldschein) < Note
-ongle, ongles (Fingernagel) | clou, clous (Metallnagel) < nail
-orgue, orgues (Musikinstrument) | organe, organes (Körperorgan) < organ
-passeport, passeports (Reisepass) | col, cols (Bergpass) | passe, passes (Zuspiel im Sport) < Pass
-paume, paumes (Handfläche) | palmier, palmiers (Palme) < palm
-phoque, phoques (Robbe) | joint, joints (Dichtung) | sceau, sceaux (Siegel) < seal
-phrase, phrases (Satz) | peine, peines (Strafe, Urteil) < sentence
-plante, plantes (Pflanze) | plan, plans (Stadtplan) < pianta
-plante, plantes (Pflanze) | usine, usines (Werk, Fabrik) < plant
-plante, plantes (Pflanze) | étage, étages (Stockwerk) | usine, usines (Fabrik, Werk) < planta
-plat, plats (Speise) | tribunal, tribunaux (Justiz) < Gericht
-plume, plumes (Vogelfeder) | ressort, ressorts (Sprungfeder) < Feder
+balle, balles (Spielball) | bal, bals (Tanzfest) < Ball
+banc, bancs (Sitzbank) | banque, banques (Geldinstitut) < Bank
+agriculteur, agriculteurs (Landwirt) | pion, pions (Schachfigur) < Bauer
 poire, poires (Frucht) | ampoule, ampoules (Glühbirne) < Birne
-poitrine, poitrines (Brustkorb) | coffre, coffres (Truhe) < chest
-pomme de terre, pommes de terre (Kartoffel) | pape, papes (Papst) < papa
-poney, poneys (kleines Pferd) | frange, franges (Frisur) < Pony
-poupée, poupées (Puppe) | poignet, poignets (Handgelenk) < muñeca
-pourboire, pourboires (Trinkgeld) | conseil, conseils (Ratschlag) | pointe, pointes (Spitze) < tip
-printemps (Frühling) | ressort (Sprungfeder) | source (Quelle) < spring
-queue (Schwanz) | file (Warteschlange) | colle (Leim) < cola
-riz (Reis) | rire (Lachen) < riso
+frein, freins (am Fahrzeug) | taon, taons (Insekt) < Bremse
+couverture, couvertures (Bettdecke) | plafond, plafonds (Zimmerdecke) < Decke
+grenier, greniers (Dachboden (Schweiz)) | chape, chapes (Bodenbelag) < Estrich
+plume, plumes (Vogelfeder) | ressort, ressorts (Sprungfeder) < Feder
+aile, ailes (Vogel- oder Flugzeugflügel) | piano à queue, pianos à queue (Konzertklavier) < Flügel
+couloir, couloirs (Flur) | vitesse, vitesses (beim Auto) | plat, plats (beim Essen) < Gang
+plat, plats (Speise) | tribunal, tribunaux (Justiz) < Gericht
 robinet, robinets (Wasserhahn) | coq, coqs (Tier) < Hahn
-rocher (Fels, Stein) | rock (Rockmusik) < rock
-réseau, réseaux (Netz) | hamac, hamacs (Hängematte) < rede
-sac, sacs (Tasche) | bourse, bourses (Börse) < borsa, bolsa
+chapelle, chapelles (kleine Kirche) | fanfare, fanfares (Musikgruppe) < Kapelle
+armoire, armoires (Schrank (Schweiz)) | caisse, caisses (Kiste) < Kasten
+matou (männliche Katze) | gueule de bois (nach zu viel Alkohol) < Kater
+mâchoire, mâchoires (Knochen) | pin, pins (Nadelbaum) < Kiefer
+cours (Lehrgang) | taux de change (Wechselkurs) < Kurs
+entrepôt, entrepôts (Warenlager) | camp, camps (Ferienlager) < Lager
+coureur, coureurs (Sportler) | fou, fous (Schachfigur) | tapis (schmaler Teppich) < Läufer
+échelle, échelles (Gerät zum Hochsteigen) | responsable, responsables (Chef, Verantwortlicher) < Leiter
 salon, salons (Ausstellung) | messe, messes (Gottesdienst) < Messe
-scie, scies (Säge) | chaîne de montagnes, chaînes de montagnes (Gebirge) < sierra
+mère, mères (Mama) | écrou, écrous (Schraubenmutter) < Mutter
+messages (Mitteilungen (Chat, SMS)) | informations (Neuigkeiten (TV, Radio)) < Nachrichten
+note, notes (Schulnote) | billet, billets (Geldschein) < Note
+passeport, passeports (Reisepass) | col, cols (Bergpass) | passe, passes (Zuspiel im Sport) < Pass
+poney, poneys (kleines Pferd) | frange, franges (Frisur) < Pony
+jupe (Kleidungsstück) | rock (Musik) < Rock
+guichet, guichets (Kundenschalter) | interrupteur, interrupteurs (Lichtschalter) < Schalter
+moisissure (Pilz) | cheval blanc (weisses Pferd) < Schimmel
 serpent, serpents (Tier) | file, files (Warteschlange) < Schlange
 serrure, serrures (Türschloss) | château, châteaux (Burg, Palast) < Schloss
-singe, singes (Affe) | combinaison, combinaisons (Overall) < mono
-son (Klang) | argile (Lehm) < Ton
-stylo (Schreibstift) | plume (Vogelfeder) | penne (Nudeln) < penna
-stylo, stylos (Schreibstift) | apprenti, apprentis (Lehrling (Schweiz)) < Stift
-table, tables (Tisch) | tableau, tableaux (Tabelle) < table
-talon, talons (am Schuh) | paragraphe, paragraphes (im Text) < Absatz
-taux (Zinssatz) | blaireau, blaireaux (Dachs) < tasso
-timbre, timbres (Briefmarke) | tampon, tampons (Stempel) < stamp
-train, trains (Eisenbahn) | coup, coups (Spielzug) < Zug
-ventilateur, ventilateurs (Ventilator) | fan, fans (Anhänger) < fan
-vis (Schraube) | vigne, vignes (Weinrebe) < vite
 volant, volants (Lenkrad) | impôt, impôts (Abgabe an den Staat) < Steuer
-échelle, échelles (Gerät zum Hochsteigen) | responsable, responsables (Chef, Verantwortlicher) < Leiter
-écorce, écorces (Baumrinde) | aboiement, aboiements (Bellen) < bark
-élève, élèves (Schüler) | pupille, pupilles < pupil
+stylo, stylos (Schreibstift) | apprenti, apprentis (Lehrling (Schweiz)) < Stift
 étage, étages (Stockwerk) | bâton, bâtons (Stab) < Stock
+bouquet, bouquets (Blumenstrauss) | autruche, autruches (Laufvogel) < Strauss
+courant, courants (Elektrizität) | fleuve, fleuves (grosser Fluss) < Strom
+son (Klang) | argile (Lehm) < Ton
+but, buts (im Sport) | portail, portails (Eingang) < Tor
+déménagement, déménagements (Wohnungswechsel) | défilé, défilés (Festumzug) < Umzug
+train, trains (Eisenbahn) | coup, coups (Spielzug) < Zug
+déménager (umziehen (Schweiz)) | refréner (bändigen) < zügeln, zügle, zügelst, zügelt, gezügelt
+
+[en] Englisch
+banque, banques (Geldinstitut) | rive, rives (Ufer) < bank
+écorce, écorces (Baumrinde) | aboiement, aboiements (Bellen) < bark
+chauve-souris, chauves-souris (Fledermaus) | batte, battes (Schläger) < bat
+addition, additions (Rechnung) | billet, billets (Geldschein) | projet de loi, projets de loi (Gesetzentwurf) < bill
+cellule, cellules (Gefängniszelle) | portable, portables (Mobiltelefon) < cell
+monnaie (Wechselgeld) | changement (Veränderung) < change
+poitrine, poitrines (Brustkorb) | coffre, coffres (Truhe) < chest
+entraîneur, entraîneurs (Trainer) | car, cars (Reisebus) < coach
+date, dates (Datum) | rendez-vous (Verabredung) | datte, dattes (Dattel) < date
+foire (Messe, Jahrmarkt) | juste (gerecht) | clair (hell (Haut, Haar)) < fair
+ventilateur, ventilateurs (Ventilator) | fan, fans (Anhänger) < fan
+amende (Busse) | bien (gut, in Ordnung) | fin (fein) < fine
+appartement, appartements (Wohnung) | crevaison, crevaisons (Reifenpanne) | plat, plats (flach) < flat
+lunettes (Brille) | verres (Trinkgläser) < glasses
+confiture (Konfitüre) | embouteillage (Stau) < jam
+clé, clés (Schlüssel) | touche, touches (Taste) | tonalité, tonalités (Tonart) < key
+lumière (Licht) | léger (leicht (Gewicht)) < light
+allumette, allumettes (Streichholz) | match, matchs (Spiel) < match
+ongle, ongles (Fingernagel) | clou, clous (Metallnagel) < nail
+orgue, orgues (Musikinstrument) | organe, organes (Körperorgan) < organ
+paume, paumes (Handfläche) | palmier, palmiers (Palme) < palm
+plante, plantes (Pflanze) | usine, usines (Werk, Fabrik) < plant
+élève, élèves (Schüler) | pupille, pupilles < pupil
+rocher (Fels, Stein) | rock (Rockmusik) < rock
+balance, balances (Waage) | échelle, échelles (Massstab) | écaille, écailles (Schuppe) | gamme, gammes (Tonleiter) < scale
+phoque, phoques (Robbe) | joint, joints (Dichtung) | sceau, sceaux (Siegel) < seal
+phrase, phrases (Satz) | peine, peines (Strafe, Urteil) < sentence
+printemps (Frühling) | ressort (Sprungfeder) | source (Quelle) < spring
+timbre, timbres (Briefmarke) | tampon, tampons (Stempel) < stamp
 étoile, étoiles (Himmelsstern) | star, stars (berühmte Person) < star
+table, tables (Tisch) | tableau, tableaux (Tabelle) < table
+billet, billets (Fahrkarte, Eintritt) | contravention, contraventions (Strafzettel) < ticket
+pourboire, pourboires (Trinkgeld) | conseil, conseils (Ratschlag) | pointe, pointes (Spitze) < tip
+coffre, coffres (Kofferraum) | tronc, troncs (Baumstamm) | trompe, trompes (Rüssel) < trunk
+
+[it] Italienisch
+sac, sacs (Tasche) | bourse, bourses (Börse) < borsa
+football (Fussball) | coup de pied (Fusstritt) | calcium (Kalzium) < calcio
+cou, cous (Hals) | colis (Paket) < collo
+stylo (Schreibstift) | plume (Vogelfeder) | penne (Nudeln) < penna
+plante, plantes (Pflanze) | plan, plans (Stadtplan) < pianta
+riz (Reis) | rire (Lachen) < riso
+taux (Zinssatz) | blaireau, blaireaux (Dachs) < tasso
+vis (Schraube) | vigne, vignes (Weinrebe) < vite
+
+[es] Spanisch
+banque, banques (Geldinstitut) | banc, bancs (Sitzbank) < banco
+sac, sacs (Tasche, Tüte) | bourse, bourses (Börse) < bolsa
+lettre, lettres (Brief) | carte, cartes (Spielkarte) < carta
+queue (Schwanz) | file (Warteschlange) | colle (Leim) < cola
+guérison, guérisons (Heilung) | curé, curés (Pfarrer) < cura
+chat, chats (Katze) | cric, crics (Wagenheber) < gato
+feuille, feuilles (Laubblatt) | lame, lames (Klinge) < hoja
+singe, singes (Affe) | combinaison, combinaisons (Overall) < mono
+poupée, poupées (Puppe) | poignet, poignets (Handgelenk) < muñeca
+pomme de terre, pommes de terre (Kartoffel) | pape, papes (Papst) < papa
+plante, plantes (Pflanze) | étage, étages (Stockwerk) | usine, usines (Fabrik, Werk) < planta
+scie, scies (Säge) | chaîne de montagnes, chaînes de montagnes (Gebirge) < sierra
+bougie, bougies (Kerze) | voile, voiles (Segel) < vela
+
+[pt] Portugiesisch
+banque, banques (Geldinstitut) | banc, bancs (Sitzbank) < banco
+boîte, boîtes (Kiste, Schachtel) | caisse, caisses (Kasse) < caixa
+addition, additions (Rechnung) | compte, comptes (Bankkonto) < conta
+manche, manches (Ärmel) | mangue, mangues (Mango) < manga
+dossier (Ordner, Mappe) | pâte (Paste) < pasta
+réseau, réseaux (Netz) | hamac, hamacs (Hängematte) < rede
+bougie, bougies (Kerze) | voile, voiles (Segel) < vela

@@ -29,7 +29,7 @@ object LegacyWords {
                 }.distinctBy { it.text.lowercase() }
                 if (words.size < 2) continue
                 val sources = (listOf(e.word) + e.forms).map(WordGroups::cleanTerm).filter { it.isNotEmpty() }.distinct()
-                out.getOrPut(code) { mutableListOf() } += WordGroup(words, sources)
+                out.getOrPut(code) { mutableListOf() } += WordGroup(words, sources, WordGroupStore.fileCode(base))
             }
         }
         return out

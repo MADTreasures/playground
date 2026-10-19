@@ -36,6 +36,7 @@
 #include "ggml-backend.h"
 #include "llama.h"
 #include "whisper.h"
+#include "whisper_q8.h"
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -752,7 +753,18 @@ Java_ch_madtreasures_fluency_engine_asr_WhisperCppNative_nativeInit(JNIEnv * env
     whisper_context_params cp = whisper_context_default_params();
     cp.use_gpu = useGpu == JNI_TRUE;
     cp.flash_attn = true;
-    whisper_context * ctx = whisper_init_from_file_with_params(path.c_str(), cp);
+    // Q5_0 weights are loaded as Q8_0 (exact, see whisper_q8.h): the fast ARM kernels need Q8_0
+    whisper_context * ctx = nullptr;
+    {
+        whisper_q8::Stream q8;
+        if (q8.open(path)) {
+            whisper_model_loader loader = q8.loader();
+            ctx = whisper_init_with_params(&loader, cp);
+            if (ctx != nullptr) LOG_I("whisper: %d Q5_0 tensors loaded as Q8_0", q8.converted_tensors());
+            else LOG_W("whisper: loading %s as Q8_0 failed%s, loading it as it is", path.c_str(), q8.failed() ? " (read error)" : "");
+        }
+    }
+    if (ctx == nullptr) ctx = whisper_init_from_file_with_params(path.c_str(), cp);
     if (ctx == nullptr) {
         LOG_E("whisper: failed to load %s", path.c_str());
         return 0;
@@ -760,6 +772,15 @@ Java_ch_madtreasures_fluency_engine_asr_WhisperCppNative_nativeInit(JNIEnv * env
     auto * s = new WhisperSession();
     s->ctx = ctx;
     return reinterpret_cast<jlong>(s);
+}
+
+/** Type of the model's weight matrices as whisper.cpp runs them ("q8_0", "q5_0", "f16", ...). */
+JNIEXPORT jstring JNICALL
+Java_ch_madtreasures_fluency_engine_asr_WhisperCppNative_nativeWeightType(JNIEnv * env, jobject, jlong handle) {
+    auto * s = reinterpret_cast<WhisperSession *>(handle);
+    if (s == nullptr || s->ctx == nullptr) return nullptr;
+    const ggml_type t = ggml_ftype_to_ggml_type(static_cast<ggml_ftype>(whisper_model_ftype(s->ctx)));
+    return env->NewStringUTF(t == GGML_TYPE_COUNT ? "?" : ggml_type_name(t));
 }
 
 JNIEXPORT void JNICALL

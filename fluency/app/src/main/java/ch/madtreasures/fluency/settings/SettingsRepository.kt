@@ -54,6 +54,8 @@ data class AppSettings(
     val setupDismissed: Boolean = false,
     /** buttons under a translation that replace words of the word lists ("news → messages") */
     val showWordSwaps: Boolean = true,
+    /** languages marked with a star in the word lists: shown first */
+    val favoriteLanguages: Set<String> = emptySet(),
 )
 
 class SettingsRepository(private val store: DataStore<Preferences>, scope: CoroutineScope) {
@@ -86,6 +88,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         val muteMicWhileSpeaking = booleanPreferencesKey("muteMicWhileSpeaking")
         val setupDismissed = booleanPreferencesKey("setupDismissed")
         val showWordSwaps = booleanPreferencesKey("showWordSwaps")
+        val favoriteLanguages = stringPreferencesKey("favoriteLanguages")
 
         /** 1.5.0/1.6.0: the list "Mehrdeutige Wörter" (see LegacyWords) */
         val ambiguousWords = stringPreferencesKey("ambiguousWords")
@@ -121,6 +124,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         muteMicWhileSpeaking = p[K.muteMicWhileSpeaking] ?: defaults.muteMicWhileSpeaking,
         setupDismissed = p[K.setupDismissed] ?: defaults.setupDismissed,
         showWordSwaps = p[K.showWordSwaps] ?: defaults.showWordSwaps,
+        favoriteLanguages = p[K.favoriteLanguages]?.split(',')?.filter { it.isNotBlank() }?.toSet() ?: defaults.favoriteLanguages,
     )
 
     val settings: StateFlow<AppSettings> = store.data.map(::read).stateIn(scope, SharingStarted.Eagerly, defaults)
@@ -160,6 +164,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
                 p[K.muteMicWhileSpeaking] = s.muteMicWhileSpeaking
                 p[K.setupDismissed] = s.setupDismissed
                 p[K.showWordSwaps] = s.showWordSwaps
+                p[K.favoriteLanguages] = s.favoriteLanguages.sorted().joinToString(",")
             }
         }
     }

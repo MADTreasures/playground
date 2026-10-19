@@ -64,6 +64,9 @@ import ch.madtreasures.fluency.ui.models.ModelsScreen
 import ch.madtreasures.fluency.ui.models.ModelsViewModel
 import ch.madtreasures.fluency.ui.settings.AccelUi
 import ch.madtreasures.fluency.ui.settings.ImportDialog
+import ch.madtreasures.fluency.ui.settings.SourceLanguagesActions
+import ch.madtreasures.fluency.ui.settings.SourceLanguagesScreen
+import ch.madtreasures.fluency.ui.settings.SourceLanguagesUiState
 import ch.madtreasures.fluency.ui.settings.WordListActions
 import ch.madtreasures.fluency.ui.settings.WordListEntry
 import ch.madtreasures.fluency.ui.settings.WordListScreen
@@ -105,7 +108,7 @@ fun FluencyRoot(c: AppContainer) {
     var tab by rememberSaveable { mutableStateOf(Tab.LIVE) }
     var previousTab by rememberSaveable { mutableStateOf(Tab.LIVE) }
     var benchmark by rememberSaveable { mutableStateOf(false) }
-    // word lists in the settings: null = closed, "" = all languages, else the language code
+    // word lists in the settings: null = closed, else the page (see WordsRoute)
     var words by rememberSaveable { mutableStateOf<String?>(null) }
     val factory = remember(c) {
         viewModelFactory {
@@ -120,7 +123,7 @@ fun FluencyRoot(c: AppContainer) {
     BackHandler(enabled = benchmark || tab != Tab.LIVE) {
         when {
             benchmark -> benchmark = false
-            tab == Tab.SETTINGS && words != null -> words = if (words == "") null else ""
+            tab == Tab.SETTINGS && words != null -> words = wordsBack(words!!)
             tab == Tab.CONVERSATION -> tab = previousTab
             else -> tab = Tab.LIVE
         }
@@ -146,12 +149,19 @@ fun FluencyRoot(c: AppContainer) {
                 tab == Tab.SETTINGS && words != null -> WordsRoute(
                     c, words.orEmpty(),
                     onOpen = { words = it },
-                    onBack = { words = if (words == "") null else "" },
+                    onBack = { words = words?.let(::wordsBack) },
                 )
                 tab == Tab.SETTINGS -> SettingsRoute(c, onBenchmark = { benchmark = true }, onOpenWords = { words = "" })
             }
         }
     }
+}
+
+/** one page up in the word lists: "en/de" → "en" → "" → closed */
+private fun wordsBack(path: String): String? = when {
+    '/' in path -> path.substringBefore('/')
+    path.isNotEmpty() -> ""
+    else -> null
 }
 
 @Composable
@@ -362,26 +372,84 @@ private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit, onOpenWords:
     )
 }
 
-/** the word lists: [code] "" = overview of the languages, else the window of that language */
+/**
+ * The word lists. [path]: "" = the target languages, "en" = the languages of the original for
+ * translations into English, "en/de" = the page German → English ("*" instead of "de": every language).
+ */
 @Composable
-private fun WordsRoute(c: AppContainer, code: String, onOpen: (String) -> Unit, onBack: () -> Unit) {
+private fun WordsRoute(c: AppContainer, path: String, onOpen: (String) -> Unit, onBack: () -> Unit) {
     val store = c.wordGroups
     val version by store.changes.collectAsStateWithLifecycle()
-    if (code.isEmpty()) {
-        val entries by produceState(emptyList<WordListEntry>(), version) {
-            value = withContext(Dispatchers.IO) {
-                WordGroupStore.languages.map { l -> WordListEntry(l.code, l.nameDe, store.groups(l.code).size, store.isChanged(l.code)) }
-            }
-        }
-        WordListsScreen(entries, onOpen, onBack)
-        return
+    val settings by c.settingsRepository.settings.collectAsStateWithLifecycle()
+    val favorites = settings.favoriteLanguages
+    val toggleFavorite: (String) -> Unit = { code ->
+        c.settingsRepository.update { s -> s.copy(favoriteLanguages = if (code in s.favoriteLanguages) s.favoriteLanguages - code else s.favoriteLanguages + code) }
     }
+    val code = path.substringBefore('/')
+    val name = Languages.byCode(code)?.nameDe ?: code
+    when {
+        path.isEmpty() -> {
+            val entries by produceState(emptyList<WordListEntry>(), version) {
+                value = withContext(Dispatchers.IO) {
+                    WordGroupStore.languages.map { l -> WordListEntry(l.code, l.nameDe, store.groups(l.code).size, store.isChanged(l.code)) }
+                }
+            }
+            WordListsScreen(entries, favorites, onOpen = onOpen, onFavorite = toggleFavorite, onBack = onBack)
+        }
+        '/' in path -> {
+            val source = WordGroups.languageCode(path.substringAfter('/'))
+            val sourceName = source?.let { Languages.byCode(it)?.nameDe ?: it } ?: "Alle Sprachen"
+            val state by produceState(WordListUiState(code, name, source, sourceName), path, version) {
+                value = withContext(Dispatchers.IO) {
+                    WordListUiState(code, name, source, sourceName, store.groups(code).filter { it.language == source })
+                }
+            }
+            val scope = rememberCoroutineScope()
+            val context = LocalContext.current
+            WordListScreen(
+                state,
+                WordListActions(
+                    onBack = onBack,
+                    onChange = { change ->
+                        scope.launch {
+                            withContext(Dispatchers.IO) { runCatching { store.update(code, change) } }.exceptionOrNull()?.let { e ->
+                                Toast.makeText(context, "Fehler: ${e.message ?: e.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                ),
+            )
+        }
+        else -> SourceLanguagesRoute(c, code, name, version, favorites, toggleFavorite, onOpen, onBack)
+    }
+}
+
+/** the window of one target language: languages of the original, export, import, start list */
+@Composable
+private fun SourceLanguagesRoute(
+    c: AppContainer,
+    code: String,
+    name: String,
+    version: Int,
+    favorites: Set<String>,
+    onFavorite: (String) -> Unit,
+    onOpen: (String) -> Unit,
+    onBack: () -> Unit,
+) {
+    val store = c.wordGroups
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val name = Languages.byCode(code)?.nameDe ?: code
-    val state by produceState(WordListUiState(code, name), code, version) {
+    val state by produceState(SourceLanguagesUiState(code, name), code, version) {
         value = withContext(Dispatchers.IO) {
-            WordListUiState(code, name, store.groups(code), store.isChanged(code), store.hasDefaults(code))
+            val groups = store.groups(code)
+            val counts = groups.groupingBy { it.language }.eachCount()
+            SourceLanguagesUiState(
+                code, name,
+                entries = listOf(WordListEntry(null, "Alle Sprachen", counts[null] ?: 0)) +
+                    WordGroupStore.sourcesFor(code).map { l -> WordListEntry(l.code, l.nameDe, counts[l.code] ?: 0) },
+                changed = store.isChanged(code),
+                hasDefaults = store.hasDefaults(code),
+            )
         }
     }
     fun inBackground(done: String? = null, work: () -> Unit) {
@@ -408,34 +476,35 @@ private fun WordsRoute(c: AppContainer, code: String, onOpen: (String) -> Unit, 
                     }.getOrDefault(emptyList())
                 }
                 if (groups.isEmpty()) {
-                    Toast.makeText(context, "Keine Wortgruppen in der Datei gefunden", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Keine Doppeldeutungen in der Datei gefunden", Toast.LENGTH_LONG).show()
                 } else {
                     imported = groups
                 }
             }
         }
     }
-    WordListScreen(
-        state = state,
-        actions = WordListActions(
+    SourceLanguagesScreen(
+        state.copy(favorites = favorites),
+        SourceLanguagesActions(
             onBack = onBack,
-            onChange = { change -> inBackground { store.update(code, change) } },
-            onSaveText = { text -> inBackground { store.saveText(code, text) } },
+            onOpen = { source -> onOpen("$code/${source ?: "*"}") },
+            onFavorite = onFavorite,
             onExport = { export.launch("fluency-woerter-$code.txt") },
             onImport = { import.launch(arrayOf("text/*", "application/octet-stream")) },
             onReset = { inBackground { store.reset(code) } },
+            onClear = { inBackground { store.update(code) { emptyList() } } },
         ),
     )
     imported?.let { groups ->
         ImportDialog(
             languageName = name,
             count = groups.size,
-            onReplace = { imported = null; inBackground("${groups.size} Gruppen übernommen") { store.save(code, groups) } },
+            onReplace = { imported = null; inBackground("${groups.size} Doppeldeutungen übernommen") { store.save(code, groups) } },
             onAdd = {
                 imported = null
                 scope.launch {
                     val added = withContext(Dispatchers.IO) { runCatching { store.add(code, groups) }.getOrDefault(0) }
-                    Toast.makeText(context, if (added == 1) "1 neue Gruppe" else "$added neue Gruppen", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, if (added == 1) "1 neue Doppeldeutung" else "$added neue Doppeldeutungen", Toast.LENGTH_SHORT).show()
                 }
             },
             onDismiss = { imported = null },

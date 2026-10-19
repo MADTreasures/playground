@@ -61,6 +61,38 @@ class WordGroupsFormatTest {
         val merged = WordGroups.merge(a, b)
         assertEquals(3, merged.size)
         assertEquals("time", merged[2].words[0].text)
+        // the same words for another language of the original are another entry
+        assertEquals(4, WordGroups.merge(merged, listOf(a[0].copy(language = "es"))).size)
+    }
+
+    @Test fun `sections give the language of the original`() {
+        val text = """
+            |# comment
+            |time | weather
+            |
+            |[de] Deutsch
+            |bench | bank < Bank
+            |[de-CH] Schweiz
+            |cupboard | crate < Kasten
+            |[*] alle
+            |news | messages
+            |[fr]
+            |time | weather < temps
+        """.trimMargin()
+        val g = WordGroups.parse(text)
+        assertEquals(listOf(null, "de", "de", null, "fr"), g.map { it.language })
+        // written back: every language first, then in the order of the language pickers
+        val written = WordGroups.format(g)
+        assertEquals(
+            "\n[*] Alle Sprachen\ntime | weather\nnews | messages\n\n[de] Deutsch\nbench | bank < Bank\ncupboard | crate < Kasten\n" +
+                "\n[fr] Französisch\ntime | weather < temps\n",
+            written,
+        )
+        assertEquals(g.sortedBy { it.language ?: "" }.toSet(), WordGroups.parse(written).toSet())
+        // a list for every language only is written with its section too (files of 1.7.0 have none)
+        assertEquals("\n[*] Alle Sprachen\ntime | weather\n", WordGroups.format(listOf(g[0])))
+        assertTrue(WordGroups.hasSections(written))
+        assertFalse(WordGroups.hasSections("# [x]\ntime | weather"))
     }
 }
 
@@ -137,6 +169,17 @@ class WordGroupsSwapTest {
         assertEquals(2, s.size)
         assertEquals(listOf(4..7, 18..21), s.map { it.range })
         assertEquals("The bank near the bench.", WordGroups.apply("The bank near the bank.", s[1]))
+    }
+
+    @Test fun `groups of a language of the original are only offered for it, Swiss German counts as German`() {
+        val g = listOf(WordGroup(listOf(GroupWord(listOf("bench")), GroupWord(listOf("bank"))), listOf("Bank"), "de"))
+        assertEquals(1, WordGroups.swaps("the bank", "die Bank", g, sourceLanguage = "de").size)
+        assertEquals(1, WordGroups.swaps("the bank", "die Bank", g, sourceLanguage = "de-CH").size)
+        assertTrue(WordGroups.swaps("the bank", "la Bank", g, sourceLanguage = "fr").isEmpty())
+        // unknown (automatic): every language
+        assertEquals(1, WordGroups.swaps("the bank", "die Bank", g, sourceLanguage = null).size)
+        // groups for every language are always offered
+        assertEquals(1, WordGroups.swaps("the bank", "le banc", listOf(g[0].copy(language = null, sources = emptyList())), sourceLanguage = "fr").size)
     }
 
     @Test fun `a word in two groups offers the words of both`() {
@@ -220,6 +263,26 @@ class WordGroupStoreTest {
         assertTrue(WordGroupStore.languages.any { it.code == "de" })
     }
 
+    @Test fun `a list of 1_7_0 gets the languages of the original from the start list`() {
+        val s = WordGroupStore(tmp.root) {
+            if (it == "en") "[de] Deutsch\nbench, benches | bank, banks < Bank\n[es] Spanisch\nbank | bench < banco\n[fr] Französisch\ntime | weather < temps\n" else null
+        }
+        // 1.7.0: no sections, groups of several languages merged, one group changed, one added, one deleted
+        s.file("en").writeText("# Fluency\nbench (Sitzbank) | bank (Geldinstitut) < Bank, banco, Sitzbank\nnews | messages < Nachrichten\n")
+        val g = s.groups("en")
+        assertEquals(
+            listOf(
+                "de" to "bench (Sitzbank) | bank (Geldinstitut) < Bank, Sitzbank",
+                "es" to "bench (Sitzbank) | bank (Geldinstitut) < banco, Sitzbank",
+                null to "news | messages < Nachrichten",
+            ),
+            g.map { it.language to WordGroups.formatLine(it) },
+        )
+        // written in the new format once
+        assertTrue(WordGroups.hasSections(s.file("en").readText()))
+        assertEquals(g.toSet(), WordGroupStore(tmp.root) { null }.groups("en").toSet())
+    }
+
     @Test fun `changes are counted, empty lists stay empty`() {
         val s = store()
         val before = s.changes.value
@@ -255,6 +318,7 @@ class LegacyWordsTest {
         val g = LegacyWords.groups(old)
         assertEquals(setOf("en", "fr"), g.keys)
         val en = g.getValue("en").single()
+        assertEquals("de", en.language)
         assertEquals(listOf("sign", "shield"), en.words.map { it.text })
         assertEquals(listOf("Verkehrsschild", "Schutzschild"), en.words.map { it.note })
         assertEquals(listOf("Schild", "Schilder"), en.sources)
@@ -272,6 +336,7 @@ class LegacyWordsTest {
         assertEquals(listOf("Hut"), g.getValue("en").single().sources)
         // Swiss Standard German goes into the German list
         assertEquals(listOf("Stiefel", "Kofferraum"), g.getValue("de").single().words.map { it.text })
+        assertEquals("en", g.getValue("de").single().language)
     }
 
     @Test fun `German translations go first, Swiss ones only without them`() {

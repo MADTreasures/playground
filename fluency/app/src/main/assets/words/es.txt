@@ -3,103 +3,117 @@
 # Formen eines Wortes mit Komma, in jedem Wort gleich geordnet (z. B. Einzahl, Mehrzahl).
 # In Klammern eine Erklärung. Nach „<“ optional Wörter des Originaltexts: dann erscheint die
 # Gruppe nur, wenn eines davon im Original steht (Endungen werden mitgefunden, „Bank“ findet „Bänke“).
-abogado, abogados (Anwalt) | aguacate, aguacates (Avocado) < avocat
-agricultor, agricultores (Landwirt) | peón, peones (Schachfigur) < Bauer
-ala, alas (Vogel- oder Flugzeugflügel) | piano de cola, pianos de cola (Konzertklavier) < Flügel
-almacén, almacenes (Warenlager) | campamento, campamentos (Ferienlager) < Lager
-alumno, alumnos (Schüler) | pupila, pupilas (Pupille) < pupil
-armario, armarios (Schrank (Schweiz)) | caja, cajas (Kiste) < Kasten
-arroz (Reis) | risa (Lachen) < riso
-baguette, baguettes (Brot) | palillos (Essstäbchen) | varita, varitas (Zauberstab) < baguette
-banco, bancos (Geldinstitut) | orilla, orillas (Ufer) < bank
-billete, billetes (Fahrkarte, Eintritt) | multa, multas (Strafzettel) < ticket
-bolso, bolsos (Tasche) | bolsa, bolsas (Börse) < borsa
-bolígrafo (Schreibstift) | pluma (Vogelfeder) | penne (Nudeln) < penna
-bolígrafo, bolígrafos (Schreibstift) | aprendiz, aprendices (Lehrling (Schweiz)) < Stift
-báscula, básculas (Waage) | escala, escalas (Massstab) | escama, escamas (Schuppe) < scale
-capilla, capillas (kleine Kirche) | banda, bandas (Musikgruppe) < Kapelle
-carpeta (Ordner, Mappe) | pasta (Paste) < pasta
-carta, cartas (Brief) | letra, letras (Buchstabe) < letter
-celda, celdas (Gefängniszelle) | célula, células (Körperzelle) | celular, celulares (Mobiltelefon) < cell
-cerilla, cerillas (Streichholz) | partido, partidos (Spiel) < match
-cerradura, cerraduras (Türschloss) | castillo, castillos (Burg, Palast) < Schloss
-corredor, corredores (Sportler) | alfil, alfiles (Schachfigur) | alfombra, alfombras (schmaler Teppich) < Läufer
-correos (Post) | puesto (Stelle, Job) < poste
-corteza, cortezas (Baumrinde) | ladrido, ladridos (Bellen) < bark
-cuadro, cuadros (Gemälde) | pizarra, pizarras (Wandtafel) | tabla, tablas (Tabelle) < tableau
-cuello, cuellos (Hals) | paquete, paquetes (Paket) < collo
-cuenta, cuentas (Rechnung) | billete, billetes (Geldschein) | proyecto de ley, proyectos de ley (Gesetzentwurf) < bill
-curso, cursos (Lehrgang) | tipo de cambio, tipos de cambio (Wechselkurs) < Kurs
-desván (Dachboden (Schweiz)) | solera (Bodenbelag) < Estrich
-electricidad (Elektrizität) | río (grosser Fluss) < Strom
-entrenador, entrenadores (Trainer) | autocar, autocares (Reisebus) < coach
-escalera, escaleras (Gerät zum Hochsteigen) | jefe, jefes (Chef, Verantwortlicher) < Leiter
-espuma (Schaum) | mousse (Dessert) | musgo (Moos) < mousse
+# „[de] Deutsch“ usw.: die folgenden Gruppen gelten für Übersetzungen aus dieser Sprache,
+# „[*]“ für Übersetzungen aus allen Sprachen.
+
+[de] Deutsch
+tacón, tacones (am Schuh) | párrafo, párrafos (im Text) < Absatz
 expresión, expresiones (Wort, Wendung) | copia impresa, copias impresas (Gedrucktes) < Ausdruck
+pelota, pelotas (Spielball) | baile, bailes (Tanzfest) < Ball
+agricultor, agricultores (Landwirt) | peón, peones (Schachfigur) < Bauer
+pera, peras (Frucht) | bombilla, bombillas (Glühbirne) < Birne
+freno, frenos (am Fahrzeug) | tábano, tábanos (Insekt) < Bremse
+señora, señoras (Frau) | reina, reinas (Schachfigur) < Dame
+manta, mantas (Bettdecke) | techo, techos (Zimmerdecke) < Decke
+desván (Dachboden (Schweiz)) | solera (Bodenbelag) < Estrich
+pluma, plumas (Vogelfeder) | muelle, muelles (Sprungfeder) < Feder
+ala, alas (Vogel- oder Flugzeugflügel) | piano de cola, pianos de cola (Konzertklavier) < Flügel
+pasillo, pasillos (Flur) | marcha, marchas (beim Auto) | plato, platos (beim Essen) < Gang
+plato, platos (Speise) | tribunal, tribunales (Justiz) < Gericht
+grifo, grifos (Wasserhahn) | gallo, gallos (Tier) < Hahn
+capilla, capillas (kleine Kirche) | banda, bandas (Musikgruppe) < Kapelle
+armario, armarios (Schrank (Schweiz)) | caja, cajas (Kiste) < Kasten
+gato, gatos (männliche Katze) | resaca, resacas (nach zu viel Alkohol) < Kater
+mandíbula, mandíbulas (Knochen) | pino, pinos (Nadelbaum) < Kiefer
+curso, cursos (Lehrgang) | tipo de cambio, tipos de cambio (Wechselkurs) < Kurs
+almacén, almacenes (Warenlager) | campamento, campamentos (Ferienlager) < Lager
+corredor, corredores (Sportler) | alfil, alfiles (Schachfigur) | alfombra, alfombras (schmaler Teppich) < Läufer
+escalera, escaleras (Gerät zum Hochsteigen) | jefe, jefes (Chef, Verantwortlicher) < Leiter
+lenteja, lentejas (Hülsenfrucht) | lente, lentes (Optik) < Linse
+feria, ferias (Ausstellung) | misa, misas (Gottesdienst) < Messe
+madre, madres (Mama) | tuerca, tuercas (Schraubenmutter) < Mutter
+mensajes (Mitteilungen (Chat, SMS)) | noticias (Neuigkeiten (TV, Radio)) < Nachrichten
+nota, notas (Schulnote) | billete, billetes (Geldschein) < Note
+pasaporte, pasaportes (Reisepass) | puerto, puertos (Bergpass) | pase, pases (Zuspiel im Sport) < Pass
+poni, ponis (kleines Pferd) | flequillo, flequillos (Frisur) < Pony
 falda (Kleidungsstück) | rock (Musik) < Rock
+ventanilla, ventanillas (Kundenschalter) | interruptor, interruptores (Lichtschalter) < Schalter
+moho (Pilz) | caballo blanco (weisses Pferd) < Schimmel
+serpiente, serpientes (Tier) | cola, colas (Warteschlange) < Schlange
+cerradura, cerraduras (Türschloss) | castillo, castillos (Burg, Palast) < Schloss
+volante, volantes (Lenkrad) | impuesto, impuestos (Abgabe an den Staat) < Steuer
+bolígrafo, bolígrafos (Schreibstift) | aprendiz, aprendices (Lehrling (Schweiz)) < Stift
+piso, pisos (Stockwerk) | bastón, bastones (Stab) < Stock
+ramo, ramos (Blumenstrauss) | avestruz, avestruces (Laufvogel) < Strauss
+electricidad (Elektrizität) | río (grosser Fluss) < Strom
+sonido (Klang) | arcilla (Lehm) < Ton
+gol, goles (im Sport) | puerta, puertas (Eingang) < Tor
+mudanza, mudanzas (Wohnungswechsel) | desfile, desfiles (Festumzug) < Umzug
+tren, trenes (Eisenbahn) | jugada, jugadas (Spielzug) < Zug
+mudarse (umziehen (Schweiz)) | refrenar (bändigen) < zügeln, zügle, zügelst, zügelt, gezügelt
+
+[en] Englisch
+banco, bancos (Geldinstitut) | orilla, orillas (Ufer) < bank
+corteza, cortezas (Baumrinde) | ladrido, ladridos (Bellen) < bark
+murciélago, murciélagos (Fledermaus) | bate, bates (Schläger) < bat
+cuenta, cuentas (Rechnung) | billete, billetes (Geldschein) | proyecto de ley, proyectos de ley (Gesetzentwurf) < bill
+celda, celdas (Gefängniszelle) | célula, células (Körperzelle) | celular, celulares (Mobiltelefon) < cell
+pecho, pechos (Brustkorb) | cofre, cofres (Truhe) < chest
+entrenador, entrenadores (Trainer) | autocar, autocares (Reisebus) < coach
+grúa, grúas (Baukran) | grulla, grullas (Kranich) < crane
 fecha, fechas (Datum) | cita, citas (Verabredung) | dátil, dátiles (Dattel) < date
 feria (Messe, Jahrmarkt) | justo (gerecht) | claro (hell (Haut, Haar)) < fair
-feria, ferias (Ausstellung) | misa, misas (Gottesdienst) < Messe
+ventilador, ventiladores (Ventilator) | fan, fans (Anhänger) < fan
+multa (Busse) | bien (gut, in Ordnung) | fino (fein) < fine
+piso, pisos (Wohnung) | pinchazo, pinchazos (Reifenpanne) | plano, planos (flach) < flat
+gafas (Brille) | vasos (Trinkgläser) < glasses
+mermelada (Konfitüre) | atasco (Stau) < jam
+llave, llaves (Schlüssel) | tecla, teclas (Taste) | tonalidad, tonalidades (Tonart) < key
+carta, cartas (Brief) | letra, letras (Buchstabe) < letter
+luz (Licht) | ligero (leicht (Gewicht)) < light
+cerilla, cerillas (Streichholz) | partido, partidos (Spiel) < match
+uña, uñas (Fingernagel) | clavo, clavos (Metallnagel) < nail
+palma, palmas (Handfläche) | palmera, palmeras (Palme) < palm
+planta, plantas (Pflanze) | fábrica, fábricas (Werk, Fabrik) < plant
+alumno, alumnos (Schüler) | pupila, pupilas (Pupille) < pupil
+roca (Fels, Stein) | rock (Rockmusik) < rock
+báscula, básculas (Waage) | escala, escalas (Massstab) | escama, escamas (Schuppe) < scale
 foca, focas (Robbe) | junta, juntas (Dichtung) | sello, sellos (Siegel) < seal
 frase, frases (Satz) | condena, condenas (Strafe, Urteil) < sentence
-freno, frenos (am Fahrzeug) | tábano, tábanos (Insekt) < Bremse
-fútbol (Fussball) | patada (Fusstritt) | calcio (Kalzium) < calcio
-gafas (Brille) | vasos (Trinkgläser) < glasses
-gato, gatos (männliche Katze) | resaca, resacas (nach zu viel Alkohol) < Kater
-gol, goles (im Sport) | puerta, puertas (Eingang) < Tor
-grifo, grifos (Wasserhahn) | gallo, gallos (Tier) < Hahn
-grúa, grúas (Baukran) | grulla, grullas (Kranich) < crane
-habitación, habitaciones (Zimmer) | cámara, cámaras (Parlamentskammer) < camera
-habitación, habitaciones (Zimmer) | moneda, monedas (Münze) | obra, obras (Theaterstück) | pieza, piezas (Teil, Ersatzteil) < pièce
-helado (Speiseeis) | espejo (Spiegel) | hielo (gefrorenes Wasser) < glace
-lenteja, lentejas (Hülsenfrucht) | lente, lentes (Optik) < Linse
-libro, libros (Buch) | libra, libras (Pfund) < livre
-llave, llaves (Schlüssel) | tecla, teclas (Taste) | tonalidad, tonalidades (Tonart) < key
-luz (Licht) | ligero (leicht (Gewicht)) < light
-madre, madres (Mama) | tuerca, tuercas (Schraubenmutter) < Mutter
-maletero, maleteros (Kofferraum) | tronco, troncos (Baumstamm) | trompa, trompas (Rüssel) < trunk
-mandíbula, mandíbulas (Knochen) | pino, pinos (Nadelbaum) < Kiefer
-manga, mangas (Ärmel) | mango, mangos < manga
-manta, mantas (Bettdecke) | techo, techos (Zimmerdecke) < Decke
-mapa, mapas (Landkarte) | carta, cartas (Speisekarte) | tarjeta, tarjetas (Bankkarte) < carte
-melocotón (Pfirsich) | pesca (Fischen) < pêche, pesca
-mensajes (Mitteilungen (Chat, SMS)) | noticias (Neuigkeiten (TV, Radio)) < Nachrichten
-mermelada (Konfitüre) | atasco (Stau) < jam
-mesa, mesas (Tisch) | tabla, tablas (Tabelle) < table
-moho (Pilz) | caballo blanco (weisses Pferd) < Schimmel
-mudanza, mudanzas (Wohnungswechsel) | desfile, desfiles (Festumzug) < Umzug
-mudarse (umziehen (Schweiz)) | refrenar (bändigen) < zügeln, zügle, zügelst, zügelt, gezügelt
-multa (Busse) | bien (gut, in Ordnung) | fino (fein) < fine
-murciélago, murciélagos (Fledermaus) | bate, bates (Schläger) < bat
-nota, notas (Schulnote) | billete, billetes (Geldschein) < Note
-oficina, oficinas (Büro) | escritorio, escritorios (Schreibtisch) < bureau
-palma, palmas (Handfläche) | palmera, palmeras (Palme) < palm
-pasaporte, pasaportes (Reisepass) | puerto, puertos (Bergpass) | pase, pases (Zuspiel im Sport) < Pass
-pasillo, pasillos (Flur) | marcha, marchas (beim Auto) | plato, platos (beim Essen) < Gang
-pecho, pechos (Brustkorb) | cofre, cofres (Truhe) < chest
-pelota, pelotas (Spielball) | baile, bailes (Tanzfest) < Ball
-pera, peras (Frucht) | bombilla, bombillas (Glühbirne) < Birne
-piso, pisos (Stockwerk) | bastón, bastones (Stab) < Stock
-piso, pisos (Wohnung) | pinchazo, pinchazos (Reifenpanne) | plano, planos (flach) < flat
-planta, plantas (Pflanze) | fábrica, fábricas (Werk, Fabrik) < plant
-planta, plantas (Pflanze) | plano, planos (Stadtplan) < pianta
-plato, platos (Speise) | tribunal, tribunales (Justiz) < Gericht
-pluma, plumas (Vogelfeder) | muelle, muelles (Sprungfeder) < Feder
-poni, ponis (kleines Pferd) | flequillo, flequillos (Frisur) < Pony
 primavera, primaveras (Frühling) | muelle, muelles (Sprungfeder) | manantial, manantiales (Quelle) < spring
+mesa, mesas (Tisch) | tabla, tablas (Tabelle) < table
+billete, billetes (Fahrkarte, Eintritt) | multa, multas (Strafzettel) < ticket
 propina, propinas (Trinkgeld) | consejo, consejos (Ratschlag) | punta, puntas (Spitze) < tip
-ramo, ramos (Blumenstrauss) | avestruz, avestruces (Laufvogel) < Strauss
-red, redes (Netz) | hamaca, hamacas (Hängematte) < rede
-roca (Fels, Stein) | rock (Rockmusik) < rock
-serpiente, serpientes (Tier) | cola, colas (Warteschlange) < Schlange
-señora, señoras (Frau) | reina, reinas (Schachfigur) < Dame
-sonido (Klang) | arcilla (Lehm) < Ton
-tacón, tacones (am Schuh) | párrafo, párrafos (im Text) < Absatz
+maletero, maleteros (Kofferraum) | tronco, troncos (Baumstamm) | trompa, trompas (Rüssel) < trunk
+
+[fr] Französisch
+abogado, abogados (Anwalt) | aguacate, aguacates (Avocado) < avocat
+baguette, baguettes (Brot) | palillos (Essstäbchen) | varita, varitas (Zauberstab) < baguette
+oficina, oficinas (Büro) | escritorio, escritorios (Schreibtisch) < bureau
+mapa, mapas (Landkarte) | carta, cartas (Speisekarte) | tarjeta, tarjetas (Bankkarte) < carte
+helado (Speiseeis) | espejo (Spiegel) | hielo (gefrorenes Wasser) < glace
+libro, libros (Buch) | libra, libras (Pfund) < livre
+espuma (Schaum) | mousse (Dessert) | musgo (Moos) < mousse
+melocotón (Pfirsich) | pesca (Fischen) < pêche
+habitación, habitaciones (Zimmer) | moneda, monedas (Münze) | obra, obras (Theaterstück) | pieza, piezas (Teil, Ersatzteil) < pièce
+correos (Post) | puesto (Stelle, Job) < poste
+cuadro, cuadros (Gemälde) | pizarra, pizarras (Wandtafel) | tabla, tablas (Tabelle) < tableau
+vuelo, vuelos (Flug) | robo, robos (Diebstahl) < vol
+
+[it] Italienisch
+bolso, bolsos (Tasche) | bolsa, bolsas (Börse) < borsa
+fútbol (Fussball) | patada (Fusstritt) | calcio (Kalzium) < calcio
+habitación, habitaciones (Zimmer) | cámara, cámaras (Parlamentskammer) < camera
+cuello, cuellos (Hals) | paquete, paquetes (Paket) < collo
+carta, cartas (Brief) | letra, letras (Buchstabe) < lettera
+bolígrafo (Schreibstift) | pluma (Vogelfeder) | penne (Nudeln) < penna
+melocotón (Pfirsich) | pesca (Fischen) < pesca
+planta, plantas (Pflanze) | plano, planos (Stadtplan) < pianta
+arroz (Reis) | risa (Lachen) < riso
 tasa, tasas (Zinssatz) | tejón, tejones (Dachs) < tasso
 tornillo, tornillos (Schraube) | vid, vides (Weinrebe) < vite
-tren, trenes (Eisenbahn) | jugada, jugadas (Spielzug) < Zug
-uña, uñas (Fingernagel) | clavo, clavos (Metallnagel) < nail
-ventanilla, ventanillas (Kundenschalter) | interruptor, interruptores (Lichtschalter) < Schalter
-ventilador, ventiladores (Ventilator) | fan, fans (Anhänger) < fan
-volante, volantes (Lenkrad) | impuesto, impuestos (Abgabe an den Staat) < Steuer
-vuelo, vuelos (Flug) | robo, robos (Diebstahl) < vol
+
+[pt] Portugiesisch
+manga, mangas (Ärmel) | mango, mangos < manga
+carpeta (Ordner, Mappe) | pasta (Paste) < pasta
+red, redes (Netz) | hamaca, hamacas (Hängematte) < rede

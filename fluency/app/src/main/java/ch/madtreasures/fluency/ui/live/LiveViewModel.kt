@@ -81,12 +81,12 @@ abstract class PipelineHost(protected val c: AppContainer) : ViewModel() {
         val out = HashMap<Long, List<WordSwap>>()
         for (u in utterances) {
             if (!u.final || u.error != null || u.translation.isBlank()) continue
-            val key = "$version|${u.target.code}|${u.sourceText}|${u.translation}"
+            val key = "$version|${u.source?.code}|${u.target.code}|${u.sourceText}|${u.translation}"
             val cached = swapCache[u.id]
             out[u.id] = if (cached?.first == key) {
                 cached.second
             } else {
-                runCatching { c.wordGroups.swaps(u.translation, u.sourceText, u.target) }.getOrDefault(emptyList())
+                runCatching { c.wordGroups.swaps(u.translation, u.sourceText, u.target, u.source) }.getOrDefault(emptyList())
                     .also { swapCache[u.id] = key to it }
             }
         }

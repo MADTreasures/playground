@@ -3,86 +3,106 @@
 # Formen eines Wortes mit Komma, in jedem Wort gleich geordnet (z. B. Einzahl, Mehrzahl).
 # In Klammern eine Erklärung. Nach „<“ optional Wörter des Originaltexts: dann erscheint die
 # Gruppe nur, wenn eines davon im Original steht (Endungen werden mitgefunden, „Bank“ findet „Bänke“).
-attic, attics (Dachboden (Schweiz)) | screed, screeds (Bodenbelag) < Estrich
-bag, bags (Tasche) | stock exchange, stock exchanges (Börse) < borsa, bolsa
-baguette, baguettes (Brot) | chopsticks (Essstäbchen) | wand, wands (Zauberstab) < baguette
-bench, benches (Sitzbank) | bank, banks (Geldinstitut) < Bank, banco
-bill, bills (Rechnung) | account, accounts (Bankkonto) < conta
-blanket, blankets (Bettdecke) | ceiling, ceilings (Zimmerdecke) < Decke
-book, books (Buch) | pound, pounds (Pfund) < livre
-bouquet, bouquets (Blumenstrauss) | ostrich, ostriches (Laufvogel) < Strauss
-box, boxes (Kiste, Schachtel) | checkout, checkouts (Kasse) < caixa
-brake, brakes (am Fahrzeug) | horsefly, horseflies (Insekt) < Bremse
-candle, candles (Kerze) | sail, sails (Segel) < vela
-cat, cats (Katze) | jack, jacks (Wagenheber) < gato
-chapel, chapels (kleine Kirche) | band, bands (Musikgruppe) < Kapelle
-corridor, corridors (Flur) | gear, gears (beim Auto) | course, courses (beim Essen) < Gang
-counter, counters (Kundenschalter) | switch, switches (Lichtschalter) < Schalter
-course, courses (Lehrgang) | exchange rate, exchange rates (Wechselkurs) < Kurs
-cupboard, cupboards (Schrank (Schweiz)) | crate, crates (Kiste) < Kasten
-cure, cures (Heilung) | priest, priests (Pfarrer) < cura
-dish, dishes (Speise) | court, courts (Justiz) < Gericht
-doll, dolls (Puppe) | wrist, wrists (Handgelenk) < muñeca
-expression, expressions (Wort, Wendung) | printout, printouts (Gedrucktes) < Ausdruck
-farmer, farmers (Landwirt) | pawn, pawns (Schachfigur) < Bauer
-feather, feathers (Vogelfeder) | spring, springs (Sprungfeder) < Feder
-flight, flights (Flug) | theft, thefts (Diebstahl) < vol
-floor, floors (Stockwerk) | stick, sticks (Stab) < Stock
-foam (Schaum) | mousse (Dessert) | moss (Moos) < mousse
-folder (Ordner, Mappe) | paste < pasta
-football (Fussball) | kick (Fusstritt) | calcium (Kalzium) < calcio
-goal, goals (im Sport) | gate, gates (Eingang) < Tor
-grade, grades (Schulnote) | note, notes (Musiknote) | banknote, banknotes (Geldschein) < Note
+# „[de] Deutsch“ usw.: die folgenden Gruppen gelten für Übersetzungen aus dieser Sprache,
+# „[*]“ für Übersetzungen aus allen Sprachen.
+
+[de] Deutsch
 heel, heels (am Schuh) | paragraph, paragraphs (im Text) < Absatz
-ice cream (Speiseeis) | mirror (Spiegel) | ice (gefrorenes Wasser) < glace
-jaw, jaws (Knochen) | pine, pines (Nadelbaum) < Kiefer
-ladder, ladders (Gerät zum Hochsteigen) | manager, managers (Chef, Verantwortlicher) < Leiter
-lady, ladies (Frau) | queen, queens (Schachfigur) < Dame
-lawyer, lawyers (Anwalt) | avocado, avocados < avocat
-leaf, leaves (Laubblatt) | sheet, sheets (Blatt Papier) | blade, blades (Klinge) < hoja
-lentil, lentils (Hülsenfrucht) | lens, lenses (Optik) < Linse
-letter, letters (Brief) | card, cards (Spielkarte) | menu, menus (Speisekarte) < carta
-lock, locks (Türschloss) | castle, castles (Burg, Palast) < Schloss
-map, maps (Landkarte) | menu, menus (Speisekarte) | card, cards (Bankkarte) < carte
-messages (Mitteilungen (Chat, SMS)) | news (Neuigkeiten (TV, Radio)) < Nachrichten
-monkey, monkeys (Affe) | overalls (Overall) < mono
-mother, mothers (Mama) | nut, nuts (Schraubenmutter) < Mutter
-mould (Pilz) | white horse (weisses Pferd) < Schimmel
-move (umziehen (Schweiz)) | rein in (bändigen) < zügeln, zügle, zügelst, zügelt, gezügelt
-move, moves (Wohnungswechsel) | parade, parades (Festumzug) < Umzug
-neck, necks (Hals) | package, packages (Paket) < collo
-network, networks (Netz) | hammock, hammocks (Hängematte) < rede
-office, offices (Büro) | desk, desks (Schreibtisch) < bureau
-painting, paintings (Gemälde) | board, boards (Wandtafel) | table, tables (Tabelle) < tableau
-passport, passports (Reisepass) | pass, passes (Bergpass) < Pass
-peach (Pfirsich) | fishing (Fischen) < pêche, pesca
+expression, expressions (Wort, Wendung) | printout, printouts (Gedrucktes) < Ausdruck
+bench, benches (Sitzbank) | bank, banks (Geldinstitut) < Bank
+farmer, farmers (Landwirt) | pawn, pawns (Schachfigur) < Bauer
 pear, pears (Frucht) | light bulb, light bulbs (Glühbirne) < Birne
-pen (Schreibstift) | feather (Vogelfeder) | penne (Nudeln) < penna
-pen, pens (Schreibstift) | apprentice, apprentices (Lehrling (Schweiz)) < Stift
-plant, plants (Pflanze) | floor, floors (Stockwerk) < planta
-plant, plants (Pflanze) | map, maps (Stadtplan) < pianta
-pony, ponies (kleines Pferd) | fringe, fringes (Frisur) < Pony
-post office, post offices (Post) | position, positions (Stelle, Job) < poste
-potato, potatoes (Kartoffel) | pope, popes (Papst) < papa
-power (Elektrizität) | river (grosser Fluss) < Strom
-rate, rates (Zinssatz) | badger, badgers (Dachs) < tasso
-rice (Reis) | laughter (Lachen) < riso
-room, rooms (Zimmer) | chamber, chambers (Parlamentskammer) < camera
-room, rooms (Zimmer) | coin, coins (Münze) | play, plays (Theaterstück) | part, parts (Teil, Ersatzteil) < pièce
-runner, runners (Sportler) | bishop, bishops (Schachfigur) < Läufer
-saw, saws (Säge) | mountain range, mountain ranges (Gebirge) < sierra
-screw, screws (Schraube) | vine, vines (Weinrebe) < vite
-sheet, sheets (Blatt Papier) | leaf, leaves (vom Baum) < Blatt, feuille, folha
-skirt (Kleidungsstück) | rock (Musik) < Rock
-sleeve, sleeves (Ärmel) | mango, mangoes < manga
-snake, snakes (Tier) | queue, queues (Warteschlange) < Schlange
-sound (Klang) | clay (Lehm) < Ton
-tail (Schwanz) | queue (Warteschlange) | glue (Leim) < cola
-tap, taps (Wasserhahn) | rooster, roosters (Tier) < Hahn
-time (Zeit) | weather (Wetter) < temps, tiempo
-tomcat, tomcats (männliche Katze) | hangover, hangovers (nach zu viel Alkohol) < Kater
-trade fair, trade fairs (Ausstellung) | mass, masses (Gottesdienst) < Messe
-train, trains (Eisenbahn) | move, moves (Spielzug) < Zug
-warehouse, warehouses (Warenlager) | camp, camps (Ferienlager) < Lager
-wheel, wheels (Lenkrad) | tax, taxes (Abgabe an den Staat) < Steuer
+sheet, sheets (Blatt Papier) | leaf, leaves (vom Baum) < Blatt
+brake, brakes (am Fahrzeug) | horsefly, horseflies (Insekt) < Bremse
+lady, ladies (Frau) | queen, queens (Schachfigur) < Dame
+blanket, blankets (Bettdecke) | ceiling, ceilings (Zimmerdecke) < Decke
+attic, attics (Dachboden (Schweiz)) | screed, screeds (Bodenbelag) < Estrich
+feather, feathers (Vogelfeder) | spring, springs (Sprungfeder) < Feder
 wing, wings (Vogel- oder Flugzeugflügel) | grand piano, grand pianos (Konzertklavier) < Flügel
+corridor, corridors (Flur) | gear, gears (beim Auto) | course, courses (beim Essen) < Gang
+dish, dishes (Speise) | court, courts (Justiz) < Gericht
+tap, taps (Wasserhahn) | rooster, roosters (Tier) < Hahn
+chapel, chapels (kleine Kirche) | band, bands (Musikgruppe) < Kapelle
+cupboard, cupboards (Schrank (Schweiz)) | crate, crates (Kiste) < Kasten
+tomcat, tomcats (männliche Katze) | hangover, hangovers (nach zu viel Alkohol) < Kater
+jaw, jaws (Knochen) | pine, pines (Nadelbaum) < Kiefer
+course, courses (Lehrgang) | exchange rate, exchange rates (Wechselkurs) < Kurs
+warehouse, warehouses (Warenlager) | camp, camps (Ferienlager) < Lager
+runner, runners (Sportler) | bishop, bishops (Schachfigur) < Läufer
+ladder, ladders (Gerät zum Hochsteigen) | manager, managers (Chef, Verantwortlicher) < Leiter
+lentil, lentils (Hülsenfrucht) | lens, lenses (Optik) < Linse
+trade fair, trade fairs (Ausstellung) | mass, masses (Gottesdienst) < Messe
+mother, mothers (Mama) | nut, nuts (Schraubenmutter) < Mutter
+messages (Mitteilungen (Chat, SMS)) | news (Neuigkeiten (TV, Radio)) < Nachrichten
+grade, grades (Schulnote) | note, notes (Musiknote) | banknote, banknotes (Geldschein) < Note
+passport, passports (Reisepass) | pass, passes (Bergpass) < Pass
+pony, ponies (kleines Pferd) | fringe, fringes (Frisur) < Pony
+skirt (Kleidungsstück) | rock (Musik) < Rock
+counter, counters (Kundenschalter) | switch, switches (Lichtschalter) < Schalter
+mould (Pilz) | white horse (weisses Pferd) < Schimmel
+snake, snakes (Tier) | queue, queues (Warteschlange) < Schlange
+lock, locks (Türschloss) | castle, castles (Burg, Palast) < Schloss
+wheel, wheels (Lenkrad) | tax, taxes (Abgabe an den Staat) < Steuer
+pen, pens (Schreibstift) | apprentice, apprentices (Lehrling (Schweiz)) < Stift
+floor, floors (Stockwerk) | stick, sticks (Stab) < Stock
+bouquet, bouquets (Blumenstrauss) | ostrich, ostriches (Laufvogel) < Strauss
+power (Elektrizität) | river (grosser Fluss) < Strom
+sound (Klang) | clay (Lehm) < Ton
+goal, goals (im Sport) | gate, gates (Eingang) < Tor
+move, moves (Wohnungswechsel) | parade, parades (Festumzug) < Umzug
+train, trains (Eisenbahn) | move, moves (Spielzug) < Zug
+move (umziehen (Schweiz)) | rein in (bändigen) < zügeln, zügle, zügelst, zügelt, gezügelt
+
+[fr] Französisch
+lawyer, lawyers (Anwalt) | avocado, avocados < avocat
+baguette, baguettes (Brot) | chopsticks (Essstäbchen) | wand, wands (Zauberstab) < baguette
+office, offices (Büro) | desk, desks (Schreibtisch) < bureau
+map, maps (Landkarte) | menu, menus (Speisekarte) | card, cards (Bankkarte) < carte
+sheet, sheets (Blatt Papier) | leaf, leaves (Laubblatt) < feuille
+ice cream (Speiseeis) | mirror (Spiegel) | ice (gefrorenes Wasser) < glace
+book, books (Buch) | pound, pounds (Pfund) < livre
+foam (Schaum) | mousse (Dessert) | moss (Moos) < mousse
+peach (Pfirsich) | fishing (Fischen) < pêche
+room, rooms (Zimmer) | coin, coins (Münze) | play, plays (Theaterstück) | part, parts (Teil, Ersatzteil) < pièce
+post office, post offices (Post) | position, positions (Stelle, Job) < poste
+painting, paintings (Gemälde) | board, boards (Wandtafel) | table, tables (Tabelle) < tableau
+time (Zeit) | weather (Wetter) < temps
+flight, flights (Flug) | theft, thefts (Diebstahl) < vol
+
+[it] Italienisch
+bag, bags (Tasche) | stock exchange, stock exchanges (Börse) < borsa
+football (Fussball) | kick (Fusstritt) | calcium (Kalzium) < calcio
+room, rooms (Zimmer) | chamber, chambers (Parlamentskammer) < camera
+neck, necks (Hals) | package, packages (Paket) < collo
+pen (Schreibstift) | feather (Vogelfeder) | penne (Nudeln) < penna
+peach (Pfirsich) | fishing (Fischen) < pesca
+plant, plants (Pflanze) | map, maps (Stadtplan) < pianta
+rice (Reis) | laughter (Lachen) < riso
+rate, rates (Zinssatz) | badger, badgers (Dachs) < tasso
+screw, screws (Schraube) | vine, vines (Weinrebe) < vite
+
+[es] Spanisch
+bank, banks (Geldinstitut) | bench, benches (Sitzbank) < banco
+bag, bags (Tasche, Tüte) | stock exchange, stock exchanges (Börse) < bolsa
+letter, letters (Brief) | card, cards (Spielkarte) | menu, menus (Speisekarte) < carta
+tail (Schwanz) | queue (Warteschlange) | glue (Leim) < cola
+cure, cures (Heilung) | priest, priests (Pfarrer) < cura
+cat, cats (Katze) | jack, jacks (Wagenheber) < gato
+leaf, leaves (Laubblatt) | sheet, sheets (Blatt Papier) | blade, blades (Klinge) < hoja
+monkey, monkeys (Affe) | overalls (Overall) < mono
+doll, dolls (Puppe) | wrist, wrists (Handgelenk) < muñeca
+potato, potatoes (Kartoffel) | pope, popes (Papst) < papa
+plant, plants (Pflanze) | floor, floors (Stockwerk) < planta
+saw, saws (Säge) | mountain range, mountain ranges (Gebirge) < sierra
+time (Zeit) | weather (Wetter) < tiempo
+candle, candles (Kerze) | sail, sails (Segel) < vela
+
+[pt] Portugiesisch
+bank, banks (Geldinstitut) | bench, benches (Sitzbank) < banco
+box, boxes (Kiste, Schachtel) | checkout, checkouts (Kasse) < caixa
+bill, bills (Rechnung) | account, accounts (Bankkonto) < conta
+leaf, leaves (Laubblatt) | sheet, sheets (Blatt Papier) < folha
+sleeve, sleeves (Ärmel) | mango, mangoes < manga
+folder (Ordner, Mappe) | paste < pasta
+network, networks (Netz) | hammock, hammocks (Hängematte) < rede
+candle, candles (Kerze) | sail, sails (Segel) < vela
