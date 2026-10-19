@@ -60,7 +60,6 @@ import ch.madtreasures.fluency.ui.models.ModelsActions
 import ch.madtreasures.fluency.ui.models.ModelsScreen
 import ch.madtreasures.fluency.ui.models.ModelsViewModel
 import ch.madtreasures.fluency.ui.settings.AccelUi
-import ch.madtreasures.fluency.ui.settings.AmbiguousWordsScreen
 import ch.madtreasures.fluency.ui.settings.SettingsScreen
 import ch.madtreasures.fluency.ui.settings.SettingsUiState
 import ch.madtreasures.fluency.ui.text.ModelOption
@@ -92,7 +91,6 @@ fun FluencyRoot(c: AppContainer) {
     var tab by rememberSaveable { mutableStateOf(Tab.LIVE) }
     var previousTab by rememberSaveable { mutableStateOf(Tab.LIVE) }
     var benchmark by rememberSaveable { mutableStateOf(false) }
-    var wordsEditor by rememberSaveable { mutableStateOf(false) }
     val factory = remember(c) {
         viewModelFactory {
             initializer { LiveViewModel(c) }
@@ -102,11 +100,10 @@ fun FluencyRoot(c: AppContainer) {
             initializer { BenchmarkViewModel(c) }
         }
     }
-    val fullScreen = tab == Tab.CONVERSATION || benchmark || wordsEditor
-    BackHandler(enabled = benchmark || wordsEditor || tab != Tab.LIVE) {
+    val fullScreen = tab == Tab.CONVERSATION || benchmark
+    BackHandler(enabled = benchmark || tab != Tab.LIVE) {
         when {
             benchmark -> benchmark = false
-            wordsEditor -> wordsEditor = false
             tab == Tab.CONVERSATION -> tab = previousTab
             else -> tab = Tab.LIVE
         }
@@ -124,12 +121,11 @@ fun FluencyRoot(c: AppContainer) {
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
                 benchmark -> BenchmarkRoute(viewModel(factory = factory), onBack = { benchmark = false })
-                wordsEditor -> AmbiguousWordsRoute(c, onBack = { wordsEditor = false })
                 tab == Tab.LIVE -> LiveRoute(viewModel(factory = factory), onOpenModels = { tab = Tab.MODELS })
                 tab == Tab.CONVERSATION -> ConversationRoute(viewModel(factory = factory), onClose = { tab = previousTab })
                 tab == Tab.TEXT -> TextRoute(viewModel(factory = factory))
                 tab == Tab.MODELS -> ModelsRoute(viewModel(factory = factory), onBenchmark = { benchmark = true })
-                tab == Tab.SETTINGS -> SettingsRoute(c, onBenchmark = { benchmark = true }, onEditWords = { wordsEditor = true })
+                tab == Tab.SETTINGS -> SettingsRoute(c, onBenchmark = { benchmark = true })
             }
         }
     }
@@ -219,7 +215,6 @@ private fun LiveRoute(vm: LiveViewModel, onOpenModels: () -> Unit) {
             onClear = vm::clear,
             onSpeak = vm::speak,
             onCopy = { copy(it.translation) },
-            onChooseMeaning = vm::chooseMeaning,
             onDownloadRecommended = { askNotifications(); vm.downloadRecommended(); onOpenModels() },
             onDismissSetup = vm::dismissSetup,
             onOpenModels = onOpenModels,
@@ -244,7 +239,6 @@ private fun ConversationRoute(vm: ConversationViewModel, onClose: () -> Unit) {
             onToggleSpeak = vm::toggleSpeak,
             onClear = vm::clear,
             onClose = { vm.stop(); onClose() },
-            onChooseMeaning = vm::chooseMeaning,
         ),
     )
 }
@@ -274,7 +268,6 @@ private fun TextRoute(vm: TextViewModel) {
             onTarget = vm::setTarget,
             onSwap = vm::swap,
             onModel = vm::setModel,
-            onChooseMeaning = vm::chooseMeaning,
             onTypingMode = vm::setTranslateWhileTyping,
         ),
     )
@@ -321,18 +314,7 @@ private fun BenchmarkRoute(vm: BenchmarkViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun AmbiguousWordsRoute(c: AppContainer, onBack: () -> Unit) {
-    val settings by c.settingsRepository.settings.collectAsStateWithLifecycle()
-    AmbiguousWordsScreen(
-        storage = settings.ambiguousWords,
-        defaultLanguage = settings.liveSource,
-        onSave = { storage -> c.settingsRepository.update { it.copy(ambiguousWords = storage) } },
-        onBack = onBack,
-    )
-}
-
-@Composable
-private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit, onEditWords: () -> Unit) {
+private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit) {
     val settings by c.settingsRepository.settings.collectAsStateWithLifecycle()
     val states by c.modelManager.states.collectAsStateWithLifecycle()
     val accel by c.translationEngine.accelStatus.collectAsStateWithLifecycle()
@@ -350,6 +332,5 @@ private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit, onEditWords:
         onBenchmark = onBenchmark,
         onRemeasure = c.translationEngine::remeasure,
         onUnblock = c.translationEngine::unblock,
-        onEditWords = onEditWords,
     )
 }

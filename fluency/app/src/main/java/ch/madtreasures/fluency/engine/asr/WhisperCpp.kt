@@ -9,24 +9,18 @@ object WhisperCppNative {
     external fun nativeFree(handle: Long)
     external fun nativeCancel(handle: Long)
     external fun nativeTranscribe(handle: Long, pcm: FloatArray, language: String, threads: Int, audioCtx: Int): ByteArray?
-    external fun nativeWeightType(handle: Long): String?
 }
 
 /**
  * whisper.cpp model (GGML/GGUF), used for the Swiss German fine-tunes which only exist in the
  * whisper.cpp format. Too slow for live partials: final results only.
- *
- * Q5_0 files (the Swiss German model) are loaded as Q8_0 - exactly the same weights, but ggml has
- * fast ARM matrix kernels (i8mm, KleidiAI) only for Q8_0 (fluency_jni.cpp, whisper_q8.h).
  */
 class WhisperCppAsr private constructor(
     override val id: String,
     override val name: String,
     private var handle: Long,
-    val threads: Int,
+    private val threads: Int,
     private val fixedLanguage: String?,
-    /** weight type the model runs with, e.g. "q8_0" */
-    val weightType: String,
 ) : AsrEngine {
 
     override val supportsFastPartials: Boolean = false
@@ -63,8 +57,7 @@ class WhisperCppAsr private constructor(
         fun load(id: String, name: String, path: String, threads: Int, fixedLanguage: String?): WhisperCppAsr? {
             LlamaNative.load()
             val h = WhisperCppNative.nativeInit(path.toByteArray(Charsets.UTF_8), false)
-            if (h == 0L) return null
-            return WhisperCppAsr(id, name, h, threads, fixedLanguage, WhisperCppNative.nativeWeightType(h) ?: "?")
+            return if (h == 0L) null else WhisperCppAsr(id, name, h, threads, fixedLanguage)
         }
     }
 }

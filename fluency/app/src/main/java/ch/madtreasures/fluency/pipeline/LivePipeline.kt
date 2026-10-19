@@ -9,7 +9,6 @@ import ch.madtreasures.fluency.engine.asr.SAMPLE_RATE
 import ch.madtreasures.fluency.engine.audio.AudioLevel
 import ch.madtreasures.fluency.engine.audio.AudioSource
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
-import ch.madtreasures.fluency.engine.llm.WordUse
 import ch.madtreasures.fluency.engine.llm.TranslationEngine.Role
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -39,8 +38,6 @@ data class Utterance(
     val final: Boolean,
     val latency: Latency? = null,
     val error: String? = null,
-    /** listed ambiguous words in this utterance and the meaning each got (final translation) */
-    val words: List<WordUse> = emptyList(),
 )
 
 data class PipelineState(
@@ -77,8 +74,6 @@ class LivePipeline(
     private val clock: () -> Long = System::nanoTime,
     /** read for every finished utterance, so "Vorlesen" can be toggled while running */
     private val speakEnabled: () -> Boolean = { config.speak },
-    /** meanings of ambiguous words chosen by tapping in this conversation (entry key → meaning) */
-    private val wordChoices: () -> Map<String, Int> = { emptyMap() },
 ) {
     data class Config(
         /** null = automatic language detection */
@@ -97,13 +92,7 @@ class LivePipeline(
 
     private data class FinalJob(val id: Long, val samples: FloatArray, val segmentEnd: Long, val speechEndNanos: Long)
     private data class PartialRequest(val id: Long, val text: String)
-    private data class PartialResult(
-        val source: String,
-        val translation: String,
-        val modelId: String,
-        val processor: String,
-        val words: List<WordUse>,
-    )
+    private data class PartialResult(val source: String, val translation: String, val modelId: String, val processor: String)
     private class Inflight(val req: PartialRequest, val result: CompletableDeferred<TranslationEngine.Result?>)
 
     /** A partial recognition: [endSample] is the absolute sample index where its audio ended. */
@@ -364,11 +353,11 @@ class LivePipeline(
         val deferred = CompletableDeferred<TranslationEngine.Result?>()
         inflight = Inflight(req, deferred)
         try {
-            val res = translator.translate(request(req.id, req.text, Role.LIVE)) { partial ->
+            val res = translator.translate(TranslationEngine.Request(req.text, config.source, config.target, Role.LIVE)) { partial ->
                 if (req.id !in finalizing) updateUtterance(req.id) { if (it.final) it else it.copy(translation = partial) }
             }
             if (!res.cancelled) {
-                partialCache[req.id] = PartialResult(req.text, res.text, res.modelId, res.processor.name, res.words)
+                partialCache[req.id] = PartialResult(req.text, res.text, res.modelId, res.processor.name)
                 if (req.id !in finalizing) updateUtterance(req.id) { if (it.final) it else it.copy(translation = res.text) }
             }
             deferred.complete(res)
@@ -407,21 +396,19 @@ class LivePipeline(
             val cached = partialCache[job.id]?.takeIf { it.source == text && it.modelId == finalModel }
             var reused: String? = cached?.translation
             var reusedOn: String? = cached?.processor
-            var reusedWords: List<WordUse> = cached?.words.orEmpty()
             if (reused == null) {
                 val inf = inflight
                 if (inf != null && inf.req.id == job.id && inf.req.text == text && liveModel == finalModel) {
                     val r = inf.result.await()?.takeIf { !it.cancelled }
                     reused = r?.text
                     reusedOn = r?.processor?.name
-                    reusedWords = r?.words.orEmpty()
                 }
             }
             val mtStart = clock()
             var result: TranslationEngine.Result? = null
             val translation = reused ?: run {
                 translator.cancel(Role.LIVE)
-                translator.translate(request(job.id, text, Role.FINAL)) { partial ->
+                translator.translate(TranslationEngine.Request(text, config.source, config.target, Role.FINAL)) { partial ->
                     updateUtterance(job.id) { it.copy(translation = partial) }
                 }.also { result = it }.text
             }
@@ -436,8 +423,7 @@ class LivePipeline(
                 model = result?.modelName,
                 processor = result?.processor?.name ?: reusedOn,
             )
-            val words = if (reused != null) reusedWords else result?.words.orEmpty()
-            updateUtterance(job.id) { it.copy(translation = translation, final = true, latency = latency, words = words) }
+            updateUtterance(job.id) { it.copy(translation = translation, final = true, latency = latency) }
             partialCache.remove(job.id)
             if (speaker != null && speakEnabled() && translation.isNotBlank()) speakQueue.trySend(translation to config.target)
         } catch (e: CancellationException) {
@@ -466,17 +452,6 @@ class LivePipeline(
     // ------------------------------------------------------------------------------- state
 
     private fun normalizeSource(text: String): String = TextNormalizer.forLanguage(text.trim(), config.source)
-
-    /**
-     * A translation request for utterance [id]. The utterance before (what was said and its
-     * translation, so also the other person's words in conversation mode) is passed only so that hint
-     * words of the ambiguous words are found there; it never goes into the prompt.
-     */
-    private fun request(id: Long, text: String, role: Role): TranslationEngine.Request {
-        val before = state.value.utterances.lastOrNull { it.id < id && it.final && it.sourceText.isNotBlank() }
-        val previous = listOfNotNull(before?.sourceText, before?.translation?.takeIf { it.isNotBlank() })
-        return TranslationEngine.Request(text, config.source, config.target, role, previousTexts = previous, wordChoices = wordChoices())
-    }
 
     private fun newUtterance(): Long {
         val id = nextId.incrementAndGet()

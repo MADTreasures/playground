@@ -179,7 +179,6 @@ private fun MtCard(m: MtBench) {
             }
             Metric("Ø pro Satz", "%.0f ms".format(m.avgMs))
             Metric("Mit KV-Cache (Live-Teilübersetzung)", "%.0f ms".format(m.cachedMs))
-            if (m.wordMs > 0) Metric("Mit mehrdeutigem Wort (+${m.wordTokens} Tokens)", "${m.wordMs} statt ${m.wordPlainMs} ms")
             Metric("Prompt-Verarbeitung", "%.0f Tokens/s".format(m.prefillTps))
             Metric("Textausgabe", "%.1f Tokens/s".format(m.decodeTps))
             Metric("Laden", "${m.loadMs} ms")
@@ -193,7 +192,6 @@ private fun AsrCard(a: AsrBench) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text(a.name, style = MaterialTheme.typography.titleMedium)
-            if (a.detail.isNotEmpty()) Text(a.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Metric("Erkennung", "${a.decodeMs} ms für ${"%.1f".format(a.audioSeconds)} s Audio")
             Metric("Echtzeitfaktor", "%.3f".format(a.rtf))
             Metric("Laden", "${a.loadMs} ms")

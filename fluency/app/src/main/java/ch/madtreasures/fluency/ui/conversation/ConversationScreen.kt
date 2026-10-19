@@ -34,12 +34,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import ch.madtreasures.fluency.engine.llm.WordUse
 import ch.madtreasures.fluency.pipeline.Utterance
 import ch.madtreasures.fluency.ui.components.LanguagePicker
 import ch.madtreasures.fluency.ui.components.LatencyRow
 import ch.madtreasures.fluency.ui.components.MicButton
-import ch.madtreasures.fluency.ui.components.WordChips
 import ch.madtreasures.fluency.ui.theme.TranslationTextStyle
 
 data class ConversationUiState(
@@ -65,8 +63,6 @@ class ConversationActions(
     val onToggleSpeak: () -> Unit = {},
     val onClear: () -> Unit = {},
     val onClose: () -> Unit = {},
-    /** another meaning of a listed ambiguous word was chosen (by the person who said it) */
-    val onChooseMeaning: (Utterance, WordUse, Int) -> Unit = { _, _, _ -> },
 )
 
 /**
@@ -78,7 +74,7 @@ fun ConversationScreen(state: ConversationUiState, actions: ConversationActions,
     Column(modifier.fillMaxSize()) {
         ConversationHalf(
             me = 1, state = state, myLang = state.langB, onLang = actions.onLangB,
-            onMic = { actions.onMic(1) }, onChooseMeaning = actions.onChooseMeaning,
+            onMic = { actions.onMic(1) },
             modifier = Modifier.weight(1f).rotate(180f).background(MaterialTheme.colorScheme.surfaceContainerLow),
         )
         Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest) {
@@ -106,7 +102,7 @@ fun ConversationScreen(state: ConversationUiState, actions: ConversationActions,
         HorizontalDivider()
         ConversationHalf(
             me = 0, state = state, myLang = state.langA, onLang = actions.onLangA,
-            onMic = { actions.onMic(0) }, onChooseMeaning = actions.onChooseMeaning,
+            onMic = { actions.onMic(0) },
             modifier = Modifier.weight(1f),
         )
     }
@@ -120,7 +116,6 @@ private fun ConversationHalf(
     onLang: (String) -> Unit,
     onMic: () -> Unit,
     modifier: Modifier = Modifier,
-    onChooseMeaning: (Utterance, WordUse, Int) -> Unit = { _, _, _ -> },
 ) {
     val listState = rememberLazyListState()
     LaunchedEffect(state.utterances.size, state.utterances.lastOrNull()?.translation) {
@@ -139,9 +134,7 @@ private fun ConversationHalf(
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(state.utterances, key = { it.id }) { u ->
-                Bubble(u, mine = u.speaker == me, showLatency = state.showLatency && me == 0) { w, i -> onChooseMeaning(u, w, i) }
-            }
+            items(state.utterances, key = { it.id }) { u -> Bubble(u, mine = u.speaker == me, showLatency = state.showLatency && me == 0) }
         }
         Box(Modifier.fillMaxWidth().padding(4.dp), contentAlignment = Alignment.Center) {
             MicButton(
@@ -156,7 +149,7 @@ private fun ConversationHalf(
 }
 
 @Composable
-private fun Bubble(u: Utterance, mine: Boolean, showLatency: Boolean, onChooseMeaning: (WordUse, Int) -> Unit) {
+private fun Bubble(u: Utterance, mine: Boolean, showLatency: Boolean) {
     Box(Modifier.fillMaxWidth(), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
         Surface(
             shape = RoundedCornerShape(18.dp),
@@ -177,8 +170,6 @@ private fun Bubble(u: Utterance, mine: Boolean, showLatency: Boolean, onChooseMe
                         Text(u.sourceText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                // the listed ambiguous words: only the person who said the sentence knows what was meant
-                if (mine && u.final && u.words.isNotEmpty()) WordChips(u.words, onChooseMeaning, Modifier.padding(top = 4.dp))
                 if (u.error != null) Text(u.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 if (showLatency && u.final && u.latency != null) LatencyRow(u.latency, Modifier.padding(top = 4.dp))
             }

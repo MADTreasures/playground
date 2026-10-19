@@ -34,7 +34,6 @@ import ch.madtreasures.fluency.pipeline.Utterance
 import ch.madtreasures.fluency.ui.components.InfoBanner
 import ch.madtreasures.fluency.ui.components.LanguageBar
 import ch.madtreasures.fluency.ui.components.MicButton
-import ch.madtreasures.fluency.engine.llm.WordUse
 import ch.madtreasures.fluency.ui.components.UtteranceCard
 import ch.madtreasures.fluency.ui.components.formatBytes
 
@@ -48,8 +47,6 @@ class LiveActions(
     val onClear: () -> Unit = {},
     val onSpeak: (Utterance) -> Unit = {},
     val onCopy: (Utterance) -> Unit = {},
-    /** another meaning of a listed ambiguous word was chosen */
-    val onChooseMeaning: (Utterance, WordUse, Int) -> Unit = { _, _, _ -> },
     val onDownloadRecommended: () -> Unit = {},
     val onDismissSetup: () -> Unit = {},
     val onOpenModels: () -> Unit = {},
@@ -127,8 +124,6 @@ fun LiveScreen(state: LiveUiState, actions: LiveActions, modifier: Modifier = Mo
                             error = u.error,
                             onSpeak = { actions.onSpeak(u) },
                             onCopy = { actions.onCopy(u) },
-                            words = u.words,
-                            onChooseMeaning = { w, i -> actions.onChooseMeaning(u, w, i) },
                         )
                     }
                 }

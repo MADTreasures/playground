@@ -43,10 +43,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import ch.madtreasures.fluency.engine.llm.WordUse
 import ch.madtreasures.fluency.ui.components.LanguageBar
 import ch.madtreasures.fluency.ui.components.LatencyRow
-import ch.madtreasures.fluency.ui.components.WordChips
 import ch.madtreasures.fluency.ui.theme.TranslationTextStyle
 
 class TextActions(
@@ -62,8 +60,6 @@ class TextActions(
     val onSwap: () -> Unit = {},
     val onModel: (String) -> Unit = {},
     val onTypingMode: (Boolean) -> Unit = {},
-    /** another meaning of a listed ambiguous word was chosen */
-    val onChooseMeaning: (WordUse, Int) -> Unit = { _, _ -> },
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -130,9 +126,6 @@ fun TextScreen(state: TextUiState, actions: TextActions, modifier: Modifier = Mo
                         }
                         SelectionContainer {
                             Text(state.output.ifEmpty { "…" }, style = TranslationTextStyle, modifier = Modifier.heightIn(min = 40.dp))
-                        }
-                        if (!state.translating && state.words.isNotEmpty()) {
-                            WordChips(state.words, actions.onChooseMeaning, Modifier.padding(top = 6.dp))
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {

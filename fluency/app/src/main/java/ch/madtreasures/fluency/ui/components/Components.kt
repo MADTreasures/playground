@@ -52,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import ch.madtreasures.fluency.core.Language
 import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.core.Latency
-import ch.madtreasures.fluency.engine.llm.WordUse
 import ch.madtreasures.fluency.settings.AUTO
 import ch.madtreasures.fluency.ui.theme.TranslationTextStyle
 
@@ -178,8 +177,6 @@ fun UtteranceCard(
     onSpeak: (() -> Unit)?,
     onCopy: (() -> Unit)?,
     modifier: Modifier = Modifier,
-    words: List<WordUse> = emptyList(),
-    onChooseMeaning: ((WordUse, Int) -> Unit)? = null,
 ) {
     Card(
         modifier.fillMaxWidth(),
@@ -200,7 +197,6 @@ fun UtteranceCard(
                 style = TranslationTextStyle,
                 modifier = Modifier.alpha(if (final) 1f else 0.6f),
             )
-            if (final && words.isNotEmpty()) WordChips(words, onChooseMeaning, Modifier.padding(top = 6.dp))
             if (error != null) {
                 Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }

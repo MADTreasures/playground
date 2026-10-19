@@ -6,18 +6,18 @@ Android-App (Kotlin, Jetpack Compose, Material 3) für das **Samsung Galaxy S26 
 Das Internet wird nur für den einmaligen Modell-Download gebraucht, danach funktioniert alles im
 Flugmodus.
 
-| Live | Gespräch | Text | Mehrdeutige Wörter | Wort bearbeiten | Benchmark |
-|---|---|---|---|---|---|
-| ![](docs/screenshots/01_live.png) | ![](docs/screenshots/04_conversation.png) | ![](docs/screenshots/05_text.png) | ![](docs/screenshots/10_ambiguous_words.png) | ![](docs/screenshots/11_ambiguous_word_editor.png) | ![](docs/screenshots/07_benchmark.png) |
+| Live | Gespräch | Text | Modelle | Benchmark |
+|---|---|---|---|---|
+| ![](docs/screenshots/01_live.png) | ![](docs/screenshots/04_conversation.png) | ![](docs/screenshots/05_text.png) | ![](docs/screenshots/06_models.png) | ![](docs/screenshots/07_benchmark.png) |
 
 Die Screenshots sind Robolectric-Renderings (`ScreenshotTest`). Die Texte und Zahlen darin stammen
 aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Messungen**.
 
 ## Downloads
 
-- **Fertige App**: [`dist/Fluency-1.6.0.apk`](../dist/Fluency-1.6.0.apk) (arm64, signiert). Sie
-  installiert sich als Update über 1.0.0–1.5.0, die heruntergeladenen Modelle bleiben erhalten.
-- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.6.0.zip`](../dist/Fluency-AndroidStudio-1.6.0.zip)
+- **Fertige App**: [`dist/Fluency-1.2.0.apk`](../dist/Fluency-1.2.0.apk) (arm64, signiert). Sie
+  installiert sich als Update über 1.0.0/1.1.0, die heruntergeladenen Modelle bleiben erhalten.
+- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.2.0.zip`](../dist/Fluency-AndroidStudio-1.2.0.zip)
   (enthält alle nativen Quellen und die fertig gebauten NPU-Bibliotheken, keine Submodule)
 
 ## In Android Studio bauen
@@ -64,69 +64,7 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
    Satz, Prompt- und Ausgabe-Tokens/s, mit KV-Cache, ASR-Echtzeitfaktor und Piper.
 6. **„Deutsch (Schweiz)"** schreibt immer „ss" statt „ß" (Übersetzungen, Untertitel, Vorlesen).
    Die Oberfläche ist Deutsch in Schweizer Schreibweise.
-7. **Mehrdeutige Wörter**: Optionen → Übersetzung → „Mehrdeutige Wörter bearbeiten“. Wörter mit
-   mehreren Bedeutungen, in Deutsch, Englisch, Französisch, Italienisch, Spanisch und Portugiesisch.
-   - **Mitgeliefert:** eine Sammlung von 132 häufigen Doppeldeutungen, z. B.:
-     - Deutsch: Bank, Schloss, Leiter, Decke, Steuer, Gericht, Zug (auch die Stadt), Pass, Note,
-       Strom, Kater …
-     - Englisch: bill, date, match, key, tip, fine, ticket, cell …
-     - Französisch: avocat, livre, vol, temps, glace, pièce …
-     - Italienisch: riso, pesca, calcio, borsa …
-     - Spanisch: gato, muñeca, cola, carta …
-     - Portugiesisch: manga, rede, conta …
-     - Schweizer Wörter, die das Modell anders versteht: Estrich (Dachboden), zügeln (umziehen),
-       Kasten (Schrank), Stift (Lehrling).
-
-     Du kannst alles ändern, löschen oder eigene Wörter eintragen. „Sammlung ergänzen“ holt später
-     neue Sammlungswörter dazu, ohne deine Änderungen zu überschreiben.
-   - **Ein Eintrag gilt für alle Zielsprachen:** Jede Bedeutung hat eine kurze Beschreibung
-     („Sitzbank“), Hinweiswörter und Übersetzungen in jede Sprache, z. B. Sitzbank → bench / banc /
-     panchina. Wo eine Sprache für alle Bedeutungen dasselbe Wort hat (spanisch „banco“), lässt die
-     App das Wort in Ruhe. Für Deutsch (Schweiz) gibt es eigene Übersetzungen, wo sie abweichen
-     (Busse, Billett, Konfitüre, Glace).
-   - **Welche Bedeutung**, nach festen Regeln, die erste passende gilt:
-     1. du hast sie für diesen Satz angetippt;
-     2. ein Hinweiswort genau einer Bedeutung steht im Satz;
-     3. du hast sie früher im Gespräch angetippt;
-     4. bei Wörtern mit Standard: ein Hinweiswort im Satz davor, sonst die erste Bedeutung;
-     5. **sonst gibt die App nichts vor.** Das Modell entscheidet, die Übersetzung bleibt genau so,
-        wie sie ohne Modul wäre. Die App zeigt nur an, welche Bedeutung das Modell genommen hat, und
-        warnt, wenn ein Hinweiswort im Satz davor dagegen spricht.
-
-     Im Gespräch zählt als „Satz davor“ die vorherige Äusserung samt ihrer Übersetzung, also auch
-     die Worte des Gegenübers in deiner Sprache.
-   - **Vorschreiben und prüfen:** Eine gewählte Bedeutung geht über Hy-MT2s offizielle
-     Begriffs-Vorlage in den Prompt. Danach prüft die App die Übersetzung:
-     - Fehlt die Bedeutung, übersetzt sie ein zweites Mal mit Systemsatz
-       (`In this text, "Bank" means "bench".`); der bessere Lauf zählt.
-     - Steht dann eine andere eingetragene Bedeutung im Text, wird sie ersetzt.
-     - Steht die Vorgabe öfter da als das Wort im Satz (sie hat noch ein anderes Wort ersetzt),
-       nimmt die App die Übersetzung ohne Vorgabe.
-   - **Sichtbar und änderbar:** Unter jeder Übersetzung steht das Wort als Chip:
-     - Eine Vorgabe ist hervorgehoben: „✓ Bank → bench · Hinweis „im Park““.
-     - Eine Entscheidung des Modells ist leiser und hat ein Auge statt eines Häkchens:
-       „Nachrichten → messages · Modell“.
-     - Eine Warnung ist rot.
-
-     Antippen zeigt Grund und Prüfung und lässt eine andere Bedeutung wählen. Der Satz wird sofort
-     neu übersetzt, und die Wahl gilt für das ganze Gespräch.
-   - **Erkannt** wird ein Wort mit den üblichen Endungen seiner Sprache: Bank/Bänke/Banken,
-     banca/banche, journal/journaux, avião/aviões, battery/batteries. Nicht erkannt wird es in
-     zusammengesetzten Wörtern (Bankraub). Deutsche Nomen zählen nur gross geschrieben („Steuer“,
-     nicht „steuern“), denn die Spracherkennung schreibt sie so. Hinweiswörter mit \* am Ende
-     passen zu jedem Wort, das so anfängt (Fernseh\* → Fernsehen, Fernseher).
-   - Gilt in Live, Gespräch und Text und lässt sich abschalten. MiLMMT-46 kennt keine Vorgaben;
-     dort wird nur geprüft und nachkorrigiert. Wörter aus 1.5.0 bleiben erhalten (mit Standard),
-     ebenso die festen Begriffe eines 1.4.0-Kontext-Dokuments.
-   - **Was „null Fehler“ hier heisst:**
-     - Eine vorgegebene Bedeutung bleibt nie mit einer anderen eingetragenen Bedeutung stehen.
-     - Ohne Hinweiswort ändert die Sammlung an der Übersetzung nichts.
-     - Du siehst bei jedem eingetragenen Wort, was passiert ist, und kannst es mit einem Tipp ändern.
-
-     Nicht garantiert ist, dass ein Hinweiswort im Einzelfall passt, und der Rest des Satzes, den
-     weiterhin das Modell übersetzt. Null Fehler für beliebige Sätze kann kein Übersetzungsmodell
-     versprechen.
-8. **GPU (Adreno) und NPU (Hexagon) für die Übersetzung**: Optionen → Leistung → „Rechenwerk für die
+7. **GPU (Adreno) und NPU (Hexagon) für die Übersetzung**: Optionen → Leistung → „Rechenwerk für die
    Übersetzung“.
    - **Automatisch** (Standard): Beim ersten Laden eines Modells übersetzt die App dieselben zwei
      Testsätze auf CPU, GPU und NPU. Das passiert im Hintergrund, während die CPU schon übersetzt,
@@ -157,7 +95,7 @@ Geprüft auf Hugging Face am 6.10.2026. Es gibt Nachfolger der im Auftrag genann
 | Übersetzung sehr schnell (optional) | Xiaomi MiLMMT-46-1B v1.0 Q4_K_M | 0.81 GB | 46 | Gemma Terms |
 | Spracherkennung live | **NVIDIA Parakeet-TDT-0.6B-v3** int8 (sherpa-onnx) | 0.67 GB | 25 europ., automatische Erkennung | CC-BY-4.0 |
 | Spracherkennung Fallback | **Whisper large-v3-turbo** int8 (sherpa-onnx) | 1.04 GB | ~100 | MIT |
-| Schweizerdeutsch (Mundart → Hochdeutsch) | Whisper-large-v3-turbo-Finetune von Flurin17, GGML q5_0 (whisper.cpp), läuft als Q8_0 | 0.57 GB | gsw → de | CC-BY-NC-4.0 (privat ok) |
+| Schweizerdeutsch (Mundart → Hochdeutsch) | Whisper-large-v3-turbo-Finetune von Flurin17, GGML q5_0 (whisper.cpp) | 0.57 GB | gsw → de | CC-BY-NC-4.0 (privat ok) |
 | Sprachaktivität | **Silero VAD v5** | 2 MB | – | MIT |
 | Sprachausgabe | Android-TTS (nur Offline-Stimmen), optional **Piper** (Thorsten de, Lessac en, Siwis fr, Paola it, Davefx es, Tugão pt) | je 63 MB + 18 MB eSpeak-Daten | 6 | CC0 / CC-BY / … |
 
@@ -177,22 +115,6 @@ Begründung:
   Vorab-Erkennung pro Sprechpause) und wird nur für die Ausgangssprache „Deutsch (Schweiz)"
   verwendet. Der Encoder-Kontext wird an die Länge der Äusserung angepasst (`audio_ctx`). Auf x86
   sinkt die Zeit für 2,8 s Audio damit von 14,5 s auf 3,1 s, bei identischem Ergebnis.
-  - **Seit 1.3.0 läuft es als Q8_0**: Die Datei hat Q5_0-Gewichte. Für Q5_0 hat ggml auf ARM keine
-    schnellen Matrix-Kernels (kein i8mm, kein KleidiAI, kein Repacking). Beim Laden werden die
-    Gewichte deshalb nach Q8_0 umgewandelt (`app/src/main/cpp/whisper_q8.h`). Das ist exakt: Ein
-    Q5_0-Wert ist (q − 16) · d mit q = 0…31, das passt mit derselben Skala d in ein int8. Es wird
-    nichts auf den Speicher geschrieben, die geprüfte Originaldatei bleibt, im RAM sind es 0,86 statt
-    0,57 GB. Auf dem Handy rechnen damit KleidiAI-Kernels (i8mm bzw. SME2) den Encoder.
-  - Ehrlich gesagt: Die Umwandlung ist exakt, aber KleidiAI rechnet Q8_0 intern mit einer int8-Skala
-    pro Gewichtszeile und quantisiert die Aktivierungen pro Zeile. Das ist nicht bitgleich zu Q5_0,
-    entspricht aber dem int8-Modus von CTranslate2/faster-whisper, mit dem die Schweizer
-    Whisper-Modelle verbreitet laufen. Auf x86 (ohne KleidiAI) ist der Text identisch.
-  - Whisper bekommt so viele Threads wie die Übersetzung (Standard 6, mindestens 4) statt 4. Die
-    Übersetzung läuft vorher oder nachher und auf diesem Handy ohnehin auf der NPU.
-  - Der Benchmark misst das Schweizer Modell jetzt mit (Hochdeutsch-Clip) und zeigt „Q8_0, 6 Threads“.
-  - NPU/GPU für Whisper ist bewusst nicht eingebaut: whisper.cpp legt alle Gewichte ungeprüft auf
-    ein Beschleuniger-Gerät, und das Hexagon-Backend braucht spezielle Puffer für umgepackte
-    Gewichte. Ohne Testgerät wäre das ein Blindflug mit Absturzrisiko.
 - Die Modelle sind **nicht in der APK**. Beim ersten Start lädt „Empfohlene laden" Hy-MT2, Parakeet
   und Silero VAD (1.8 GB).
 
@@ -257,99 +179,10 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
   hat (bei wachsenden Teilsätzen kommen z. B. 31 von 41 Tokens aus dem Cache). Tokens werden
   gestreamt (nur vollständige UTF-8-Zeichen), Abbruch geht jederzeit. Die Prompts sind die kürzesten
   offiziellen Formate (Hy-MT2-Chat-Template bzw. MiLMMT-Completion), Decoding greedy.
-  - **Mehrdeutige Wörter** (`engine/llm/AmbiguousWords.kt`, `WordCollection.kt`, `TranslationEngine.runPieces`):
-    - Prompt: Hy-MT2s offizielle Begriffs-Vorlage („Reference the following translations: Bank
-      translates to bench“, auf Chinesisch „参考下面的翻译“). Im zweiten Lauf steht zusätzlich
-      `In this text, "Bank" means "bench".` in der Systemnachricht des Hunyuan-Chat-Templates.
-      Ins Prompt kommt die Form, die im Satz steht. Der Satz davor wird nur nach Hinweiswörtern
-      durchsucht und geht nie ins Prompt.
-    - Wortformen je Sprache, ohne Wörterbuch:
-      - Deutsch: Endungen -e/-en/-n/-s/-es/-in/-innen, Umlaute; Nomen nur gross geschrieben.
-      - Englisch: -s/-es/-ies/-ves/-ing/-ed.
-      - Französisch: -s/-x/-e/-aux.
-      - Italienisch: Plural mit gleichem Geschlecht, also foglio/fogli, aber nicht foglia;
-        banca/banche, aber nicht pesce.
-      - Spanisch: -s/-es/-ces.
-      - Portugiesisch: -ões/-ães/-is/-ns.
-      - Allgemein: Akzente und ß/ss egal, ñ zählt.
-      - Nicht in zusammengesetzten Wörtern; Chinesisch, Japanisch, Koreanisch ohne Wortgrenzen.
-      - Ein Hinweiswort zählt nie innerhalb des Worts selbst.
-      - Unregelmässige Formen stehen im Eintrag („Schlösser“, „mice“).
-    - Die Sammlung wird durch Tests geprüft:
-      - Jedes Hinweiswort wählt seine Bedeutung.
-      - Kein Hinweiswort passt zu zwei Bedeutungen.
-      - Jede Bedeutung ist in alle fünf anderen Kernsprachen übersetzt.
-
-      Die Tests haben beim Schreiben echte Fehler gefunden: „brems*“ passte zu „Bremse“ selbst,
-      „office“ (Stempel) steckte in „post office“ (Briefmarke), englisch „news“ wurde zu „new“
-      gekürzt, italienisch „pesca“ traf „pesce“.
-    - **Gemessen mit dem echten Hy-MT2** (x86, derselbe Code wie in der App,
-      `AmbiguousWordsIntegrationTest`), nur mit der Sammlung, ohne dass jemand etwas einträgt.
-      Gezählt wird, ob die richtige Bedeutung bzw. eine andere eingetragene Bedeutung in der
-      Übersetzung steht:
-
-      | | ohne Modul | mit Modul |
-      |---|---|---|
-      | 40 Sätze der früheren Messung (de→en, en→de), Satz davor nur als Hinweis: richtig | 23 | **31** |
-      | … davon mit falscher Bedeutung | 8 | **4** |
-      | 32 neue Sätze in anderen Richtungen (de→fr/it/es, en→fr/it/es, fr/it/es/pt→de/en, Schweizer Wörter): richtig | 20 | **31** |
-      | … davon mit falscher Bedeutung | 4 | **0** |
-      | richtige Übersetzung durch das Modul falsch geworden | – | **0** |
-
-      - In den 40 früheren Sätzen gab die App 18-mal eine Bedeutung vor, weil ein Hinweiswort im
-        Satz stand. 22-mal entschied das Modell, und die Übersetzung blieb gleich.
-      - Die 8 Warnungen („Hinweis davor spricht dagegen“) waren alle berechtigt. Ein Tipp auf den
-        Chip hätte jeden dieser Sätze korrigiert.
-      - Offen blieben z. B. „Die Nachrichten kommen aber nicht an“ (*news*, mit Warnung) und der
-        Satz aus dem Feldtest, dessen Satz davor kein Hinweiswort hat (*news*, ohne Warnung). Nach
-        einem Tipp gilt *messages* für das ganze Gespräch.
-      - Einmal stimmt die Zählung zu streng: „Wir zügeln nächsten Monat nach Bern“ wurde richtig
-        zu *Nous déménagerons…*. Das Futur von *déménager* erkennt die Prüfung nicht, darum steht
-        dort „anders formuliert“.
-      - Die neuen Sätze habe ich für den Test geschrieben, die Hinweiswörter auch. Echte Gespräche
-        können schlechter abschneiden.
-    - **Nebenwirkungen, ehrlich gezählt:** Steht die Vorgabe im Satz, stimmt das Wort. Das Modell
-      passt aber den Rest nicht immer an. In rund 5 von 50 Sätzen mit Vorgabe holperte es:
-      - falscher Artikel oder falsches Geschlecht: *einen Robbe*, *un grulla*, *im Hängematten*;
-      - ein Nachbarwort verschoben: „Er lässt mich nur ungern ans Steuer“ → *He only refuses to let
-        me drive the wheel*; „Der Hahn tropft“ → *Il rubinetto … si è bagnato*.
-
-      Ohne Modul waren dieselben Sätze meist schlimmer falsch (*Seelöwe*, *grúa* = Baukran, *gallo*
-      = Hahn als Tier).
-    - Die Vorgabe ersetzte auch schon ein zweites Wort: „Put the suitcases in the trunk“ wurde zu
-      *Legen Sie die Kofferraum in den Kofferraum*. Die App erkennt das (*Kofferraum* zweimal,
-      *trunk* nur einmal) und nimmt die Übersetzung ohne Vorgabe.
-    - Wie zuverlässig die Vorgabe selbst ist (1.5.0, 41 Sätze, je ein Eintrag mit der gewünschten
-      Bedeutung):
-      - 35-mal im 1. Lauf übernommen, 4-mal im 2. Lauf;
-      - 1-mal ohne Vorgabe genommen (Kofferraum), 1-mal ein richtiges Synonym;
-      - nie eine andere eingetragene Bedeutung.
-    - **Zeit:** Klappt der 1. Lauf, kostet das Wort nur die paar Tokens der Vorlage (Benchmark-Satz
-      „…im Park auf eine Bank…“: +10 Prompt-Tokens; auf dem geteilten x86-Container einmal 1054 →
-      1068 ms, einmal 1241 → 1398 ms, die Zeiten schwanken dort stark). Bei schwierigen Sätzen
-      kommt manchmal ein zweiter Lauf dazu: über die 41 Sätze von 1.5.0 im Schnitt +300 ms auf
-      x86. Ohne Vorgabe kostet das Modul nichts. Auf dem Handy nicht gemessen.
-    - Sätze ohne eingetragenes Wort (11 Sätze in vier Sprachen, mit der ganzen Sammlung, darunter
-      „Bankraub“, „Sprachnachricht“, „das Boot steuern“): gleiche Übersetzung, gleiche
-      Prompt-Länge wie ohne Modul.
-  - Vorgeschichte: Bis 1.3.0 nahm die App automatisch die letzten zwei Sätze des Gesprächs mit, in
-    1.4.0 ein selbst geschriebenes Kontext-Dokument. Beides hilft oft, kann aber die Wortwahl in
-    anderen Sätzen verschieben (z. B. „tip“ → *Tipp* statt *Trinkgeld*) und zeigt nicht, was es
-    bewirkt hat. Deshalb ersetzte in 1.5.0 das Modul beides. 1.5.0 kannte nur selbst eingetragene
-    Wörter für ein Sprachpaar und gab ohne Hinweis immer die 1. Bedeutung vor; 1.6.0 bringt die
-    mehrsprachige Sammlung und lässt ohne Hinweis das Modell entscheiden.
-  - Getestet und verworfen: ein separates kleines Kontext-Modell, das aus Gespräch und Satz das
-    Thema und die Bedeutung mehrdeutiger Wörter bestimmt (Qwen3.5-0.8B, LFM2.5-1.2B, Qwen3.5-2B,
-    Okt. 2026):
-    - Es kam auf 28–33 von 45 richtig und brauchte auf x86 rund 2 s zusätzlich pro Satz.
-    - Grund: Die kleinen Modelle erkennen die mehrdeutigen Wörter nicht. Qwen3.5-2B meldet fast
-      immer „keine“, LFM2.5 liefert falsche Hinweise (z. B. crane = Storch).
-  - `maxTokens = 0` füllt nur den KV-Cache, ohne etwas zu erzeugen.
 - **sherpa-onnx 1.13.8** (VAD, ASR, Piper) aus dem Quellcode gebaut gegen ONNX Runtime 1.28.0 (aus
   Maven), siehe `native/build-sherpa-onnx.sh`. Die gebaute `libsherpa-onnx-jni.so` liegt in
   `app/src/main/jniLibs`.
-- **whisper.cpp 1.9.5** für Schweizerdeutsch, statisch in `libfluency_jni.so`. Q5_0-Modelle werden
-  beim Laden exakt nach Q8_0 umgewandelt (siehe Modelle).
+- **whisper.cpp 1.9.5** für Schweizerdeutsch, statisch in `libfluency_jni.so`.
 - Native Libraries werden bei der Installation entpackt (`useLegacyPackaging = true`). Das ist nötig,
   weil die App die passende `libggml-cpu-*.so`, die Backends und die NPU-Programme im
   Bibliotheksordner sucht und lädt. Alle ARM-Bibliotheken sind 16-KB-ausgerichtet; die
@@ -390,16 +223,6 @@ oder per Umgebungsvariablen `FLUENCY_KEYSTORE`, `FLUENCY_KEYSTORE_PASSWORD`, `FL
 `FLUENCY_KEY_PASSWORD`. Updates müssen mit **demselben Schlüssel** signiert werden (Zertifikat
 SHA-256 `81:05:E7:DE:…:9C:6A`), sonst verweigert Android die Installation über die alte Version.
 
-In einer Cloud-Umgebung, in der Geheimnisse nur Umgebungsvariablen sein können (z. B. Claude Code
-im Web), kommt die Schlüsseldatei selbst als Text in `FLUENCY_KEYSTORE_BASE64`. Der Build schreibt
-sie dann nach `.gradle/signing/` (nicht im Repo, nicht im ZIP). Den Text erzeugt man so:
-
-```
-PowerShell:  [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\pfad\mein.jks")) | Set-Clipboard
-macOS:       base64 -i mein.jks | pbcopy
-Linux:       base64 -w0 mein.jks
-```
-
 Modellkatalog aktualisieren (neue Commits/Hashes von Hugging Face): `python3 -I tools/gen_model_files.py`.
 
 ## Tests
@@ -415,46 +238,12 @@ Tests laufen immer. Erwartete Ordnerstruktur (Standard: `test-models/` im Projek
 `llm/` (die drei GGUF-Dateien), `parakeet-v3/` (encoder/decoder/joiner.int8.onnx, tokens.txt,
 test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_vad_v5.onnx`.
 
-157 Tests in 26 Klassen, alle grün:
+103 Tests in 20 Klassen, alle grün:
 
 - **Logik**: Schweizer Schreibweise, Satz-Segmentierung, Spracherkennung per Stoppwörtern/Schrift,
   Prompt-Formate, Modell-Routing, Katalog (gepinnte URLs, SHA-256), **Downloader** (Fortsetzen nach
   Verbindungsabbruch, `.part` aus früherem Lauf, Server ignoriert Range, falscher Hash), WAV,
-  **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp; der
-  Satz davor und die angetippten Bedeutungen gehen mit, die Wörter kommen an der Äusserung an).
-- **Mehrdeutige Wörter** (ohne Modell):
-  - Wortformen in sechs Sprachen, u. a.:
-    - Deutsch: Bank/Bänke/Banken, aber nicht Bankraub, Banker, Datenbank; „Steuer“ nicht in
-      „steuern“, „Pass“ nicht in „passen“.
-    - Englisch: battery/batteries, knife/knives, date/dating, aber „news“ nicht in „new“.
-    - Französisch: journal/journaux, aber nicht „bancaire“.
-    - Italienisch: banca/banche, foglio/fogli ohne foglia, pesca/pesche ohne pesce.
-    - Spanisch: luz/luces, año ohne ano.
-    - Portugiesisch: avião/aviões, papel/papéis.
-    - Chinesisch ohne Leerzeichen; Hinweiswörter mit \*, als Wendung, nie im Wort selbst.
-  - Speichern und Lesen (auch das Format von 1.5.0), höchstens 500 Wörter, Übernahme der festen
-    Begriffe aus 1.4.0, Zusammenführen mit der Sammlung, ohne eigene Wörter zu überschreiben.
-  - Die Regeln in ihrer Reihenfolge, für alle Zielsprachen:
-    - ohne Hinweis entscheidet das Modell; der Satz davor warnt nur;
-    - Wörter mit Standard; angetippt; deine Wahl gilt für jede Zielsprache;
-    - spanisch „banco“ bleibt in Ruhe; Deutsch (Schweiz) mit eigenen Wörtern;
-    - unbekannte Ausgangssprache wird nur dafür erraten.
-  - Welche Bedeutung das Modell genommen hat; Prüfen und Ersetzen (auch Synonyme); Prüfungen im
-    Editor.
-  - **Die ganze Sammlung** (132 Wörter):
-    - jedes Hinweiswort wählt seine Bedeutung, keines passt zu zwei Bedeutungen;
-    - jede Bedeutung ist in alle anderen Kernsprachen übersetzt;
-    - jedes Wort ist für mindestens eine Zielsprache mehrdeutig;
-    - jeder Eintrag liesse sich im Editor speichern.
-  - Prompts: Begriffs-Vorlage englisch und chinesisch wie in der Modellkarte, Systemsatz im 2. Lauf;
-    ohne Vorgabe der übliche Prompt.
-  - Engine mit Skript-Modell:
-    - Modell entscheidet: erkannt bzw. nicht erkannt;
-    - Vorgabe geprüft, 2. Lauf, der bessere Lauf zählt;
-    - Ersetzen, Synonym, jedes eingetragene Synonym zählt;
-    - leere Antwort; die Vorgabe ersetzt noch ein anderes Wort (→ 2. Lauf bzw. ohne Vorgabe);
-    - keine Übersetzung für die Zielsprache; Warnung aus dem Satz davor;
-    - angetippt, abgeschaltet, Benchmark-Beispiel, MiLMMT nur prüfen, Absätze einzeln.
+  **Live-Pipeline** mit Fakes (Teil- und Endergebnisse, Reihenfolge, Vorlesen, Auto-Stopp).
 - **CPU/GPU/NPU-Wahl** mit simulierten Modellen auf CPU, GPU und NPU. Im Container gibt es weder
   eine Adreno-GPU noch eine Hexagon-NPU. Getestet wird dieselbe Engine-Logik wie auf dem Handy:
   - Das schnellste Rechenwerk übernimmt ohne Pause. Sind GPU und NPU langsamer, bleibt es bei der
@@ -476,19 +265,11 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
   - MiLMMT 1B/4B, inkl. Schwedisch.
   - Parakeet (de/en/fr/es) und Whisper-turbo (inkl. Spracherkennung).
   - Silero VAD mit absoluten Segmentpositionen.
-  - Schweizerdeutsch-Whisper über whisper.cpp, geladen als Q8_0 (gleicher Text wie mit Q5_0).
-  - **Mehrdeutige Wörter mit Hy-MT2**, nur mit der Sammlung:
-    - die 40 früheren und 32 neuen Sätze der Messung oben: nie eine richtige Übersetzung falsch
-      gemacht, weniger falsche Bedeutungen;
-    - ohne Vorgabe dieselbe Übersetzung wie ohne Modul;
-    - die Regeln Ende-zu-Ende (Hinweis im Satz, Warnung, angetippt, für das Gespräch gemerkt);
-    - 11 Sätze ohne eingetragenes Wort in vier Sprachen: gleiche Übersetzung, gleiche Prompt-Länge.
+  - Schweizerdeutsch-Whisper über whisper.cpp.
   - Echter Download von Hugging Face inkl. SHA-256 (Silero, 355 eSpeak-Dateien, Piper).
   - Piper spricht, Parakeet erkennt: „Guten Morgen, wie komme ich zum Bahnhof?"
   - **Live-Pipeline Ende-zu-Ende** (Audio → VAD → Parakeet → Hy-MT2) und der App-Benchmark
-    (prüft u. a., dass ein wiederholter Prompt bis auf das letzte Token aus dem KV-Cache kommt, dass
-    die Kosten eines mehrdeutigen Worts gemessen werden und dass das Schweizer Modell als „Q8_0“
-    mitgemessen wird).
+    (prüft u. a., dass ein wiederholter Prompt bis auf das letzte Token aus dem KV-Cache kommt).
   - Die echte JNI meldet auf x86 „kein GPU-Backend“ und „kein NPU-Backend“; der Automatikmodus
     bleibt dann auf der CPU.
 - **Robolectric-Screenshots** aller Bildschirme (`docs/screenshots`).
@@ -524,23 +305,12 @@ Hy-MT2 1.8B (Q4_K_M):
 
 Parakeet-TDT 0.6B v3: 365 ms für 6,6 s Audio (Echtzeitfaktor 0,055).
 
-Noch nicht auf dem Handy gemessen: was ein mehrdeutiges Wort kostet (Benchmark-Zeile „Mit
-mehrdeutigem Wort … statt … ms“, gemessen mit einem eingebauten Beispielwort, nicht mit deiner
-Liste) und das Schweizer Modell als Q8_0 mit 6 Threads (eigene Zeile unter Spracherkennung).
-
 ## Was nur auf dem Handy getestet werden kann
 
 - Mikrofon-Aufnahme, Echo/Rückkopplung beim Vorlesen, Android-TTS-Offline-Stimmen.
 - Foreground-Service-Downloads im Hintergrund, Benachrichtigungen, SAF-Dateiimport.
-- Schweizerdeutsch-Qualität mit echter Mundart (getestet wurde nur Hochdeutsch-Audio).
-- Wie viel schneller Schweizerdeutsch als Q8_0 auf dem Handy ist. Auf x86 gibt es die ARM-Kernels
-  (i8mm/KleidiAI/SME2) nicht; dort ist Q8_0 nur gleich schnell bis etwas schneller (4,5 statt 5,3 s
-  Encoder für 2,8 s Audio, langsamer Container). Erwartet wird auf dem Handy ein Mehrfaches, gemessen
-  ist es nicht.
-- Mehrdeutige Wörter auf dem Handy: die Zeit pro Satz mit Vorgabe auf NPU und CPU, ob die NPU die
-  Vorgabe genauso befolgt (auf x86 nur CPU geprüft), die Bedienung der Chips (Antippen, Menü, neu
-  übersetzen, im Gesprächsmodus), die Liste mit 132 Wörtern (Suche, Sprachfilter), und wie sich die
-  Sammlung in echten Gesprächen schlägt – die Testsätze und die Hinweiswörter stammen beide von mir.
+- Schweizerdeutsch-Qualität mit echter Mundart (getestet wurde nur Hochdeutsch-Audio) und dessen
+  Tempo auf dem Handy.
 - Speicherverbrauch und Wärmeentwicklung bei langen Sitzungen.
 
 ## Lizenzen

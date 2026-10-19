@@ -79,22 +79,6 @@ class TranslationEngine(
         val modelId: String? = null,
         /** force CPU, GPU or NPU (benchmark) */
         val processor: Processor? = null,
-        /**
-         * apply the user's module "Mehrdeutige Wörter" ([AppSettings.ambiguousWords]) if it is
-         * switched on; the benchmark and the CPU/GPU/NPU comparison leave it out
-         */
-        val useWords: Boolean = true,
-        /**
-         * the sentence before and its translation (live: the previous utterance): only searched for
-         * hint words, never in the prompt
-         */
-        val previousTexts: List<String> = emptyList(),
-        /** meanings chosen earlier in this conversation: entry key → meaning index */
-        val wordChoices: Map<String, Int> = emptyMap(),
-        /** meanings chosen by tapping for this sentence: entry key → meaning index (win over everything) */
-        val forcedWords: Map<String, Int> = emptyMap(),
-        /** entries to use instead of the user's list (benchmark example) */
-        val words: List<AmbiguousWord>? = null,
     )
 
     data class Result(
@@ -110,8 +94,6 @@ class TranslationEngine(
         val decodeMs: Double,
         val cancelled: Boolean,
         val processor: Processor = Processor.CPU,
-        /** the listed ambiguous words in the text and the meaning each got */
-        val words: List<WordUse> = emptyList(),
     ) {
         val tokensPerSecond: Double get() = if (decodeMs > 0) generatedTokens * 1000.0 / decodeMs else 0.0
     }
@@ -332,17 +314,6 @@ class TranslationEngine(
     /** Where model [id] runs, if it is loaded. */
     fun processorOf(id: String): Processor? = loaded[id]?.processor
 
-    @Volatile private var parsedWords: Pair<String, List<AmbiguousWord>> = "" to emptyList()
-
-    /** The user's module "Mehrdeutige Wörter" if it is switched on (parsed once per change). */
-    private fun currentWords(): List<AmbiguousWord> {
-        val s = settings()
-        if (!s.useAmbiguousWords) return emptyList()
-        val cached = parsedWords
-        return if (cached.first == s.ambiguousWords) cached.second
-        else AmbiguousWords.parse(s.ambiguousWords).also { parsedWords = s.ambiguousWords to it }
-    }
-
     /** Stops the generation that is running for [role] (all roles if null). */
     fun cancel(role: Role? = null) {
         loaded.values.toList().forEach { l -> if (role == null || l.runningRole == role) l.model.cancel() }
@@ -498,7 +469,7 @@ class TranslationEngine(
             val src = Languages.require(p.source)
             val tgt = Languages.require(p.target)
             model.resetCache()
-            return runPieces(info, model, style, src, Request(p.text, src, tgt, Role.FINAL, useWords = false), p.text, null).takeIf { !it.cancelled }
+            return runPieces(info, model, style, src, Request(p.text, src, tgt, Role.FINAL), p.text, null).takeIf { !it.cancelled }
         }
         val block = {
             try {
@@ -672,123 +643,42 @@ class TranslationEngine(
         var decode = 0.0
         var cancelled = false
         val echo = PromptFormat.echoNames(req.target)
-        // the user's module "Mehrdeutige Wörter": listed words get the meaning chosen by its rules
-        val entries = if (req.useWords) req.words ?: currentWords() else emptyList()
-        val usedWords = mutableListOf<WordUse>()
-        var previous = req.previousTexts
         for (piece in pieces) {
             if (piece.text.isBlank()) {
                 out.append(piece.separatorAfter)
                 continue
             }
+            val prompt = PromptFormat.build(style, src, req.target, piece.text) { user -> model.applyChatTemplate(user) }
             val prefix = out.toString()
-            fun generateWith(terms: List<PromptFormat.Term>, stateTerms: Boolean): LlamaModel.Result {
-                val prompt = PromptFormat.build(style, src, req.target, piece.text, terms, stateTerms) { user -> model.applyChatTemplate(user) }
-                val r = model.generate(
-                    prompt = prompt.text,
-                    addSpecial = prompt.addSpecial,
-                    maxTokens = PromptFormat.maxTokens(piece.text),
-                    repeatPenalty = if (style == PromptStyle.HY_MT) 1.05f else 1.0f,
-                    stopAtNewline = prompt.stopAtNewline,
-                ) { partial ->
-                    onPartial?.invoke(TextNormalizer.forLanguage(prefix + TextNormalizer.cleanTranslation(partial, piece.text, echo), req.target))
-                    true
-                }
-                if (r.stop == LlamaModel.StopReason.ERROR) throw GenerationException("Übersetzung fehlgeschlagen (${info.name})")
-                if (r.stop == LlamaModel.StopReason.PROMPT_TOO_LONG) throw IOException("Text zu lang für das Modell")
-                promptTokens += r.promptTokens
-                reused += r.reusedTokens
-                generated += r.generatedTokens
-                prefill += r.prefillMs
-                decode += r.decodeMs
-                return r
+            val r = model.generate(
+                prompt = prompt.text,
+                addSpecial = prompt.addSpecial,
+                maxTokens = PromptFormat.maxTokens(piece.text),
+                repeatPenalty = if (style == PromptStyle.HY_MT) 1.05f else 1.0f,
+                stopAtNewline = prompt.stopAtNewline,
+            ) { partial ->
+                onPartial?.invoke(TextNormalizer.forLanguage(prefix + TextNormalizer.cleanTranslation(partial, piece.text, echo), req.target))
+                true
             }
-            val uses = if (entries.isEmpty()) emptyList()
-            else AmbiguousWords.resolve(entries, piece.text, previous, src, req.target, req.wordChoices, req.forcedWords)
-            // the meanings the app chose and can give to the model; the others: the model decides
-            val given = uses.filter { it.chosen && it.to != null }
-            val terms = if (PromptFormat.supportsTerms(style)) given.map { PromptFormat.Term(it.from, it.to!!) } else emptyList()
-            // per given word: in the translation, more often than in the sentence (the meaning also replaced
-            // another word, e.g. "suitcases" → "Kofferraum" next to "trunk" → "Kofferraum"), or missing
-            fun fits(output: String, withTerms: Boolean) = given.map { u ->
-                val n = AmbiguousWords.countAny(output, u.accepted, u.target)
-                if (n == 0) Fit.MISSING else if (withTerms && n > u.occurrences) Fit.REPEATED else Fit.OK
-            }
-            fun score(f: List<Fit>) = f.count { it == Fit.REPEATED } * 100 + f.count { it == Fit.MISSING }
-            fun stopped(x: LlamaModel.Result) = x.stop == LlamaModel.StopReason.CANCELLED
-            var r = generateWith(terms, stateTerms = false)
-            var pieceOut = TextNormalizer.cleanTranslation(r.text, piece.text, echo)
-            var fit = fits(pieceOut, terms.isNotEmpty())
-            var found = WordUse.Status.CONFIRMED
-            // (also for live partials: a finished partial can become the final translation unchanged)
-            if (terms.isNotEmpty() && !stopped(r) && (score(fit) > 0 || pieceOut.isBlank())) {
-                // once more, with the meanings also stated in the system message; the better run counts
-                val r2 = generateWith(terms, stateTerms = true)
-                val out2 = TextNormalizer.cleanTranslation(r2.text, piece.text, echo)
-                val fit2 = fits(out2, withTerms = true)
-                if (stopped(r2) || out2.isNotBlank() && (pieceOut.isBlank() || score(fit2) <= score(fit))) {
-                    r = r2
-                    pieceOut = out2
-                    fit = fit2
-                    found = WordUse.Status.CONFIRMED_AFTER_HINT
-                }
-            }
-            if (terms.isNotEmpty() && !stopped(r) && (pieceOut.isBlank() || Fit.REPEATED in fit)) {
-                // no answer, or a meaning replaced another word in both runs: without the meanings,
-                // corrected below
-                val r3 = generateWith(emptyList(), stateTerms = false)
-                val out3 = TextNormalizer.cleanTranslation(r3.text, piece.text, echo)
-                if (stopped(r3) || out3.isNotBlank() || pieceOut.isBlank()) {
-                    r = r3
-                    pieceOut = out3
-                    fit = fits(out3, withTerms = false)
-                    found = WordUse.Status.CONFIRMED
-                }
-            }
-            var checkedGiven = given.zip(fit) { u, f ->
-                u.copy(
-                    status = when (f) {
-                        Fit.OK -> found
-                        Fit.REPEATED -> WordUse.Status.REPEATED
-                        Fit.MISSING -> WordUse.Status.PLANNED
-                    },
-                )
-            }
-            // still missing: another listed meaning in the text is replaced, else it was a synonym
-            checkedGiven = checkedGiven.map { u ->
-                if (u.status != WordUse.Status.PLANNED) return@map u
-                val corrected = AmbiguousWords.correct(pieceOut, u)
-                if (corrected != null) {
-                    pieceOut = corrected
-                    u.copy(status = WordUse.Status.CORRECTED)
-                } else {
-                    u.copy(status = WordUse.Status.SYNONYM)
-                }
-            }
-            val byKey = checkedGiven.associateBy { it.key }
-            val checked = uses.map { u ->
-                when {
-                    u.chosen && u.to != null -> byKey.getValue(u.key)
-                    u.chosen -> u.copy(status = WordUse.Status.NO_TRANSLATION)
-                    // the model decided: which meaning did it take?
-                    else -> AmbiguousWords.detect(pieceOut, u)?.let { i -> u.copy(meaningIndex = i, status = WordUse.Status.DETECTED) }
-                        ?: u.copy(status = WordUse.Status.UNCLEAR)
-                }
-            }
-            if (r.stop != LlamaModel.StopReason.CANCELLED) usedWords += checked
-            out.append(pieceOut).append(piece.separatorAfter)
+            if (r.stop == LlamaModel.StopReason.ERROR) throw GenerationException("Übersetzung fehlgeschlagen (${info.name})")
+            if (r.stop == LlamaModel.StopReason.PROMPT_TOO_LONG) throw IOException("Text zu lang für das Modell")
+            out.append(TextNormalizer.cleanTranslation(r.text, piece.text, echo)).append(piece.separatorAfter)
+            promptTokens += r.promptTokens
+            reused += r.reusedTokens
+            generated += r.generatedTokens
+            prefill += r.prefillMs
+            decode += r.decodeMs
             if (r.stop == LlamaModel.StopReason.CANCELLED) {
                 cancelled = true
                 break
             }
-            previous = listOf(piece.text)
         }
         val final = TextNormalizer.forLanguage(out.toString().trim(), req.target)
         return Result(
             text = final, modelId = info.id, modelName = info.name, sourceUsed = src,
             wallMs = (System.nanoTime() - t0) / 1_000_000, promptTokens = promptTokens, reusedTokens = reused,
             generatedTokens = generated, prefillMs = prefill, decodeMs = decode, cancelled = cancelled,
-            processor = model.processor, words = usedWords,
+            processor = model.processor,
         )
     }
 
@@ -797,9 +687,6 @@ class TranslationEngine(
         return if (any.isEmpty()) "Kein Übersetzungsmodell installiert – bitte unter „Modelle“ laden"
         else "Kein installiertes Modell kann ${req.source?.nameDe?.let { "$it → " } ?: ""}${req.target.nameDe}"
     }
-
-    /** how a listed word came out in one run */
-    private enum class Fit { OK, REPEATED, MISSING }
 
     private companion object {
         /** one thread at most, created on demand, ended after 30 s without work: no closing needed */

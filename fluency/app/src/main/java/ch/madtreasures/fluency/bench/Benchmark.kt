@@ -5,10 +5,7 @@ import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.core.Wav
 import ch.madtreasures.fluency.engine.asr.AsrEngine
 import ch.madtreasures.fluency.engine.asr.SAMPLE_RATE
-import ch.madtreasures.fluency.engine.asr.WhisperCppAsr
 import ch.madtreasures.fluency.engine.llm.AccelChoice
-import ch.madtreasures.fluency.engine.llm.AmbiguousWord
-import ch.madtreasures.fluency.engine.llm.WordCollection
 import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.models.ModelInfo
@@ -33,14 +30,6 @@ data class MtBench(
     /** prompt tokens of the repeated sentence, and how many of them came from the KV cache */
     val cachedPromptTokens: Int = 0,
     val cachedReusedTokens: Int = 0,
-    /** the sentence with an ambiguous word ([BenchData.WORD_SENTENCE]) from an empty cache, without and with the module */
-    val wordPlainMs: Long = 0,
-    /** 0 = not measured (the model cannot translate the sentence) */
-    val wordMs: Long = 0,
-    /** extra prompt tokens of the module (both runs if a second one was needed) */
-    val wordTokens: Int = 0,
-    /** what the check found, e.g. "geprüft" */
-    val wordStatus: String = "",
 ) {
     val title: String get() = "$name · $processor"
 }
@@ -52,8 +41,6 @@ data class AsrBench(
     val audioSeconds: Double,
     val decodeMs: Long,
     val text: String,
-    /** how the model runs, e.g. "Q8_0, 6 Threads" (whisper.cpp) */
-    val detail: String = "",
 ) {
     val rtf: Double get() = decodeMs / 1000.0 / audioSeconds
 }
@@ -84,16 +71,14 @@ data class BenchReport(
                 appendLine(
                     "- ${it.title}: Laden ${it.loadMs} ms, Ø ${"%.0f".format(it.avgMs)} ms/Satz, Prompt ${"%.0f".format(it.prefillTps)} Tok/s, " +
                         "Ausgabe ${"%.1f".format(it.decodeTps)} Tok/s, mit KV-Cache ${"%.0f".format(it.cachedMs)} ms " +
-                        "(${it.cachedReusedTokens}/${it.cachedPromptTokens} Prompt-Tokens aus dem Cache)" +
-                        if (it.wordMs > 0) ", mit mehrdeutigem Wort ${it.wordMs} statt ${it.wordPlainMs} ms (+${it.wordTokens} Prompt-Tokens, ${it.wordStatus})" else "",
+                        "(${it.cachedReusedTokens}/${it.cachedPromptTokens} Prompt-Tokens aus dem Cache)",
                 )
             }
         }
         choices.forEach { appendLine("→ $it") }
         if (asr.isNotEmpty()) appendLine("\nSpracherkennung:")
         asr.forEach {
-            val detail = it.detail.takeIf { d -> d.isNotEmpty() }?.let { d -> " ($d)" }.orEmpty()
-            appendLine("- ${it.name}$detail: Laden ${it.loadMs} ms, ${it.decodeMs} ms für ${"%.1f".format(it.audioSeconds)} s Audio (RTF ${"%.3f".format(it.rtf)})")
+            appendLine("- ${it.name}: Laden ${it.loadMs} ms, ${it.decodeMs} ms für ${"%.1f".format(it.audioSeconds)} s Audio (RTF ${"%.3f".format(it.rtf)})")
         }
         if (tts.isNotEmpty()) appendLine("\nSprachausgabe:")
         tts.forEach { appendLine("- ${it.name}: ${it.synthMs} ms für ${"%.1f".format(it.audioSeconds)} s (RTF ${"%.3f".format(it.rtf)})") }
@@ -112,10 +97,6 @@ object BenchData {
     )
 
     const val TTS_SENTENCE = "Guten Tag! Das ist ein kurzer Test der Sprachausgabe."
-
-    /** a sentence with an ambiguous word whose hint word decides; the entry comes from the collection, not the user's list */
-    val WORD_SENTENCE = Sentence("de", "en", "Wir haben uns im Park auf eine Bank gesetzt und die Sonne genossen.")
-    val WORD_ENTRY: AmbiguousWord get() = WordCollection.entries.first { it.language == "de" && it.word == "Bank" }
 }
 
 /** Runs the benchmark against everything that is installed. */
@@ -196,17 +177,14 @@ class Benchmark(
                 val texts = mutableListOf<String>()
                 for ((lang, clip) in clips) {
                     val l = Languages.byCode(lang)
-                    // the Swiss German model ("de-CH") is measured with the German clip
-                    val swiss = lang == "de" && m.supports("de-CH")
-                    if (!m.supports(lang) && !swiss && !m.custom && m.languages.isNotEmpty()) continue
+                    if (!m.supports(lang) && !m.custom && m.languages.isNotEmpty()) continue
                     val r = engine.transcribe(clip.samples, l)
                     total += r.millis
                     secs += clip.seconds
                     texts += "[$lang] ${r.text}"
                 }
                 if (secs > 0) {
-                    val detail = (engine as? WhisperCppAsr)?.let { "${it.weightType.uppercase()}, ${it.threads} Threads" }.orEmpty()
-                    report = report.copy(asr = report.asr + AsrBench(m.id, m.name, loadMs, secs, total, texts.joinToString("\n"), detail))
+                    report = report.copy(asr = report.asr + AsrBench(m.id, m.name, loadMs, secs, total, texts.joinToString("\n")))
                     update(report)
                 }
             }
@@ -253,26 +231,12 @@ class Benchmark(
         }
         // repeat the last sentence: the whole prompt prefix is cached
         val cached = translation.translate(req(pairs.last(), m.id, p))
-        // a sentence with an ambiguous word from an empty cache, without and with the module (example entry)
-        val word = BenchData.WORD_SENTENCE
-        val (wordPlain, withWord) = if (m.supports(word.source) && m.supports(word.target)) {
-            translation.resetCaches()
-            val plain = translation.translate(req(word, m.id, p))
-            translation.resetCaches()
-            plain to translation.translate(req(word, m.id, p).copy(useWords = true, words = listOf(BenchData.WORD_ENTRY)))
-        } else {
-            null to null
-        }
         val bench = MtBench(
             m.id, m.name, loadMs, pairs.size, ms / pairs.size,
             if (prefillMs > 0) prefillTok * 1000 / prefillMs else 0.0,
             if (decodeMs > 0) genTok * 1000 / decodeMs else 0.0,
             cached.wallMs.toDouble(), sample, p,
             cachedPromptTokens = cached.promptTokens, cachedReusedTokens = cached.reusedTokens,
-            wordPlainMs = wordPlain?.wallMs ?: 0,
-            wordMs = withWord?.wallMs ?: 0,
-            wordTokens = if (wordPlain != null && withWord != null) (withWord.promptTokens - wordPlain.promptTokens).coerceAtLeast(0) else 0,
-            wordStatus = withWord?.words?.joinToString { "${it.from} → ${it.to ?: "?"}: ${it.statusLabel}" }.orEmpty(),
         )
         return bench to texts
     }
@@ -284,7 +248,5 @@ class Benchmark(
         role = TranslationEngine.Role.TEXT,
         modelId = modelId,
         processor = p,
-        // comparable numbers: without the user's module "Mehrdeutige Wörter" (measured separately)
-        useWords = false,
     )
 }

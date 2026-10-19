@@ -37,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ch.madtreasures.fluency.engine.llm.AccelChoice
 import ch.madtreasures.fluency.engine.llm.AccelMode
-import ch.madtreasures.fluency.engine.llm.AmbiguousWords
 import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.settings.AppSettings
@@ -99,7 +98,6 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onRemeasure: () -> Unit = {},
     onUnblock: (Processor) -> Unit = {},
-    onEditWords: () -> Unit = {},
 ) {
     val s = state.settings
     Column(modifier.fillMaxSize()) {
@@ -121,18 +119,6 @@ fun SettingsScreen(
             Text(
                 "Mit demselben Modell kann eine fertige Teilübersetzung sofort als finale Übersetzung übernommen werden. " +
                     "Ein Qualitätsmodell (z. B. MiLMMT-46 4B) übersetzt am Satzende neu und ist dadurch langsamer.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Toggle("Mehrdeutige Wörter verwenden", s.useAmbiguousWords) { v -> onChange { it.copy(useAmbiguousWords = v) } }
-            val words = remember(s.ambiguousWords) { AmbiguousWords.parse(s.ambiguousWords).size }
-            OutlinedButton(onClick = onEditWords, modifier = Modifier.fillMaxWidth()) {
-                Text(if (words == 0) "Mehrdeutige Wörter eintragen" else "Mehrdeutige Wörter bearbeiten ($words)")
-            }
-            Text(
-                "Wörter mit mehreren Bedeutungen in Deutsch, Englisch, Französisch, Italienisch, Spanisch und Portugiesisch – " +
-                    "eine mitgelieferte Sammlung, die du ändern und ergänzen kannst. Steht ein Hinweiswort im Satz, gibt die App " +
-                    "dem Modell die Bedeutung vor und prüft sie; sonst entscheidet das Modell und die App zeigt unter der " +
-                    "Übersetzung, welche Bedeutung es genommen hat. Antippen wechselt sie.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
@@ -187,7 +173,6 @@ fun SettingsScreen(
             Stepper("Threads Spracherkennung", s.asrThreads, 1..6, 1, "") { v -> onChange { it.copy(asrThreads = v) } }
             Text(
                 "Threads gelten nach einem Neustart der App, ein Wechsel des Rechenwerks sofort. " +
-                    "Schweizerdeutsch (Whisper) nutzt so viele Threads wie die Übersetzung, mindestens 4. " +
                     "Der Benchmark misst jedes Modell auf CPU, GPU und NPU.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

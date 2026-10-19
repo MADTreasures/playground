@@ -7,9 +7,7 @@ import ch.madtreasures.fluency.core.Language
 import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.engine.asr.SherpaVad
 import ch.madtreasures.fluency.engine.audio.MicrophoneSource
-import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.engine.llm.TranslationEngine.Role
-import ch.madtreasures.fluency.engine.llm.WordUse
 import ch.madtreasures.fluency.models.ModelCatalog
 import ch.madtreasures.fluency.models.ModelKind
 import ch.madtreasures.fluency.pipeline.LivePipeline
@@ -58,9 +56,6 @@ abstract class PipelineHost(protected val c: AppContainer) : ViewModel() {
     protected val localError = MutableStateFlow<String?>(null)
     private var pipeline: LivePipeline? = null
     private val pipelineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-    /** meanings of ambiguous words chosen by tapping in this conversation: entry key → meaning */
-    private val wordChoices = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
     protected fun lang(code: String): Language? = if (code == AUTO) null else Languages.byCode(code)
 
@@ -117,7 +112,6 @@ abstract class PipelineHost(protected val c: AppContainer) : ViewModel() {
                     scope = pipelineScope,
                     state = pipelineState,
                     speakEnabled = { speakEnabled() },
-                    wordChoices = { HashMap(wordChoices) },
                 )
                 pipeline = p
                 p.start()
@@ -158,36 +152,6 @@ abstract class PipelineHost(protected val c: AppContainer) : ViewModel() {
     fun clear() {
         pipelineState.update { s -> s.copy(utterances = s.utterances.filter { !it.final }, error = null) }
         localError.value = null
-        wordChoices.clear()
-    }
-
-    /**
-     * The user tapped another meaning of an ambiguous word in [u]: [u] is translated again with it,
-     * and later sentences of this conversation without a hint word use it too.
-     */
-    fun chooseMeaning(u: Utterance, use: WordUse, index: Int) {
-        // (the meaning the model took can be tapped too: then it is given and remembered)
-        if (!use.switchable || (use.chosen && index == use.meaningIndex)) return
-        wordChoices[use.key] = index
-        viewModelScope.launch {
-            val before = pipelineState.value.utterances.lastOrNull { it.id < u.id && it.final && it.sourceText.isNotBlank() }
-            val previous = listOfNotNull(before?.sourceText, before?.translation?.takeIf { it.isNotBlank() })
-            runCatching {
-                c.translationEngine.translate(
-                    TranslationEngine.Request(
-                        u.sourceText, u.source, u.target, Role.FINAL,
-                        previousTexts = previous, wordChoices = HashMap(wordChoices), forcedWords = mapOf(use.key to index),
-                    ),
-                )
-            }.onSuccess { r ->
-                if (r.cancelled) return@onSuccess
-                pipelineState.update { s ->
-                    s.copy(utterances = s.utterances.map { if (it.id == u.id) it.copy(translation = r.text, words = r.words) else it })
-                }
-                // the listener hears the corrected sentence (not while recording: the microphone would hear it)
-                if (speakEnabled() && !isRunning && r.text.isNotBlank()) runCatching { c.speaker.speak(r.text, u.target) }
-            }.onFailure { e -> localError.value = e.message ?: e.javaClass.simpleName }
-        }
     }
 
     override fun onCleared() {

@@ -7,7 +7,6 @@ import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.core.Latency
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.engine.llm.TranslationEngine.Role
-import ch.madtreasures.fluency.engine.llm.WordUse
 import ch.madtreasures.fluency.models.ModelKind
 import ch.madtreasures.fluency.settings.AUTO
 import kotlinx.coroutines.CancellationException
@@ -38,8 +37,6 @@ data class TextUiState(
     val selectedModel: String = "",
     val translateWhileTyping: Boolean = true,
     val showLatency: Boolean = true,
-    /** the listed ambiguous words in the text and the meaning each got */
-    val words: List<WordUse> = emptyList(),
 )
 
 class TextViewModel(private val c: AppContainer) : ViewModel() {
@@ -52,9 +49,6 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
         val detectedSource: String? = null,
         val error: String? = null,
         val translateWhileTyping: Boolean = true,
-        val words: List<WordUse> = emptyList(),
-        /** meanings chosen by tapping for this text: entry key → meaning (kept until the text is cleared) */
-        val forcedWords: Map<String, Int> = emptyMap(),
     )
 
     private val local = MutableStateFlow(Local())
@@ -67,7 +61,6 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
             detectedSource = l.detectedSource, error = l.error,
             models = c.modelManager.installed(ModelKind.TRANSLATION).map { ModelOption(it.id, it.name) },
             selectedModel = s.textModelId, translateWhileTyping = l.translateWhileTyping, showLatency = s.showLatency,
-            words = l.words,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TextUiState())
 
@@ -84,7 +77,7 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
             val s = c.settings
             val text = local.value.input
             if (text.isBlank()) {
-                local.update { it.copy(output = "", latency = null, error = null, translating = false, words = emptyList()) }
+                local.update { it.copy(output = "", latency = null, error = null, translating = false) }
                 return@launch
             }
             val target = Languages.byCode(s.textTarget) ?: return@launch
@@ -93,8 +86,7 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
             val t0 = System.nanoTime()
             try {
                 val forced = s.textModelId.ifEmpty { null }?.takeIf { role == Role.TEXT }
-                val req = TranslationEngine.Request(text, source, target, role, forced, forcedWords = local.value.forcedWords)
-                val res = c.translationEngine.translate(req) { partial ->
+                val res = c.translationEngine.translate(TranslationEngine.Request(text, source, target, role, forced)) { partial ->
                     local.update { it.copy(output = partial) }
                 }
                 if (!res.cancelled) {
@@ -107,7 +99,6 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
                             ),
                             modelName = res.modelName,
                             detectedSource = if (source == null) res.sourceUsed?.nameDe else null,
-                            words = onePerWord(res.words),
                         )
                     }
                 }
@@ -129,22 +120,8 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
 
     fun clear() {
         cancel()
-        local.update { it.copy(input = "", output = "", latency = null, error = null, words = emptyList(), forcedWords = emptyMap()) }
+        local.update { it.copy(input = "", output = "", latency = null, error = null) }
     }
-
-    /**
-     * The user tapped another meaning of an ambiguous word: the text is translated again, with this
-     * meaning wherever the word occurs in it.
-     */
-    fun chooseMeaning(use: WordUse, index: Int) {
-        if (!use.switchable || (use.chosen && index == use.meaningIndex)) return
-        local.update { it.copy(forcedWords = it.forcedWords + (use.key to index)) }
-        translate(role = Role.TEXT)
-    }
-
-    /** a word in several sentences of the text: shown once, with the result that most needs a look */
-    private fun onePerWord(words: List<WordUse>): List<WordUse> =
-        words.groupBy { Triple(it.key, it.from.lowercase(), it.meaningIndex) }.values.map { same -> same.maxBy { it.status.ordinal } }
 
     fun setSource(code: String) {
         c.settingsRepository.update { it.copy(textSource = code) }
@@ -160,7 +137,7 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
         val st = ui.value
         if (st.source == AUTO) return
         c.settingsRepository.update { it.copy(textSource = it.textTarget, textTarget = it.textSource) }
-        local.update { it.copy(input = st.output.ifBlank { it.input }, output = "", words = emptyList()) }
+        local.update { it.copy(input = st.output.ifBlank { it.input }, output = "") }
         retranslate()
     }
 
