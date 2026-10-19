@@ -10,9 +10,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import ch.madtreasures.fluency.FluencyBottomBar
 import ch.madtreasures.fluency.Tab
 import ch.madtreasures.fluency.bench.AsrBench
@@ -40,11 +42,18 @@ import ch.madtreasures.fluency.ui.models.ModelsUiState
 import ch.madtreasures.fluency.ui.settings.AccelUi
 import ch.madtreasures.fluency.ui.settings.SettingsScreen
 import ch.madtreasures.fluency.ui.settings.SettingsUiState
+import ch.madtreasures.fluency.ui.settings.WordListActions
+import ch.madtreasures.fluency.ui.settings.WordListEntry
+import ch.madtreasures.fluency.ui.settings.WordListScreen
+import ch.madtreasures.fluency.ui.settings.WordListUiState
+import ch.madtreasures.fluency.ui.settings.WordListsScreen
 import ch.madtreasures.fluency.ui.text.ModelOption
 import ch.madtreasures.fluency.ui.text.TextActions
 import ch.madtreasures.fluency.ui.text.TextScreen
 import ch.madtreasures.fluency.ui.text.TextUiState
 import ch.madtreasures.fluency.ui.theme.FluencyTheme
+import ch.madtreasures.fluency.words.WordGroupStore
+import ch.madtreasures.fluency.words.WordGroups
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -94,10 +103,38 @@ class ScreenshotTest {
         Utterance(3, 0, de, en, "Kannst du mir sagen, wann der nächste Zug", "Can you tell me when the next train", false),
     )
 
+    /** the start list of the app, as on a new phone */
+    private val englishGroups by lazy { WordGroups.parse(File("src/main/assets/words/en.txt").readText()) }
+
+    /** two sentences with an ambiguous word, translated with the wrong meaning */
+    private val ambiguous = listOf(
+        Utterance(11, 0, de, en, "Wir haben uns im Park auf eine Bank gesetzt.", "We sat down on a bank in the park.", true,
+            Latency(asrMs = 302, mtMs = 0, totalMs = 688, reusedPartial = true)),
+        Utterance(12, 0, de, en, "Ich habe deine Nachrichten noch nicht gelesen.", "I haven't read your news yet.", true,
+            Latency(asrMs = 288, mtMs = 0, totalMs = 645, reusedPartial = true)),
+        Utterance(13, 0, de, en, "Schreib mir, wenn du", "Write to me when you", false),
+    )
+
+    private fun liveWithWords() = LiveUiState(
+        source = "de", target = "en", running = true, speechActive = true, level = 0.7f,
+        utterances = listOf(utterances[0]) + ambiguous,
+        swaps = ambiguous.associate { u -> u.id to WordGroups.swaps(u.translation, u.sourceText, englishGroups) },
+    )
+
     @Test fun live() = shoot("01_live") {
-        Framed(Tab.LIVE) {
-            LiveScreen(LiveUiState(source = "de", target = "en", running = true, speechActive = true, level = 0.7f, utterances = utterances), LiveActions())
-        }
+        Framed(Tab.LIVE) { LiveScreen(liveWithWords(), LiveActions()) }
+    }
+
+    /** the finger rests on "bank → bench": the word to be replaced is marked */
+    @Test fun liveWordPreview() = shoot(
+        "10_word_preview",
+        before = {
+            compose.onNodeWithContentDescription("„bank“ durch „bench“ ersetzen").performTouchInput { down(center) }
+            // in a scrolling list the press shows after the tap timeout
+            compose.mainClock.advanceTimeBy(500)
+        },
+    ) {
+        Framed(Tab.LIVE) { LiveScreen(liveWithWords(), LiveActions()) }
     }
 
     @Test fun liveDark() = shoot("02_live_dark", dark = true) {
@@ -191,5 +228,18 @@ class ScreenshotTest {
 
     @Test fun settingsGpu() = shoot("09_settings_gpu", before = { compose.onNodeWithText("Threads Übersetzung").performScrollTo() }) {
         Framed(Tab.SETTINGS) { SettingsScreen(settingsState, onChange = {}, onBenchmark = {}) }
+    }
+
+    private val store by lazy { WordGroupStore(File("build/tmp/screenshot-words").apply { deleteRecursively() }) { File("src/main/assets/words/$it.txt").takeIf(File::exists)?.readText() } }
+
+    @Test fun wordLists() = shoot("11_word_lists") {
+        val entries = WordGroupStore.languages.map { WordListEntry(it.code, it.nameDe, store.groups(it.code).size, false) }
+        Framed(Tab.SETTINGS) { WordListsScreen(entries, onOpen = {}, onBack = {}) }
+    }
+
+    @Test fun wordList() = shoot("12_word_list") {
+        Framed(Tab.SETTINGS) {
+            WordListScreen(WordListUiState("en", "Englisch", store.groups("en"), changed = false, hasDefaults = true), WordListActions())
+        }
     }
 }

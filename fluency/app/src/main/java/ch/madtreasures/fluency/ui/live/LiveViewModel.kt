@@ -15,6 +15,8 @@ import ch.madtreasures.fluency.pipeline.PipelineState
 import ch.madtreasures.fluency.pipeline.SileroDetector
 import ch.madtreasures.fluency.pipeline.Utterance
 import ch.madtreasures.fluency.settings.AUTO
+import ch.madtreasures.fluency.words.WordGroups
+import ch.madtreasures.fluency.words.WordSwap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,11 +25,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 data class LiveUiState(
     val source: String = "de",
@@ -37,6 +43,8 @@ data class LiveUiState(
     val speechActive: Boolean = false,
     val level: Float = 0f,
     val utterances: List<Utterance> = emptyList(),
+    /** utterance id → buttons that replace words in its translation */
+    val swaps: Map<Long, List<WordSwap>> = emptyMap(),
     val speak: Boolean = false,
     val showLatency: Boolean = true,
     val keepScreenOn: Boolean = true,
@@ -56,6 +64,35 @@ abstract class PipelineHost(protected val c: AppContainer) : ViewModel() {
     protected val localError = MutableStateFlow<String?>(null)
     private var pipeline: LivePipeline? = null
     private val pipelineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** utterance id → (what it was computed for, replacements): finished utterances do not change */
+    private val swapCache = ConcurrentHashMap<Long, Pair<String, List<WordSwap>>>()
+
+    /** the replacements under the finished translations (see [WordGroups]), per utterance */
+    protected val swaps: StateFlow<Map<Long, List<WordSwap>>> = combine(
+        pipelineState.map { it.utterances }.distinctUntilChanged(),
+        c.wordGroups.changes,
+        c.settingsRepository.settings.map { it.showWordSwaps }.distinctUntilChanged(),
+    ) { utterances, version, on -> if (on) swapsOf(utterances, version) else emptyMap() }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    private fun swapsOf(utterances: List<Utterance>, version: Int): Map<Long, List<WordSwap>> {
+        val out = HashMap<Long, List<WordSwap>>()
+        for (u in utterances) {
+            if (!u.final || u.error != null || u.translation.isBlank()) continue
+            val key = "$version|${u.target.code}|${u.sourceText}|${u.translation}"
+            val cached = swapCache[u.id]
+            out[u.id] = if (cached?.first == key) {
+                cached.second
+            } else {
+                runCatching { c.wordGroups.swaps(u.translation, u.sourceText, u.target) }.getOrDefault(emptyList())
+                    .also { swapCache[u.id] = key to it }
+            }
+        }
+        swapCache.keys.retainAll(out.keys)
+        return out
+    }
 
     protected fun lang(code: String): Language? = if (code == AUTO) null else Languages.byCode(code)
 
@@ -154,6 +191,17 @@ abstract class PipelineHost(protected val c: AppContainer) : ViewModel() {
         localError.value = null
     }
 
+    /** replaces a word in the translation of [u] by another one of its word list (text only, no new translation) */
+    fun replaceWord(u: Utterance, s: WordSwap) {
+        pipelineState.update { st ->
+            st.copy(
+                utterances = st.utterances.map { x ->
+                    if (x.id == u.id && x.final) WordGroups.apply(x.translation, s)?.let { x.copy(translation = it) } ?: x else x
+                },
+            )
+        }
+    }
+
     override fun onCleared() {
         pipeline?.cancel()
         pipeline = null
@@ -164,8 +212,8 @@ abstract class PipelineHost(protected val c: AppContainer) : ViewModel() {
 class LiveViewModel(c: AppContainer) : PipelineHost(c) {
 
     val ui: StateFlow<LiveUiState> = combine(
-        pipelineState, c.settingsRepository.settings, c.modelManager.states, preparing, localError,
-    ) { p, s, _, prep, err ->
+        pipelineState, c.settingsRepository.settings, c.modelManager.states, combine(preparing, localError, ::Pair), swaps,
+    ) { p, s, _, (prep, err), sw ->
         val hasMt = c.modelManager.installed(ModelKind.TRANSLATION).isNotEmpty()
         val hasAsr = c.modelManager.installed(ModelKind.ASR).isNotEmpty()
         LiveUiState(
@@ -176,6 +224,7 @@ class LiveViewModel(c: AppContainer) : PipelineHost(c) {
             speechActive = p.speechActive,
             level = p.level,
             utterances = p.utterances,
+            swaps = sw,
             speak = s.speakLive,
             showLatency = s.showLatency,
             keepScreenOn = s.keepScreenOn,

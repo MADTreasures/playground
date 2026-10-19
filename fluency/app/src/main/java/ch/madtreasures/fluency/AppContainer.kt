@@ -27,6 +27,8 @@ import ch.madtreasures.fluency.pipeline.EngineTranslator
 import ch.madtreasures.fluency.settings.AppSettings
 import ch.madtreasures.fluency.settings.SettingsRepository
 import ch.madtreasures.fluency.settings.SettingsRepository.Companion.fluencyDataStore
+import ch.madtreasures.fluency.words.LegacyWords
+import ch.madtreasures.fluency.words.WordGroupStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -101,6 +103,27 @@ class AppContainer(val app: Application) {
     }
 
     val speaker by lazy { RoutingSpeaker(androidTts, piperSpeaker) { settings.ttsEngine == "piper" } }
+
+    /** the word lists for replacing words under a translation; start lists in assets/words */
+    val wordGroups = WordGroupStore(File(app.filesDir, "words")) { code ->
+        runCatching { app.assets.open("words/$code.txt").use { it.readBytes().decodeToString() } }.getOrNull()
+    }
+
+    init {
+        appScope.launch(Dispatchers.IO) {
+            // words the user added to the list of 1.5.0/1.6.0 go into the new word lists
+            runCatching {
+                settingsRepository.takeOldWordList()?.let { old ->
+                    LegacyWords.groups(old).forEach { (code, groups) -> wordGroups.add(code, groups) }
+                }
+            }
+            // read the lists of the chosen target languages now, not at the first translation
+            runCatching {
+                val s = settingsRepository.loaded()
+                setOf(s.liveTarget, s.textTarget, s.convLangA, s.convLangB).forEach { wordGroups.groups(it) }
+            }
+        }
+    }
 
     private fun buildFingerprint(): String {
         val pm = app.packageManager

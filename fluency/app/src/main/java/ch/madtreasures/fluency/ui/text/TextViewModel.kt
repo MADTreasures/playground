@@ -9,6 +9,8 @@ import ch.madtreasures.fluency.engine.llm.TranslationEngine
 import ch.madtreasures.fluency.engine.llm.TranslationEngine.Role
 import ch.madtreasures.fluency.models.ModelKind
 import ch.madtreasures.fluency.settings.AUTO
+import ch.madtreasures.fluency.words.WordGroups
+import ch.madtreasures.fluency.words.WordSwap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -37,6 +39,8 @@ data class TextUiState(
     val selectedModel: String = "",
     val translateWhileTyping: Boolean = true,
     val showLatency: Boolean = true,
+    /** buttons that replace words in [output] */
+    val swaps: List<WordSwap> = emptyList(),
 )
 
 class TextViewModel(private val c: AppContainer) : ViewModel() {
@@ -54,13 +58,17 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
     private val local = MutableStateFlow(Local())
     private var job: Job? = null
 
-    val ui: StateFlow<TextUiState> = combine(local, c.settingsRepository.settings, c.modelManager.states) { l, s, _ ->
+    /** (what they were computed for, replacements) */
+    private var swapCache: Pair<String, List<WordSwap>>? = null
+
+    val ui: StateFlow<TextUiState> = combine(local, c.settingsRepository.settings, c.modelManager.states, c.wordGroups.changes) { l, s, _, version ->
         TextUiState(
             source = s.textSource, target = s.textTarget, input = l.input, output = l.output,
             translating = l.translating, latency = l.latency, modelName = l.modelName,
             detectedSource = l.detectedSource, error = l.error,
             models = c.modelManager.installed(ModelKind.TRANSLATION).map { ModelOption(it.id, it.name) },
             selectedModel = s.textModelId, translateWhileTyping = l.translateWhileTyping, showLatency = s.showLatency,
+            swaps = if (s.showWordSwaps && !l.translating) swapsOf(l, s.textTarget, version) else emptyList(),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TextUiState())
 
@@ -110,6 +118,20 @@ class TextViewModel(private val c: AppContainer) : ViewModel() {
                 local.update { it.copy(translating = false) }
             }
         }
+    }
+
+    private fun swapsOf(l: Local, target: String, version: Int): List<WordSwap> {
+        val language = Languages.byCode(target) ?: return emptyList()
+        if (l.output.isBlank()) return emptyList()
+        val key = "$version|$target|${l.input}|${l.output}"
+        swapCache?.let { if (it.first == key) return it.second }
+        return runCatching { c.wordGroups.swaps(l.output, l.input, language) }.getOrDefault(emptyList())
+            .also { swapCache = key to it }
+    }
+
+    /** replaces a word of the translation by another one of its word list (text only, no new translation) */
+    fun replaceWord(s: WordSwap) {
+        local.update { l -> WordGroups.apply(l.output, s)?.let { l.copy(output = it) } ?: l }
     }
 
     fun cancel() {

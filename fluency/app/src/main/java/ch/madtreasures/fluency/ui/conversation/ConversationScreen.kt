@@ -38,7 +38,11 @@ import ch.madtreasures.fluency.pipeline.Utterance
 import ch.madtreasures.fluency.ui.components.LanguagePicker
 import ch.madtreasures.fluency.ui.components.LatencyRow
 import ch.madtreasures.fluency.ui.components.MicButton
+import ch.madtreasures.fluency.ui.components.SwapChips
+import ch.madtreasures.fluency.ui.components.highlighted
+import ch.madtreasures.fluency.ui.components.rememberSwapHighlight
 import ch.madtreasures.fluency.ui.theme.TranslationTextStyle
+import ch.madtreasures.fluency.words.WordSwap
 
 data class ConversationUiState(
     val langA: String = "de-CH",
@@ -49,6 +53,8 @@ data class ConversationUiState(
     val speechActive: Boolean = false,
     val level: Float = 0f,
     val utterances: List<Utterance> = emptyList(),
+    /** utterance id → buttons that replace words in its translation */
+    val swaps: Map<Long, List<WordSwap>> = emptyMap(),
     val speak: Boolean = true,
     val showLatency: Boolean = true,
     val keepScreenOn: Boolean = true,
@@ -63,6 +69,7 @@ class ConversationActions(
     val onToggleSpeak: () -> Unit = {},
     val onClear: () -> Unit = {},
     val onClose: () -> Unit = {},
+    val onReplaceWord: (Utterance, WordSwap) -> Unit = { _, _ -> },
 )
 
 /**
@@ -74,7 +81,7 @@ fun ConversationScreen(state: ConversationUiState, actions: ConversationActions,
     Column(modifier.fillMaxSize()) {
         ConversationHalf(
             me = 1, state = state, myLang = state.langB, onLang = actions.onLangB,
-            onMic = { actions.onMic(1) },
+            onMic = { actions.onMic(1) }, onReplaceWord = actions.onReplaceWord,
             modifier = Modifier.weight(1f).rotate(180f).background(MaterialTheme.colorScheme.surfaceContainerLow),
         )
         Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest) {
@@ -102,7 +109,7 @@ fun ConversationScreen(state: ConversationUiState, actions: ConversationActions,
         HorizontalDivider()
         ConversationHalf(
             me = 0, state = state, myLang = state.langA, onLang = actions.onLangA,
-            onMic = { actions.onMic(0) },
+            onMic = { actions.onMic(0) }, onReplaceWord = actions.onReplaceWord,
             modifier = Modifier.weight(1f),
         )
     }
@@ -115,6 +122,7 @@ private fun ConversationHalf(
     myLang: String,
     onLang: (String) -> Unit,
     onMic: () -> Unit,
+    onReplaceWord: (Utterance, WordSwap) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -134,7 +142,12 @@ private fun ConversationHalf(
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(state.utterances, key = { it.id }) { u -> Bubble(u, mine = u.speaker == me, showLatency = state.showLatency && me == 0) }
+            items(state.utterances, key = { it.id }) { u ->
+                Bubble(
+                    u, mine = u.speaker == me, showLatency = state.showLatency && me == 0,
+                    swaps = state.swaps[u.id].orEmpty(), onReplace = { s -> onReplaceWord(u, s) },
+                )
+            }
         }
         Box(Modifier.fillMaxWidth().padding(4.dp), contentAlignment = Alignment.Center) {
             MicButton(
@@ -149,7 +162,10 @@ private fun ConversationHalf(
 }
 
 @Composable
-private fun Bubble(u: Utterance, mine: Boolean, showLatency: Boolean) {
+private fun Bubble(u: Utterance, mine: Boolean, showLatency: Boolean, swaps: List<WordSwap>, onReplace: (WordSwap) -> Unit) {
+    val highlight = rememberSwapHighlight()
+    // the replacement buttons go right under the translation
+    val chips = @Composable { if (u.final) SwapChips(swaps, highlight, onReplace) }
     Box(Modifier.fillMaxWidth(), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
         Surface(
             shape = RoundedCornerShape(18.dp),
@@ -161,11 +177,17 @@ private fun Bubble(u: Utterance, mine: Boolean, showLatency: Boolean) {
                     // what I said, plus a small preview of what the other person sees
                     Text(u.sourceText.ifBlank { "…" }, style = MaterialTheme.typography.bodyLarge)
                     if (u.translation.isNotBlank()) {
-                        Text(u.translation, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            highlighted(u.translation, highlight),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        chips()
                     }
                 } else {
                     // what the other person said, in my language
-                    Text(u.translation.ifBlank { "…" }, style = TranslationTextStyle)
+                    Text(highlighted(u.translation.ifBlank { "…" }, highlight), style = TranslationTextStyle)
+                    chips()
                     if (u.sourceText.isNotBlank()) {
                         Text(u.sourceText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }

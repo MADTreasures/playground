@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.DropdownMenu
@@ -98,6 +99,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onRemeasure: () -> Unit = {},
     onUnblock: (Processor) -> Unit = {},
+    onOpenWords: () -> Unit = {},
 ) {
     val s = state.settings
     Column(modifier.fillMaxSize()) {
@@ -121,6 +123,19 @@ fun SettingsScreen(
                     "Ein Qualitätsmodell (z. B. MiLMMT-46 4B) übersetzt am Satzende neu und ist dadurch langsamer.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            SectionTitle("Doppeldeutige Wörter")
+            Toggle("Wörter zum Ersetzen unter der Übersetzung", s.showWordSwaps) { v -> onChange { it.copy(showWordSwaps = v) } }
+            Text(
+                "Steht in einer Übersetzung ein Wort aus der Liste der Zielsprache, erscheint darunter ein Knopf, z. B. " +
+                    "„news → messages“. Finger drauf: das Wort leuchtet auf. Loslassen: es wird ersetzt. Das Modell " +
+                    "übersetzt dabei nicht neu, nur das Wort wird ausgetauscht.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = onOpenWords, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                Text("Wortlisten ansehen und bearbeiten", Modifier.weight(1f))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
+            }
 
             SectionTitle("Spracherkennung")
             Choice(

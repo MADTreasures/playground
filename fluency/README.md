@@ -6,18 +6,25 @@ Android-App (Kotlin, Jetpack Compose, Material 3) für das **Samsung Galaxy S26 
 Das Internet wird nur für den einmaligen Modell-Download gebraucht, danach funktioniert alles im
 Flugmodus.
 
-| Live | Gespräch | Text | Modelle | Benchmark |
+| Live | Wort ersetzen (Finger auf dem Knopf) | Wortliste Englisch | Gespräch | Text |
 |---|---|---|---|---|
-| ![](docs/screenshots/01_live.png) | ![](docs/screenshots/04_conversation.png) | ![](docs/screenshots/05_text.png) | ![](docs/screenshots/06_models.png) | ![](docs/screenshots/07_benchmark.png) |
+| ![](docs/screenshots/01_live.png) | ![](docs/screenshots/10_word_preview.png) | ![](docs/screenshots/12_word_list.png) | ![](docs/screenshots/04_conversation.png) | ![](docs/screenshots/05_text.png) |
 
 Die Screenshots sind Robolectric-Renderings (`ScreenshotTest`). Die Texte und Zahlen darin stammen
-aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Messungen**.
+aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Messungen**; die zwei
+falschen Übersetzungen im Live-Bild („bank“, „news“) sind von Hand gesetzt, um die Knöpfe zu zeigen.
+
+**Version 1.7.0 baut auf 1.2.0 auf.** Die Änderungen von 1.3.0 bis 1.6.0 sind zurückgenommen:
+kontextbezogene Übersetzung, Kontextdokument, das Modul „Mehrdeutige Wörter“ (das dem Modell
+Bedeutungen vorgab) und die schnellere Schweizerdeutsch-Erkennung. Die Übersetzung läuft wieder
+genau wie in 1.2.0. Neu ist nur eines: **doppeldeutige Wörter unter der Übersetzung ersetzen**
+(Funktion 8).
 
 ## Downloads
 
-- **Fertige App**: [`dist/Fluency-1.2.0.apk`](../dist/Fluency-1.2.0.apk) (arm64, signiert). Sie
-  installiert sich als Update über 1.0.0/1.1.0, die heruntergeladenen Modelle bleiben erhalten.
-- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.2.0.zip`](../dist/Fluency-AndroidStudio-1.2.0.zip)
+- **Fertige App**: [`dist/Fluency-1.7.0.apk`](../dist/Fluency-1.7.0.apk) (arm64, signiert). Sie
+  installiert sich als Update über 1.0.0 bis 1.6.0, die heruntergeladenen Modelle bleiben erhalten.
+- **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.7.0.zip`](../dist/Fluency-AndroidStudio-1.7.0.zip)
   (enthält alle nativen Quellen und die fertig gebauten NPU-Bibliotheken, keine Submodule)
 
 ## In Android Studio bauen
@@ -79,6 +86,36 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
    - Die Latenzzeile jeder Übersetzung zeigt, wo sie gerechnet wurde („· NPU“, „· GPU“, „· CPU“). Der
      Benchmark misst jedes Modell auf allen dreien.
    - Spracherkennung (ONNX Runtime, whisper.cpp) und Sprachausgabe laufen immer auf der CPU.
+8. **Doppeldeutige Wörter ersetzen**: Steht in einer fertigen Übersetzung ein Wort aus der Wortliste
+   der Zielsprache, erscheint darunter ein Knopf, z. B. „news → messages · Mitteilungen“ (Live,
+   Gespräch und Text).
+   - **Finger auf den Knopf**: Das Wort, das ersetzt würde, wird in der Übersetzung gelb markiert,
+     fett und unterstrichen; der Knopf leuchtet in derselben Farbe.
+   - **Loslassen**: Das Wort wird ersetzt, das neue Wort leuchtet kurz auf. **Finger vom Knopf
+     wegziehen**: Es passiert nichts.
+   - Danach steht dort „messages → news“; nochmals drücken macht es rückgängig. Kommt ein Wort
+     mehrmals vor, gibt es einen Knopf pro Stelle („bank (2.) → bench“).
+   - Es wird nur Text ausgetauscht, das Modell rechnet nicht neu. Kopieren und Vorlesen nehmen den
+     geänderten Text. Gross am Satzanfang bleibt gross, „Deutsch (Schweiz)“ bekommt „ss“. Artikel
+     und Endungen passt die App nicht an („der Bank“ → „der Ufer“); dafür kann man auch ganze
+     Ausdrücke eintragen.
+   - **Wortlisten**: Optionen → „Doppeldeutige Wörter“ → pro Sprache ein eigenes Fenster und eine
+     eigene Textdatei (`files/words/en.txt` usw.; Deutsch (Schweiz) nutzt die deutsche Liste).
+     Ansehen, suchen, Gruppen hinzufügen, ändern und löschen, die ganze Datei als Text bearbeiten,
+     exportieren, importieren (ersetzen oder ergänzen) und zur Startliste zurück.
+   - Eine **Gruppe** sind Wörter einer Sprache, die beim Übersetzen verwechselt werden können, mit
+     ihren Formen und einer Erklärung, z. B. `bench, benches (Sitzbank) | bank, banks (Geldinstitut)
+     < Bank`. Die Formen sind in jedem Wort gleich geordnet, so wird „banks“ zu „benches“. Nach „<“
+     stehen optional Wörter des Originals: Dann erscheint der Knopf nur, wenn eines davon im
+     Originaltext steht (mit Endungen und Umlauten, „Bank“ findet auch „Banken“ und „Bänke“). Ohne
+     diese Angabe bekäme z. B. jedes „time“ einen Knopf „→ weather“.
+   - **Startlisten** für Deutsch (73 Gruppen), Englisch (83), Französisch (101), Italienisch (106),
+     Spanisch (100) und Portugiesisch (107), abgeleitet aus der Sammlung von 1.6.0, mit Mehrzahlformen
+     und deutschen Erklärungen. Solange man eine Liste nicht ändert, kommt sie aus der App; eine
+     spätere Version kann sie also verbessern.
+   - Eigene Wörter aus der Liste „Mehrdeutige Wörter“ von 1.5.0/1.6.0 werden beim ersten Start in die
+     neuen Listen übernommen (die Einträge der mitgelieferten Sammlung sind schon in den Startlisten).
+   - Ausschalten: Optionen → „Wörter zum Ersetzen unter der Übersetzung“.
 
 Sprachen: 54 Einträge (Deutsch, Deutsch (Schweiz), Englisch, Französisch, Italienisch, Spanisch,
 Portugiesisch und alles, was Hy-MT2 und MiLMMT-46 zusätzlich können). Die App wählt automatisch ein
@@ -223,6 +260,16 @@ oder per Umgebungsvariablen `FLUENCY_KEYSTORE`, `FLUENCY_KEYSTORE_PASSWORD`, `FL
 `FLUENCY_KEY_PASSWORD`. Updates müssen mit **demselben Schlüssel** signiert werden (Zertifikat
 SHA-256 `81:05:E7:DE:…:9C:6A`), sonst verweigert Android die Installation über die alte Version.
 
+In einer Cloud-Umgebung, in der Geheimnisse nur Umgebungsvariablen sein können (z. B. Claude Code
+im Web), kommt die Schlüsseldatei selbst als Text in `FLUENCY_KEYSTORE_BASE64`. Der Build schreibt
+sie dann nach `.gradle/signing/` (nicht im Repo, nicht im ZIP). Den Text erzeugt man so:
+
+```
+PowerShell:  [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\pfad\mein.jks")) | Set-Clipboard
+macOS:       base64 -i mein.jks | pbcopy
+Linux:       base64 -w0 mein.jks
+```
+
 Modellkatalog aktualisieren (neue Commits/Hashes von Hugging Face): `python3 -I tools/gen_model_files.py`.
 
 ## Tests
@@ -238,7 +285,7 @@ Tests laufen immer. Erwartete Ordnerstruktur (Standard: `test-models/` im Projek
 `llm/` (die drei GGUF-Dateien), `parakeet-v3/` (encoder/decoder/joiner.int8.onnx, tokens.txt,
 test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_vad_v5.onnx`.
 
-103 Tests in 20 Klassen, alle grün:
+140 Tests in 26 Klassen, alle grün:
 
 - **Logik**: Schweizer Schreibweise, Satz-Segmentierung, Spracherkennung per Stoppwörtern/Schrift,
   Prompt-Formate, Modell-Routing, Katalog (gepinnte URLs, SHA-256), **Downloader** (Fortsetzen nach
@@ -272,7 +319,23 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
     (prüft u. a., dass ein wiederholter Prompt bis auf das letzte Token aus dem KV-Cache kommt).
   - Die echte JNI meldet auf x86 „kein GPU-Backend“ und „kein NPU-Backend“; der Automatikmodus
     bleibt dann auf der CPU.
-- **Robolectric-Screenshots** aller Bildschirme (`docs/screenshots`).
+- **Wortlisten** (Funktion 8):
+  - Dateiformat lesen und schreiben (Formen, Erklärungen mit Klammern, Originalwörter, Kommentare).
+  - Wörter in der Übersetzung finden: nur ganze Wörter („bankrupt“ und „Bankkonto“ nicht), ß = ss,
+    Ausdrücke aus mehreren Wörtern, Apostrophe, Chinesisch ohne Leerzeichen, koreanische Endungen.
+  - Originalwörter mit Endungen und Umlauten („Bänke“, „Banken“, „Schlösser“).
+  - Mehrzahl wird zu Mehrzahl, Grossschreibung am Satzanfang, Grossbuchstaben, deutsche Nomen;
+    „Deutsch (Schweiz)“ schreibt „ss“. Überlappende Wörter (das längere gewinnt), mehrere Stellen,
+    ein Wort in zwei Gruppen.
+  - Speicher: eine Datei pro Sprache, Startliste bis zur ersten Änderung, zurücksetzen,
+    Deutsch (Schweiz) = Deutsch, Ergänzen ohne Doppelte, Text speichern.
+  - Übernahme der eigenen Wörter aus 1.5.0/1.6.0.
+  - Startlisten: jede Zeile lesbar, keine doppelte Gruppe, kein „ß“; **jede Form jedes Wortes wird
+    gefunden und bietet die anderen Wörter an**.
+  - Bedienung (Robolectric): Gruppe ändern, neue Gruppe (erst ab zwei Wörtern speicherbar), löschen;
+    am Knopf Finger drauf → Wort markiert, wegziehen → nichts ersetzt, tippen → ersetzt.
+- **Robolectric-Screenshots** aller Bildschirme (`docs/screenshots`), dazu die Wortlisten
+  (`11_word_lists`, `12_word_list`) und der gedrückte Knopf mit markiertem Wort (`10_word_preview`).
 
 Messwerte auf dem Container (4 vCPU x86, nur Korrektheitsreferenz, das Handy ist schneller):
 Hy-MT2 17 Tok/s, MiLMMT-1B 23 Tok/s, MiLMMT-4B 7 Tok/s, Parakeet RTF 0.12. Live-Pipeline vom
@@ -308,6 +371,12 @@ Parakeet-TDT 0.6B v3: 365 ms für 6,6 s Audio (Echtzeitfaktor 0,055).
 ## Was nur auf dem Handy getestet werden kann
 
 - Mikrofon-Aufnahme, Echo/Rückkopplung beim Vorlesen, Android-TTS-Offline-Stimmen.
+- Wie sich das Drücken der Ersetzen-Knöpfe auf dem Handy anfühlt (Markierung erscheint nach ca.
+  0,1 s Fingerdruck, Wegziehen bricht ab), auch im Gesprächsmodus auf dem Kopf; wie oft die
+  Startlisten bei echten Gesprächen einen passenden Knopf zeigen.
+- Export und Import der Wortlisten über die Android-Dateiauswahl.
+- Die Übernahme eigener Wörter aus 1.6.0 mit deinen echten Daten (getestet mit Beispielzeilen) und
+  das Update von 1.6.0 auf 1.7.0 ohne Verlust der Modelle.
 - Foreground-Service-Downloads im Hintergrund, Benachrichtigungen, SAF-Dateiimport.
 - Schweizerdeutsch-Qualität mit echter Mundart (getestet wurde nur Hochdeutsch-Audio) und dessen
   Tempo auf dem Handy.

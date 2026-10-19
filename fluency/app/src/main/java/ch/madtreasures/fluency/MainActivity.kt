@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -29,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -46,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.models.ModelCatalog
 import ch.madtreasures.fluency.models.ModelKind
 import ch.madtreasures.fluency.ui.bench.BenchmarkScreen
@@ -60,6 +63,12 @@ import ch.madtreasures.fluency.ui.models.ModelsActions
 import ch.madtreasures.fluency.ui.models.ModelsScreen
 import ch.madtreasures.fluency.ui.models.ModelsViewModel
 import ch.madtreasures.fluency.ui.settings.AccelUi
+import ch.madtreasures.fluency.ui.settings.ImportDialog
+import ch.madtreasures.fluency.ui.settings.WordListActions
+import ch.madtreasures.fluency.ui.settings.WordListEntry
+import ch.madtreasures.fluency.ui.settings.WordListScreen
+import ch.madtreasures.fluency.ui.settings.WordListUiState
+import ch.madtreasures.fluency.ui.settings.WordListsScreen
 import ch.madtreasures.fluency.ui.settings.SettingsScreen
 import ch.madtreasures.fluency.ui.settings.SettingsUiState
 import ch.madtreasures.fluency.ui.text.ModelOption
@@ -67,7 +76,12 @@ import ch.madtreasures.fluency.ui.text.TextActions
 import ch.madtreasures.fluency.ui.text.TextScreen
 import ch.madtreasures.fluency.ui.text.TextViewModel
 import ch.madtreasures.fluency.ui.theme.FluencyTheme
+import ch.madtreasures.fluency.words.WordGroup
+import ch.madtreasures.fluency.words.WordGroupStore
+import ch.madtreasures.fluency.words.WordGroups
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,6 +105,8 @@ fun FluencyRoot(c: AppContainer) {
     var tab by rememberSaveable { mutableStateOf(Tab.LIVE) }
     var previousTab by rememberSaveable { mutableStateOf(Tab.LIVE) }
     var benchmark by rememberSaveable { mutableStateOf(false) }
+    // word lists in the settings: null = closed, "" = all languages, else the language code
+    var words by rememberSaveable { mutableStateOf<String?>(null) }
     val factory = remember(c) {
         viewModelFactory {
             initializer { LiveViewModel(c) }
@@ -104,6 +120,7 @@ fun FluencyRoot(c: AppContainer) {
     BackHandler(enabled = benchmark || tab != Tab.LIVE) {
         when {
             benchmark -> benchmark = false
+            tab == Tab.SETTINGS && words != null -> words = if (words == "") null else ""
             tab == Tab.CONVERSATION -> tab = previousTab
             else -> tab = Tab.LIVE
         }
@@ -113,6 +130,7 @@ fun FluencyRoot(c: AppContainer) {
             if (!fullScreen) {
                 FluencyBottomBar(tab) { t ->
                     if (t == Tab.CONVERSATION) previousTab = tab
+                    if (t == Tab.SETTINGS && tab == Tab.SETTINGS) words = null
                     tab = t
                 }
             }
@@ -125,7 +143,12 @@ fun FluencyRoot(c: AppContainer) {
                 tab == Tab.CONVERSATION -> ConversationRoute(viewModel(factory = factory), onClose = { tab = previousTab })
                 tab == Tab.TEXT -> TextRoute(viewModel(factory = factory))
                 tab == Tab.MODELS -> ModelsRoute(viewModel(factory = factory), onBenchmark = { benchmark = true })
-                tab == Tab.SETTINGS -> SettingsRoute(c, onBenchmark = { benchmark = true })
+                tab == Tab.SETTINGS && words != null -> WordsRoute(
+                    c, words.orEmpty(),
+                    onOpen = { words = it },
+                    onBack = { words = if (words == "") null else "" },
+                )
+                tab == Tab.SETTINGS -> SettingsRoute(c, onBenchmark = { benchmark = true }, onOpenWords = { words = "" })
             }
         }
     }
@@ -215,6 +238,7 @@ private fun LiveRoute(vm: LiveViewModel, onOpenModels: () -> Unit) {
             onClear = vm::clear,
             onSpeak = vm::speak,
             onCopy = { copy(it.translation) },
+            onReplaceWord = vm::replaceWord,
             onDownloadRecommended = { askNotifications(); vm.downloadRecommended(); onOpenModels() },
             onDismissSetup = vm::dismissSetup,
             onOpenModels = onOpenModels,
@@ -239,6 +263,7 @@ private fun ConversationRoute(vm: ConversationViewModel, onClose: () -> Unit) {
             onToggleSpeak = vm::toggleSpeak,
             onClear = vm::clear,
             onClose = { vm.stop(); onClose() },
+            onReplaceWord = vm::replaceWord,
         ),
     )
 }
@@ -269,6 +294,7 @@ private fun TextRoute(vm: TextViewModel) {
             onSwap = vm::swap,
             onModel = vm::setModel,
             onTypingMode = vm::setTranslateWhileTyping,
+            onReplaceWord = vm::replaceWord,
         ),
     )
 }
@@ -314,7 +340,7 @@ private fun BenchmarkRoute(vm: BenchmarkViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit) {
+private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit, onOpenWords: () -> Unit) {
     val settings by c.settingsRepository.settings.collectAsStateWithLifecycle()
     val states by c.modelManager.states.collectAsStateWithLifecycle()
     val accel by c.translationEngine.accelStatus.collectAsStateWithLifecycle()
@@ -332,5 +358,87 @@ private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit) {
         onBenchmark = onBenchmark,
         onRemeasure = c.translationEngine::remeasure,
         onUnblock = c.translationEngine::unblock,
+        onOpenWords = onOpenWords,
     )
+}
+
+/** the word lists: [code] "" = overview of the languages, else the window of that language */
+@Composable
+private fun WordsRoute(c: AppContainer, code: String, onOpen: (String) -> Unit, onBack: () -> Unit) {
+    val store = c.wordGroups
+    val version by store.changes.collectAsStateWithLifecycle()
+    if (code.isEmpty()) {
+        val entries by produceState(emptyList<WordListEntry>(), version) {
+            value = withContext(Dispatchers.IO) {
+                WordGroupStore.languages.map { l -> WordListEntry(l.code, l.nameDe, store.groups(l.code).size, store.isChanged(l.code)) }
+            }
+        }
+        WordListsScreen(entries, onOpen, onBack)
+        return
+    }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val name = Languages.byCode(code)?.nameDe ?: code
+    val state by produceState(WordListUiState(code, name), code, version) {
+        value = withContext(Dispatchers.IO) {
+            WordListUiState(code, name, store.groups(code), store.isChanged(code), store.hasDefaults(code))
+        }
+    }
+    fun inBackground(done: String? = null, work: () -> Unit) {
+        scope.launch {
+            val error = withContext(Dispatchers.IO) { runCatching(work).exceptionOrNull() }
+            val text = if (error != null) "Fehler: ${error.message ?: error.javaClass.simpleName}" else done
+            if (text != null) Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+        }
+    }
+    var imported by remember { mutableStateOf<List<WordGroup>?>(null) }
+    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        if (uri != null) {
+            inBackground("Datei gespeichert") {
+                context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(store.text(code).toByteArray()) }
+            }
+        }
+    }
+    val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val groups = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)!!.use { WordGroups.parse(it.readBytes().decodeToString()) }
+                    }.getOrDefault(emptyList())
+                }
+                if (groups.isEmpty()) {
+                    Toast.makeText(context, "Keine Wortgruppen in der Datei gefunden", Toast.LENGTH_LONG).show()
+                } else {
+                    imported = groups
+                }
+            }
+        }
+    }
+    WordListScreen(
+        state = state,
+        actions = WordListActions(
+            onBack = onBack,
+            onChange = { change -> inBackground { store.update(code, change) } },
+            onSaveText = { text -> inBackground { store.saveText(code, text) } },
+            onExport = { export.launch("fluency-woerter-$code.txt") },
+            onImport = { import.launch(arrayOf("text/*", "application/octet-stream")) },
+            onReset = { inBackground { store.reset(code) } },
+        ),
+    )
+    imported?.let { groups ->
+        ImportDialog(
+            languageName = name,
+            count = groups.size,
+            onReplace = { imported = null; inBackground("${groups.size} Gruppen übernommen") { store.save(code, groups) } },
+            onAdd = {
+                imported = null
+                scope.launch {
+                    val added = withContext(Dispatchers.IO) { runCatching { store.add(code, groups) }.getOrDefault(0) }
+                    Toast.makeText(context, if (added == 1) "1 neue Gruppe" else "$added neue Gruppen", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismiss = { imported = null },
+        )
+    }
 }

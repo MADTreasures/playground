@@ -48,8 +48,8 @@ android {
         applicationId = "ch.madtreasures.fluency"
         minSdk = 31
         targetSdk = 37
-        versionCode = 3
-        versionName = "1.2.0"
+        versionCode = 8
+        versionName = "1.7.0"
 
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {

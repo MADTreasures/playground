@@ -45,7 +45,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ch.madtreasures.fluency.ui.components.LanguageBar
 import ch.madtreasures.fluency.ui.components.LatencyRow
+import ch.madtreasures.fluency.ui.components.SwapChips
+import ch.madtreasures.fluency.ui.components.highlighted
+import ch.madtreasures.fluency.ui.components.rememberSwapHighlight
 import ch.madtreasures.fluency.ui.theme.TranslationTextStyle
+import ch.madtreasures.fluency.words.WordSwap
 
 class TextActions(
     val onInput: (String) -> Unit = {},
@@ -60,11 +64,13 @@ class TextActions(
     val onSwap: () -> Unit = {},
     val onModel: (String) -> Unit = {},
     val onTypingMode: (Boolean) -> Unit = {},
+    val onReplaceWord: (WordSwap) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextScreen(state: TextUiState, actions: TextActions, modifier: Modifier = Modifier) {
+    val highlight = rememberSwapHighlight()
     Column(modifier.fillMaxSize()) {
         FluencyTopBar(
             title = "Text übersetzen")
@@ -125,8 +131,9 @@ fun TextScreen(state: TextUiState, actions: TextActions, modifier: Modifier = Mo
                             )
                         }
                         SelectionContainer {
-                            Text(state.output.ifEmpty { "…" }, style = TranslationTextStyle, modifier = Modifier.heightIn(min = 40.dp))
+                            Text(highlighted(state.output.ifEmpty { "…" }, highlight), style = TranslationTextStyle, modifier = Modifier.heightIn(min = 40.dp))
                         }
+                        SwapChips(state.swaps, highlight, actions.onReplaceWord, Modifier.padding(top = 4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 if (state.showLatency && state.latency != null && !state.translating) {

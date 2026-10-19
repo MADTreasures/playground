@@ -36,6 +36,7 @@ import ch.madtreasures.fluency.ui.components.LanguageBar
 import ch.madtreasures.fluency.ui.components.MicButton
 import ch.madtreasures.fluency.ui.components.UtteranceCard
 import ch.madtreasures.fluency.ui.components.formatBytes
+import ch.madtreasures.fluency.words.WordSwap
 
 class LiveActions(
     val onStart: () -> Unit = {},
@@ -47,6 +48,8 @@ class LiveActions(
     val onClear: () -> Unit = {},
     val onSpeak: (Utterance) -> Unit = {},
     val onCopy: (Utterance) -> Unit = {},
+    /** a word of the translation replaced by another one of its word list */
+    val onReplaceWord: (Utterance, WordSwap) -> Unit = { _, _ -> },
     val onDownloadRecommended: () -> Unit = {},
     val onDismissSetup: () -> Unit = {},
     val onOpenModels: () -> Unit = {},
@@ -124,6 +127,8 @@ fun LiveScreen(state: LiveUiState, actions: LiveActions, modifier: Modifier = Mo
                             error = u.error,
                             onSpeak = { actions.onSpeak(u) },
                             onCopy = { actions.onCopy(u) },
+                            swaps = state.swaps[u.id].orEmpty(),
+                            onReplace = { s -> actions.onReplaceWord(u, s) },
                         )
                     }
                 }

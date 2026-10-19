@@ -1,0 +1,112 @@
+# Fluency – doppeldeutige Wörter: Portugiesisch (pt)
+# Eine Zeile pro Gruppe: Wörter, die beim Übersetzen verwechselt werden können, getrennt mit „|“.
+# Formen eines Wortes mit Komma, in jedem Wort gleich geordnet (z. B. Einzahl, Mehrzahl).
+# In Klammern eine Erklärung. Nach „<“ optional Wörter des Originaltexts: dann erscheint die
+# Gruppe nur, wenn eines davon im Original steht (Endungen werden mitgefunden, „Bank“ findet „Bänke“).
+advogado, advogados (Anwalt) | abacate, abacates (Avocado) < avocat
+agricultor, agricultores (Landwirt) | peão, peões (Schachfigur) < Bauer
+aluno, alunos (Schüler) | pupila, pupilas (Pupille) < pupil
+andar, andares (Stockwerk) | bastão, bastões (Stab) < Stock
+apartamento, apartamentos (Wohnung) | pneu furado, pneus furados (Reifenpanne) | plano, planos (flach) < flat
+armazém, armazéns (Warenlager) | acampamento, acampamentos (Ferienlager) < Lager
+armário, armários (Schrank (Schweiz)) | caixa, caixas (Kiste) < Kasten
+arroz (Reis) | riso (Lachen) < riso
+asa, asas (Vogel- oder Flugzeugflügel) | piano de cauda, pianos de cauda (Konzertklavier) < Flügel
+baguete, baguetes (Brot) | pauzinhos (Essstäbchen) | varinha, varinhas (Zauberstab) < baguette
+balança, balanças (Waage) | escala, escalas (Massstab) | escama, escamas (Schuppe) < scale
+balcão, balcões (Kundenschalter) | interruptor, interruptores (Lichtschalter) < Schalter
+banco, bancos (Geldinstitut) | margem, margens (Ufer) < bank
+batata, batatas (Kartoffel) | papa, papas (Papst) < papa
+bilhete, bilhetes (Fahrkarte, Eintritt) | multa, multas (Strafzettel) < ticket
+bola, bolas (Spielball) | baile, bailes (Tanzfest) < Ball
+boneca, bonecas (Puppe) | pulso, pulsos (Handgelenk) < muñeca
+caneta (Schreibstift) | pena (Vogelfeder) | penne (Nudeln) < penna
+caneta, canetas (Schreibstift) | aprendiz, aprendizes (Lehrling (Schweiz)) < Stift
+capela, capelas (kleine Kirche) | banda, bandas (Musikgruppe) < Kapelle
+carta, cartas (Brief) | cardápio, cardápios (Speisekarte) < carta
+carta, cartas (Brief) | letra, letras (Buchstabe) < letter
+casca (Baumrinde) | latido (Bellen) < bark
+cauda, caudas (Schwanz) | fila, filas (Warteschlange) | cola, colas (Leim) < cola
+cela, celas (Gefängniszelle) | célula, células (Körperzelle) | celular, celulares (Mobiltelefon) < cell
+chave, chaves (Schlüssel) | tecla, teclas (Taste) | tom, tons (Tonart) < key
+cobertor, cobertores (Bettdecke) | teto, tetos (Zimmerdecke) < Decke
+cobra, cobras (Tier) | fila, filas (Warteschlange) < Schlange
+conta, contas (Rechnung) | nota, notas (Geldschein) | projeto de lei, projetos de lei (Gesetzentwurf) < bill
+corredor, corredores (Flur) | marcha, marchas (beim Auto) | prato, pratos (beim Essen) < Gang
+corredor, corredores (Sportler) | bispo, bispos (Schachfigur) | passadeira, passadeiras (schmaler Teppich) < Läufer
+correio (Post) | cargo (Stelle, Job) < poste
+cura, curas (Heilung) | padre, padres (Pfarrer) < cura
+curso (Lehrgang) | câmbio (Wechselkurs) < Kurs
+cômodo, cômodos (Zimmer) | moeda, moedas (Münze) | peça, peças (Theaterstück) < pièce
+data, datas (Datum) | encontro, encontros (Verabredung) | tâmara, tâmaras (Dattel) < date
+energia (Elektrizität) | rio (grosser Fluss) < Strom
+escada, escadas (Gerät zum Hochsteigen) | chefe, chefes (Chef, Verantwortlicher) < Leiter
+escritório, escritórios (Büro) | secretária, secretárias (Schreibtisch) < bureau
+espuma (Schaum) | mousse (Dessert) | musgo (Moos) < mousse
+expressão, expressões (Wort, Wendung) | impressão, impressões (Gedrucktes) < Ausdruck
+fechadura, fechaduras (Türschloss) | castelo, castelos (Burg, Palast) < Schloss
+feira (Messe, Jahrmarkt) | justo (gerecht) | claro (hell (Haut, Haar)) < fair
+feira, feiras (Ausstellung) | missa, missas (Gottesdienst) < Messe
+foca, focas (Robbe) | vedação, vedações (Dichtung) | selo, selos (Siegel) < seal
+folha, folhas (Laubblatt) | lâmina, lâminas (Klinge) < hoja
+frase, frases (Satz) | sentença, sentenças (Strafe, Urteil) < sentence
+freio, freios (am Fahrzeug) | mutuca, mutucas (Insekt) < Bremse
+futebol (Fussball) | chute (Fusstritt) | cálcio (Kalzium) < calcio
+fósforo, fósforos (Streichholz) | jogo, jogos (Spiel) < match
+gato (männliche Katze) | ressaca (nach zu viel Alkohol) < Kater
+gato, gatos (Katze) | macaco, macacos (Wagenheber) < gato
+geleia (Konfitüre) | engarrafamento (Stau) < jam
+gol, gols (im Sport) | portão, portões (Eingang) < Tor
+gorjeta, gorjetas (Trinkgeld) | dica, dicas (Ratschlag) | ponta, pontas (Spitze) < tip
+guindaste, guindastes (Baukran) | grou, grous (Kranich) < crane
+lentilha, lentilhas (Hülsenfrucht) | lente, lentes (Optik) < Linse
+livro, livros (Buch) | libra, libras (Pfund) < livre
+luz (Licht) | leve (leicht (Gewicht)) < light
+macaco, macacos (Affe) | macacão, macacões (Overall) < mono
+mandíbula, mandíbulas (Knochen) | pinheiro, pinheiros (Nadelbaum) < Kiefer
+mapa, mapas (Landkarte) | cardápio, cardápios (Speisekarte) | cartão, cartões (Bankkarte) < carte
+mensagens (Mitteilungen (Chat, SMS)) | notícias (Neuigkeiten (TV, Radio)) < Nachrichten
+mesa, mesas (Tisch) | tabela, tabelas (Tabelle) < table
+mofo (Pilz) | cavalo branco (weisses Pferd) < Schimmel
+morcego, morcegos (Fledermaus) | taco, tacos (Schläger) < bat
+mudança, mudanças (Wohnungswechsel) | desfile, desfiles (Festumzug) < Umzug
+mudar-se (umziehen (Schweiz)) | refrear (bändigen) < zügeln, zügle, zügelst, zügelt, gezügelt
+multa (Busse) | bem (gut, in Ordnung) | fino (fein) < fine
+mãe, mães (Mama) | porca, porcas (Schraubenmutter) < Mutter
+palma, palmas (Handfläche) | palmeira, palmeiras (Palme) < palm
+parafuso, parafusos (Schraube) | videira, videiras (Weinrebe) < vite
+passaporte, passaportes (Reisepass) | passo, passos (Bergpass) | passe, passes (Zuspiel im Sport) < Pass
+peito, peitos (Brustkorb) | baú, baús (Truhe) < chest
+pena, penas (Vogelfeder) | mola, molas (Sprungfeder) < Feder
+pera, peras (Frucht) | lâmpada, lâmpadas (Glühbirne) < Birne
+pescoço, pescoços (Hals) | pacote, pacotes (Paket) < collo
+planta, plantas (Pflanze) | andar, andares (Stockwerk) | fábrica, fábricas (Fabrik, Werk) < planta
+planta, plantas (Pflanze) | fábrica, fábricas (Werk, Fabrik) < plant
+planta, plantas (Pflanze) | mapa, mapas (Stadtplan) < pianta
+porta-malas (Kofferraum) | tronco, troncos (Baumstamm) | tromba, trombas (Rüssel) < trunk
+prato, pratos (Speise) | tribunal, tribunais (Justiz) < Gericht
+primavera, primaveras (Frühling) | mola, molas (Sprungfeder) | fonte, fontes (Quelle) < spring
+pêssego (Pfirsich) | pesca (Fischen) < pêche, pesca
+pônei, pôneis (kleines Pferd) | franja, franjas (Frisur) < Pony
+quadro, quadros (Gemälde) | tabela, tabelas (Tabelle) < tableau
+quarto, quartos (Zimmer) | câmara, câmaras (Parlamentskammer) < camera
+ramo, ramos (Blumenstrauss) | avestruz, avestruzes (Laufvogel) < Strauss
+rato, ratos (Tier) | mouse (Computermaus) < Maus, mouse, mice, souris
+rocha (Fels, Stein) | rock (Rockmusik) < rock
+saia (Kleidungsstück) | rock (Musik) < Rock
+salto, saltos (am Schuh) | parágrafo, parágrafos (im Text) < Absatz
+selo, selos (Briefmarke) | carimbo, carimbos (Stempel) < stamp
+senhora, senhoras (Frau) | rainha, rainhas (Schachfigur) < Dame
+som (Klang) | argila (Lehm) < Ton
+sorvete (Speiseeis) | espelho (Spiegel) | gelo (gefrorenes Wasser) < glace
+sótão (Dachboden (Schweiz)) | contrapiso (Bodenbelag) < Estrich
+taxa, taxas (Zinssatz) | texugo, texugos (Dachs) < tasso
+torneira, torneiras (Wasserhahn) | galo, galos (Tier) < Hahn
+treinador, treinadores (Trainer) | autocarro, autocarros (Reisebus) < coach
+trem, trens (Eisenbahn) | jogada, jogadas (Spielzug) < Zug
+troco (Wechselgeld) | mudança (Veränderung) < change
+unha, unhas (Fingernagel) | prego, pregos (Metallnagel) < nail
+ventilador, ventiladores (Ventilator) | fã, fãs (Anhänger) < fan
+volante, volantes (Lenkrad) | imposto, impostos (Abgabe an den Staat) < Steuer
+voo, voos (Flug) | roubo, roubos (Diebstahl) < vol
+óculos (Brille) | copos (Trinkgläser) < glasses

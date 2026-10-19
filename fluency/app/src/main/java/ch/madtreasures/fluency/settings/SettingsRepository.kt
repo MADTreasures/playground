@@ -52,6 +52,8 @@ data class AppSettings(
     val keepScreenOn: Boolean = true,
     val muteMicWhileSpeaking: Boolean = true,
     val setupDismissed: Boolean = false,
+    /** buttons under a translation that replace words of the word lists ("news → messages") */
+    val showWordSwaps: Boolean = true,
 )
 
 class SettingsRepository(private val store: DataStore<Preferences>, scope: CoroutineScope) {
@@ -83,6 +85,13 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         val keepScreenOn = booleanPreferencesKey("keepScreenOn")
         val muteMicWhileSpeaking = booleanPreferencesKey("muteMicWhileSpeaking")
         val setupDismissed = booleanPreferencesKey("setupDismissed")
+        val showWordSwaps = booleanPreferencesKey("showWordSwaps")
+
+        /** 1.5.0/1.6.0: the list "Mehrdeutige Wörter" (see LegacyWords) */
+        val ambiguousWords = stringPreferencesKey("ambiguousWords")
+
+        /** further settings of 1.3.0-1.6.0, removed together with [ambiguousWords] */
+        val obsolete = listOf("translationContext", "contextDocument", "useAmbiguousWords", "wordCollection").map(::stringPreferencesKey)
     }
 
     private val defaults = AppSettings()
@@ -111,6 +120,7 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         keepScreenOn = p[K.keepScreenOn] ?: defaults.keepScreenOn,
         muteMicWhileSpeaking = p[K.muteMicWhileSpeaking] ?: defaults.muteMicWhileSpeaking,
         setupDismissed = p[K.setupDismissed] ?: defaults.setupDismissed,
+        showWordSwaps = p[K.showWordSwaps] ?: defaults.showWordSwaps,
     )
 
     val settings: StateFlow<AppSettings> = store.data.map(::read).stateIn(scope, SharingStarted.Eagerly, defaults)
@@ -149,8 +159,25 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
                 p[K.keepScreenOn] = s.keepScreenOn
                 p[K.muteMicWhileSpeaking] = s.muteMicWhileSpeaking
                 p[K.setupDismissed] = s.setupDismissed
+                p[K.showWordSwaps] = s.showWordSwaps
             }
         }
+    }
+
+    /**
+     * The word list of 1.5.0/1.6.0, or null if there is none; it is removed from the settings,
+     * together with the other settings of 1.3.0-1.6.0 that this version does not have.
+     */
+    suspend fun takeOldWordList(): String? {
+        val old = listOf(K.ambiguousWords) + K.obsolete
+        if (store.data.first().asMap().keys.none { it in old }) return null
+        var words: String? = null
+        store.edit { p ->
+            words = p[K.ambiguousWords]
+            p.remove(K.ambiguousWords)
+            K.obsolete.forEach { p.remove(it) }
+        }
+        return words?.takeIf { it.isNotBlank() }
     }
 
     companion object {

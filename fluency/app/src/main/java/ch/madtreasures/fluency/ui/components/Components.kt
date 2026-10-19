@@ -54,6 +54,7 @@ import ch.madtreasures.fluency.core.Languages
 import ch.madtreasures.fluency.core.Latency
 import ch.madtreasures.fluency.settings.AUTO
 import ch.madtreasures.fluency.ui.theme.TranslationTextStyle
+import ch.madtreasures.fluency.words.WordSwap
 
 /** Top app bar for screens inside the app scaffold (the scaffold already handles system insets). */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -165,7 +166,7 @@ fun LatencyRow(latency: Latency, modifier: Modifier = Modifier) {
     }
 }
 
-/** One recognised + translated utterance. */
+/** One recognised + translated utterance; finished ones with buttons that replace words ([swaps]). */
 @Composable
 fun UtteranceCard(
     sourceText: String,
@@ -177,7 +178,10 @@ fun UtteranceCard(
     onSpeak: (() -> Unit)?,
     onCopy: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    swaps: List<WordSwap> = emptyList(),
+    onReplace: ((WordSwap) -> Unit)? = null,
 ) {
+    val highlight = rememberSwapHighlight()
     Card(
         modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -193,10 +197,11 @@ fun UtteranceCard(
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                translation.ifBlank { if (final) "" else "…" },
+                highlighted(translation.ifBlank { if (final) "" else "…" }, highlight),
                 style = TranslationTextStyle,
                 modifier = Modifier.alpha(if (final) 1f else 0.6f),
             )
+            if (final && onReplace != null) SwapChips(swaps, highlight, onReplace, Modifier.padding(top = 4.dp))
             if (error != null) {
                 Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }

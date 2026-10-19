@@ -1,0 +1,78 @@
+# Fluency – doppeldeutige Wörter: Deutsch (de)
+# Eine Zeile pro Gruppe: Wörter, die beim Übersetzen verwechselt werden können, getrennt mit „|“.
+# Formen eines Wortes mit Komma, in jedem Wort gleich geordnet (z. B. Einzahl, Mehrzahl).
+# In Klammern eine Erklärung. Nach „<“ optional Wörter des Originaltexts: dann erscheint die
+# Gruppe nur, wenn eines davon im Original steht (Endungen werden mitgefunden, „Bank“ findet „Bänke“).
+Affe, Affen | Overall, Overalls < mono
+Anwalt, Anwälte | Avocado, Avocados < avocat
+Baguette, Baguettes (Brot) | Essstäbchen | Zauberstab, Zauberstäbe < baguette
+Bank, Banken (Geldinstitut) | Ufer < bank
+Bild, Bilder (Gemälde) | Wandtafel, Wandtafeln | Tabelle, Tabellen < tableau
+Blatt, Blätter (Laubblatt) | Klinge, Klingen < hoja
+Brief, Briefe | Buchstabe, Buchstaben < letter
+Brief, Briefe | Karte, Karten (Spielkarte) | Speisekarte, Speisekarten < carta
+Briefmarke, Briefmarken | Stempel < stamp
+Brille, Brillen | Gläser (Trinkgläser) < glasses
+Brust, Brüste (Brustkorb) | Truhe, Truhen < chest
+Buch, Bücher | Pfund < livre
+Bussgeld (Busse) | gut (in Ordnung) | fein < fine
+Büro, Büros | Schreibtisch, Schreibtische < bureau
+Datum, Daten | Date, Dates (Verabredung) | Dattel, Datteln < date
+Eis (Speiseeis) | Spiegel < glace
+Fels (Stein) | Rock (Rockmusik) < rock
+Fledermaus, Fledermäuse | Schläger < bat
+Flug, Flüge | Diebstahl, Diebstähle < vol
+Frühling | Feder (Sprungfeder) | Quelle < spring
+Fussball | Tritt (Fusstritt) | Kalzium < calcio
+Hals, Hälse | Paket, Pakete < collo
+Handfläche, Handflächen | Palme, Palmen < palm
+Heilung | Pfarrer < cura
+Kartoffel, Kartoffeln | Papst, Päpste < papa
+Katze, Katzen | Wagenheber < gato
+Kerze, Kerzen | Segel < vela
+Kiste, Kisten (Schachtel) | Kasse, Kassen < caixa
+Kofferraum, Kofferräume | Stamm, Stämme (Baumstamm) | Rüssel < trunk
+Kran, Kräne (Baukran) | Kranich, Kraniche < crane
+Kugelschreiber (Schreibstift) | Feder (Vogelfeder) | Penne (Nudeln) < penna
+Landkarte, Landkarten | Speisekarte, Speisekarten | Karte, Karten (Bankkarte) < carte
+Licht | leicht (Gewicht) < light
+Marmelade (Konfitüre) | Stau < jam
+Messe (Jahrmarkt) | fair (gerecht) | hell (Haut, Haar) < fair
+Netz, Netze | Hängematte, Hängematten < rede
+Ordner (Mappe) | Paste < pasta
+Orgel, Orgeln (Musikinstrument) | Organ, Organe (Körperorgan) < organ
+Pfirsich | Fischen < pêche, pesca
+Pflanze | Stock (Stockwerk) | Werk (Fabrik) < planta
+Pflanze, Pflanzen | Stadtplan, Stadtpläne < pianta
+Pflanze, Pflanzen | Werk, Werke (Fabrik) < plant
+Post | Stelle (Job) < poste
+Puppe, Puppen | Handgelenk, Handgelenke < muñeca
+Rechnung, Rechnungen | Geldschein, Geldscheine | Gesetzentwurf, Gesetzentwürfe < bill
+Rechnung, Rechnungen | Konto, Konten (Bankkonto) < conta
+Reis | Lachen < riso
+Rinde (Baumrinde) | Bellen < bark
+Robbe, Robben | Dichtung, Dichtungen | Siegel < seal
+Satz, Sätze | Strafe, Strafen (Urteil) < sentence
+Schaum | Mousse (Dessert) | Moos < mousse
+Schlüssel | Taste, Tasten | Tonart, Tonarten < key
+Schraube, Schrauben | Rebe, Reben (Weinrebe) < vite
+Schwanz | Schlange (Warteschlange) | Leim < cola
+Schüler | Pupille, Pupillen < pupil
+Stern, Sterne (Himmelsstern) | Star, Stars (berühmte Person) < star
+Streichholz, Streichhölzer | Spiel, Spiele < match
+Säge, Sägen | Gebirge < sierra
+Tasche, Taschen (Tüte) | Börse, Börsen < borsa, bolsa
+Ticket, Tickets (Fahrkarte, Eintritt) | Strafzettel < ticket
+Tisch, Tische | Tabelle, Tabellen < table
+Trainer | Reisebus, Reisebusse < coach
+Trinkgeld, Trinkgelder | Tipp, Tipps (Ratschlag) | Spitze, Spitzen < tip
+Ventilator, Ventilatoren | Fan, Fans (Anhänger) < fan
+Waage, Waagen | Massstab, Massstäbe | Schuppe, Schuppen | Tonleiter, Tonleitern < scale
+Wechselgeld | Veränderung < change
+Wohnung | Platten (Reifenpanne) | flach < flat
+Zeit | Wetter < temps, tiempo
+Zelle, Zellen (Gefängniszelle) | Handy, Handys (Mobiltelefon) < cell
+Zimmer | Kammer, Kammern (Parlamentskammer) < camera
+Zimmer | Münze, Münzen | Theaterstück, Theaterstücke | Teil, Teile (Ersatzteil) < pièce
+Zinssatz, Zinssätze | Dachs, Dachse < tasso
+Ärmel | Mango, Mangos < manga

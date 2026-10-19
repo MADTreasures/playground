@@ -14,8 +14,8 @@ import kotlinx.coroutines.launch
 class ConversationViewModel(c: AppContainer) : PipelineHost(c) {
 
     val ui: StateFlow<ConversationUiState> = combine(
-        pipelineState, c.settingsRepository.settings, preparing, localError,
-    ) { p, s, prep, err ->
+        pipelineState, c.settingsRepository.settings, preparing, localError, swaps,
+    ) { p, s, prep, err, sw ->
         ConversationUiState(
             langA = s.convLangA,
             langB = s.convLangB,
@@ -25,6 +25,7 @@ class ConversationViewModel(c: AppContainer) : PipelineHost(c) {
             speechActive = p.speechActive,
             level = p.level,
             utterances = p.utterances,
+            swaps = sw,
             speak = s.speakConversation,
             showLatency = s.showLatency,
             keepScreenOn = s.keepScreenOn,
