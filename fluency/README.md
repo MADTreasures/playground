@@ -18,6 +18,11 @@ Die Screenshots sind Robolectric-Renderings (`ScreenshotTest`). Die Texte und Za
 aus den Integrationstests auf dem x86-Build-Container. Es sind **keine Handy-Messungen**; die zwei
 falschen Übersetzungen im Live-Bild („bank“, „news“) sind von Hand gesetzt, um die Knöpfe zu zeigen.
 
+**Neu in 1.9.0: Untertitel auf der Brille** (Funktion 9). Fluency übersetzt für die App „Fluency“ auf
+der Brille Even Realities G2, die von der Uhr-App G2 Watch gesteuert wird; der Ton kommt vom Mikrofon der
+Uhr oder des Handys. Die Gegenstücke in der Uhr-App und „G2 Handy“ auf dem Handy gibt es noch nicht, bis
+dahin ist die Funktion nur mit Tests geprüft.
+
 **Version 1.8.0 baut auf 1.2.0 auf.**
 - **Zurückgenommen** sind die Änderungen von 1.3.0 bis 1.6.0 an der Übersetzung:
   kontextbezogene Übersetzung, Kontextdokument und das Modul „Mehrdeutige Wörter“, das dem Modell
@@ -33,6 +38,8 @@ falschen Übersetzungen im Live-Bild („bank“, „news“) sind von Hand gese
   Wortlisten bleiben erhalten.
 - **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.8.0.zip`](../dist/Fluency-AndroidStudio-1.8.0.zip)
   (enthält alle nativen Quellen und die fertig gebauten NPU-Bibliotheken, keine Submodule)
+- **1.9.0** (Brille) gibt es noch nicht als fertige APK und ZIP. Sie steckt im Quellcode dieses Repos;
+  gebaut wird sie wie unten beschrieben, mit deinem Schlüssel, damit die Modelle erhalten bleiben.
 
 ## In Android Studio bauen
 
@@ -135,6 +142,31 @@ Python wird nicht gebraucht. Die GPU-Kernel bettet ein CMake-Skript ein
    - Eigene Wörter aus der Liste „Mehrdeutige Wörter“ von 1.5.0/1.6.0 werden beim ersten Start in die
      neuen Listen übernommen (die Einträge der mitgelieferten Sammlung sind schon in den Startlisten).
    - Ausschalten: Optionen → „Wörter zum Ersetzen unter der Übersetzung“.
+
+9. **Brille (G2 Watch)**: Fluency übersetzt für die App „Fluency“ auf der Brille Even Realities G2.
+   Die Brille wird von der Uhr-App G2 Watch gesteuert; deren Handy-Teil „G2 Handy“ reicht die Nachrichten
+   und den Ton der Uhr an Fluency weiter.
+   - Einschalten: Optionen → „Brille (G2 Watch)“ → **Für die Brille bereit**. Fluency fragt dabei nach
+     Mikrofon und Mitteilungen. Solange der Schalter an ist, zeigt Android die Mitteilung „Fluency für
+     die Brille“ mit „Ausschalten“, und die Optionen zeigen, was gerade läuft, z. B. „Übersetzt für die
+     Brille: Uhr-Mikrofon, Englisch → Deutsch (Schweiz)“.
+   - Auf der Brille wählt man Ton und Sprachen und startet. Fluency hört über das **Mikrofon der Uhr**
+     (die Uhr schickt den Ton als 16-kHz-PCM) oder über das **Mikrofon des Handys** und übersetzt mit den
+     Modellen und Einstellungen der App, wie im Live-Modus. Zurück gehen die Sätze, während sie gesprochen
+     werden (höchstens alle 250 ms) und sofort, wenn sie fertig sind. „Am Handy vorlesen“ der Brille
+     liest die fertigen Übersetzungen hier vor; der Ton ist dabei stumm, auch der von der Uhr.
+   - Nur „G2 Handy“ (`ch.madtreasures.g2watch`) kommt herein, und nur mit dem Zertifikat, das es beim
+     ersten Verbinden hatte. Wird G2 Handy mit einem anderen Schlüssel neu installiert: Optionen →
+     „Vergessen“.
+   - Das Handy-Mikrofon darf eine App im Hintergrund nur über einen Vordergrund-Dienst nutzen, der
+     gestartet wurde, während sie offen war. Deshalb startet der Schalter den Dienst, und jedes Öffnen
+     von Fluency startet ihn wieder (etwa nach einem Neustart des Handys). Das Mikrofon der Uhr braucht
+     das nicht.
+   - Was die Brille und Fluency einander schicken (Protokoll `fluency-g2@1`) und wie G2 Handy den Dienst
+     anspricht, steht in `packages/fluency/PLATTFORM.md` im Repo
+     [MADTreasures/ER-G2-custom](https://github.com/MADTreasures/ER-G2-custom) (§6.2, §7).
+
+   <img src="docs/screenshots/14_settings_glasses.png" width="300" alt="Optionen: Brille (G2 Watch)">
 
 Sprachen: 54 Einträge (Deutsch, Deutsch (Schweiz), Englisch, Französisch, Italienisch, Spanisch,
 Portugiesisch und alles, was Hy-MT2 und MiLMMT-46 zusätzlich können). Die App wählt automatisch ein
@@ -254,6 +286,22 @@ Mikrofon (16 kHz) ─▶ Silero VAD ─▶ Utterance-Puffer ─(alle ~400 ms / s
   `app/src/main/jniLibs`.
 - **whisper.cpp 1.9.5** für Schweizerdeutsch, statisch in `libfluency_jni.so`. Q5_0-Modelle werden
   beim Laden exakt nach Q8_0 umgewandelt (siehe Modelle).
+- **Brille** (`glasses/`):
+  - `GlassesService` ist ein exportierter Dienst mit der Aktion `ch.madtreasures.g2watch.action.LINK`.
+    G2 Handy bindet ihn und schickt `Messenger`-Nachrichten: `OPEN` = 1 (Bundle `app`, `version`),
+    `OPENED` = 2 (Antwort), `MSG` = 3 (`text`, beide Richtungen), `CLOSE` = 4 (`message`: warum, beide
+    Richtungen, auch wenn Fluency ein `OPEN` ablehnt), `AUDIO_START` = 5 (`pfd`: Leseende einer Pipe,
+    `rate` = 16000), `AUDIO_STOP` = 6. Jede Nachricht muss von der UID kommen, die die Verbindung
+    geöffnet hat (`Message.sendingUid`).
+  - Der Dienst läuft im Vordergrund (`connectedDevice`, mit Mikrofon-Erlaubnis auch `microphone`).
+  - `WatchAudio` liest den Ton der Uhr (PCM s16le, 16 kHz, mono) und gibt ihn in Blöcken zu 512 Samples
+    an die Pipeline, wie `MicrophoneSource`. Endet der Strom, wartet dieselbe Quelle auf den nächsten.
+  - `GlassesBridge` setzt das Protokoll um. Sie steuert eine `LivePipeline` und schickt deren
+    Äußerungen; abgebrochene schickt sie als `gone`. Ändert sich nur Vorlesen oder „schon beim
+    Sprechen zeigen“, läuft die Pipeline weiter; ändern sich Ton oder Sprachen, startet eine neue.
+    Nach „stop“ wird der angefangene Satz fertig übersetzt, ein neuer Start wartet nicht darauf. Kommt
+    5 s lang kein Ton von der Uhr, erfährt es die Brille einmal.
+  - `PipelineFactory` lädt die Modelle für Live, Gespräch und Brille gleich.
 - Native Libraries werden bei der Installation entpackt (`useLegacyPackaging = true`). Das ist nötig,
   weil die App die passende `libggml-cpu-*.so`, die Backends und die NPU-Programme im
   Bibliotheksordner sucht und lädt. Alle ARM-Bibliotheken sind 16-KB-ausgerichtet; die
@@ -375,6 +423,25 @@ test_wavs/), `whisper-turbo/`, `swiss-whisper/ggml-model-q5_0.bin`, `vad/silero_
     speicherbar, bekommt die Sprache der Seite), löschen, ohne die anderen Sprachen anzufassen;
     Stern setzt und entfernt Favoriten; die Sprachen öffnen ihre Seiten; am Knopf Finger drauf →
     Wort markiert, wegziehen → nichts ersetzt, tippen → ersetzt.
+- **Brille (G2 Watch)**, ohne Uhr, Brille und G2 Handy:
+  - Protokoll: Lesen und Schreiben jeder Nachricht, Standardwerte, unbekannte Typen und Felder,
+    fehlerhafte Anfragen, Anführungszeichen, Zeilenumbrüche, Chinesisch und Emoji.
+  - Ton der Uhr: PCM in Stücken, die mitten in einem Sample enden; ein neuer Strom für dieselbe
+    Pipeline; ohne Zuhörer verworfen; nur die neueste Pipeline hört; wann zuletzt Ton kam.
+  - Brücke mit simulierter Pipeline und virtueller Zeit:
+    - Start lädt die Modelle („Lädt die Modelle …“) und hört dann auf die Uhr.
+    - Sätze, die gerade gesprochen werden, höchstens alle 250 ms, immer der neueste Stand; fertige
+      sofort und nur einmal; ohne „schon beim Sprechen“ nur fertige.
+    - Verworfene Sätze gehen als `gone`.
+    - Vorlesen ändern lässt die Pipeline laufen, eine andere Sprache startet eine neue.
+    - Stopp übersetzt den angefangenen Satz fertig; Stopp während des Ladens; ein neuer Start wartet
+      nicht auf den alten.
+    - Fehlendes Modell, unbekannte Sprache, Handy-Mikrofon nicht erlaubt, Pipeline bricht ab, kein Ton
+      von der Uhr (einmal); nach dem Trennen kommt nichts mehr.
+  - Dienst (Robolectric): Nur die Aktion `…LINK` bindet. G2 Handy kommt herein, sein Zertifikat wird
+    gemerkt, und „hello“ bekommt „welcome“ zurück. Andere Apps, ein anderes Zertifikat und der
+    ausgeschaltete Schalter werden abgelehnt; eine fremde App kann nicht in eine offene Verbindung
+    schreiben; Ausschalten trennt.
 - **Robolectric-Screenshots** aller Bildschirme (`docs/screenshots`), dazu die drei Ebenen der
   Wortlisten (`11_word_lists`, `12_word_sources`, `13_word_pair`) und der gedrückte Knopf mit
   markiertem Wort (`10_word_preview`).
@@ -425,6 +492,10 @@ Parakeet-TDT 0.6B v3: 365 ms für 6,6 s Audio (Echtzeitfaktor 0,055).
   (i8mm/KleidiAI/SME2) nicht; dort ist Q8_0 nur gleich schnell bis etwas schneller. Erwartet wird
   auf dem Handy ein Mehrfaches, gemessen ist es noch nicht (der Benchmark der App zeigt es).
 - Speicherverbrauch und Wärmeentwicklung bei langen Sitzungen.
+- **Brille (G2 Watch)**: alles mit der echten Kette, sobald die Uhr-App sie hat (Schnittstelle 4, G2
+  Handy): Verbinden, Ton der Uhr über Bluetooth, Verzögerung bis zum Untertitel auf der Brille. Dazu das
+  Handy-Mikrofon im Hintergrund über den Vordergrund-Dienst (Android 17), die Mitteilung mit
+  „Ausschalten“ und das Merken des Zertifikats von G2 Handy.
 
 ## Lizenzen
 

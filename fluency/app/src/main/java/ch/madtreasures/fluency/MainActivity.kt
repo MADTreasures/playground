@@ -45,10 +45,12 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import ch.madtreasures.fluency.core.Languages
+import ch.madtreasures.fluency.glasses.GlassesService
 import ch.madtreasures.fluency.models.ModelCatalog
 import ch.madtreasures.fluency.models.ModelKind
 import ch.madtreasures.fluency.ui.bench.BenchmarkScreen
@@ -92,6 +94,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val container = (application as FluencyApp).container
         setContent { FluencyTheme { FluencyRoot(container) } }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // The connection to the glasses runs in the foreground, started while Fluency is on screen: only so
+        // Android lets it use the microphone later from the background.
+        val settings = (application as FluencyApp).container.settingsRepository
+        lifecycleScope.launch { if (settings.loaded().glasses) GlassesService.start(this@MainActivity) }
     }
 }
 
@@ -356,6 +366,12 @@ private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit, onOpenWords:
     val accel by c.translationEngine.accelStatus.collectAsStateWithLifecycle()
     val translation = remember(states) { c.modelManager.installed(ModelKind.TRANSLATION).map { ModelOption(it.id, it.name) } }
     val asr = remember(states) { c.modelManager.installed(ModelKind.ASR).map { ModelOption(it.id, it.name) } }
+    val glassesStatus by c.glassesStatus.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    // the microphone for "Handy-Mikrofon", notifications for the service's notice; without them the watch's sound still works
+    val askForGlasses = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        GlassesService.start(context)
+    }
     SettingsScreen(
         state = SettingsUiState(
             settings = settings,
@@ -363,12 +379,22 @@ private fun SettingsRoute(c: AppContainer, onBenchmark: () -> Unit, onOpenWords:
             asrModels = asr,
             versionInfo = "Fluency ${BuildConfig.VERSION_NAME} · ${NativeVersions.SUMMARY}",
             accel = AccelUi.from(accel, translation, settings.accel),
+            glassesStatus = glassesStatus,
         ),
         onChange = c.settingsRepository::update,
         onBenchmark = onBenchmark,
         onRemeasure = c.translationEngine::remeasure,
         onUnblock = c.translationEngine::unblock,
         onOpenWords = onOpenWords,
+        onGlasses = { on ->
+            c.settingsRepository.update { it.copy(glasses = on) }
+            if (on) {
+                val wanted = listOfNotNull(Manifest.permission.RECORD_AUDIO, if (Build.VERSION.SDK_INT >= 33) Manifest.permission.POST_NOTIFICATIONS else null)
+                val missing = wanted.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
+                if (missing.isEmpty()) GlassesService.start(context) else askForGlasses.launch(missing.toTypedArray())
+            }
+        },
+        onForgetCertificate = { c.settingsRepository.update { it.copy(glassesCert = "") } },
     )
 }
 

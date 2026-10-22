@@ -56,6 +56,10 @@ data class AppSettings(
     val showWordSwaps: Boolean = true,
     /** languages marked with a star in the word lists: shown first */
     val favoriteLanguages: Set<String> = emptySet(),
+    /** "Brille (G2 Watch)": the app on the glasses may use Fluency (see GlassesService) */
+    val glasses: Boolean = false,
+    /** SHA-256 of G2 Handy's certificate, remembered at its first connection; "" = none yet */
+    val glassesCert: String = "",
 )
 
 class SettingsRepository(private val store: DataStore<Preferences>, scope: CoroutineScope) {
@@ -89,6 +93,8 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         val setupDismissed = booleanPreferencesKey("setupDismissed")
         val showWordSwaps = booleanPreferencesKey("showWordSwaps")
         val favoriteLanguages = stringPreferencesKey("favoriteLanguages")
+        val glasses = booleanPreferencesKey("glasses")
+        val glassesCert = stringPreferencesKey("glassesCert")
 
         /** 1.5.0/1.6.0: the list "Mehrdeutige Wörter" (see LegacyWords) */
         val ambiguousWords = stringPreferencesKey("ambiguousWords")
@@ -125,6 +131,8 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
         setupDismissed = p[K.setupDismissed] ?: defaults.setupDismissed,
         showWordSwaps = p[K.showWordSwaps] ?: defaults.showWordSwaps,
         favoriteLanguages = p[K.favoriteLanguages]?.split(',')?.filter { it.isNotBlank() }?.toSet() ?: defaults.favoriteLanguages,
+        glasses = p[K.glasses] ?: defaults.glasses,
+        glassesCert = p[K.glassesCert] ?: defaults.glassesCert,
     )
 
     val settings: StateFlow<AppSettings> = store.data.map(::read).stateIn(scope, SharingStarted.Eagerly, defaults)
@@ -165,6 +173,8 @@ class SettingsRepository(private val store: DataStore<Preferences>, scope: Corou
                 p[K.setupDismissed] = s.setupDismissed
                 p[K.showWordSwaps] = s.showWordSwaps
                 p[K.favoriteLanguages] = s.favoriteLanguages.sorted().joinToString(",")
+                p[K.glasses] = s.glasses
+                p[K.glassesCert] = s.glassesCert
             }
         }
     }

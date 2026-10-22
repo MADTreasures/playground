@@ -14,6 +14,9 @@
 - **Projekt für Android Studio**: [`dist/Fluency-AndroidStudio-1.8.0.zip`](dist/Fluency-AndroidStudio-1.8.0.zip)
   (entpacken → in Android Studio öffnen → Run). Alternativ funktioniert auch „Code → Download ZIP“
   dieses Repos; dann den Ordner `fluency` öffnen.
+- **Im Quellcode, noch ohne fertige APK: 1.9.0** mit Untertiteln auf der Brille Even Realities G2
+  (über die Uhr-App G2 Watch, Ton vom Mikrofon der Uhr oder des Handys). Optionen → „Brille (G2 Watch)“;
+  die Gegenstücke auf Uhr und Handy fehlen noch, siehe [`fluency/README.md`](fluency/README.md), Funktion 9.
 - Beschreibung, Modelle, Build und Tests: [`fluency/README.md`](fluency/README.md)
 
 llama.cpp (CPU + Adreno-GPU + Hexagon-NPU) + sherpa-onnx + whisper.cpp · Hy-MT2-1.8B / MiLMMT-46 / Parakeet-TDT-0.6B-v3 / Whisper.

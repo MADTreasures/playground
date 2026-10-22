@@ -8,6 +8,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Glasses (G2 Watch): the connection runs as a foreground service, with the phone's microphone if allowed -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Required by Android 14+ for the connectedDevice type; Fluency does not change any network itself. -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+
+    <!-- G2 Handy (phone half of the G2 Watch app): the only app the glasses service lets in -->
+    <queries>
+        <package android:name="ch.madtreasures.g2watch" />
+    </queries>
 
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
@@ -45,5 +55,16 @@
             android:name=".models.DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- The app on the G2 glasses, by way of G2 Handy; it checks the caller (package and certificate). -->
+        <service
+            android:name=".glasses.GlassesService"
+            android:exported="true"
+            android:foregroundServiceType="connectedDevice|microphone"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="ch.madtreasures.g2watch.action.LINK" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>
