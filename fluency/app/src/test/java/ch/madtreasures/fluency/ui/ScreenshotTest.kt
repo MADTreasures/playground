@@ -233,6 +233,15 @@ class ScreenshotTest {
         Framed(Tab.SETTINGS) { SettingsScreen(settingsState, onChange = {}, onBenchmark = {}) }
     }
 
+    /** "Brille (G2 Watch)" while the glasses listen through the watch (the certificate is made up) */
+    @Test fun settingsGlasses() = shoot("14_settings_glasses", before = { compose.onNodeWithText("Vergessen").performScrollTo() }) {
+        val state = settingsState.copy(
+            settings = AppSettings(glasses = true, glassesCert = "3A5F019C" + "0".repeat(48) + "7E22C20D"),
+            glassesStatus = "Übersetzt für die Brille: Uhr-Mikrofon, Englisch → Deutsch (Schweiz)",
+        )
+        Framed(Tab.SETTINGS) { SettingsScreen(state, onChange = {}, onBenchmark = {}) }
+    }
+
     private val store by lazy { WordGroupStore(File("build/tmp/screenshot-words").apply { deleteRecursively() }) { File("src/main/assets/words/$it.txt").takeIf(File::exists)?.readText() } }
 
     @Test fun wordLists() = shoot("11_word_lists") {

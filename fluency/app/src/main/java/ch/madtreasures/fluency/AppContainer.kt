@@ -24,6 +24,7 @@ import ch.madtreasures.fluency.models.ModelKind
 import ch.madtreasures.fluency.models.ModelManager
 import ch.madtreasures.fluency.models.ModelStore
 import ch.madtreasures.fluency.pipeline.EngineTranslator
+import ch.madtreasures.fluency.pipeline.PipelineFactory
 import ch.madtreasures.fluency.settings.AppSettings
 import ch.madtreasures.fluency.settings.SettingsRepository
 import ch.madtreasures.fluency.settings.SettingsRepository.Companion.fluencyDataStore
@@ -32,6 +33,7 @@ import ch.madtreasures.fluency.words.WordGroupStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
@@ -103,6 +105,12 @@ class AppContainer(val app: Application) {
     }
 
     val speaker by lazy { RoutingSpeaker(androidTts, piperSpeaker) { settings.ttsEngine == "piper" } }
+
+    /** builds the live pipelines of the screens and of the glasses bridge */
+    val pipelines = PipelineFactory(this)
+
+    /** what the glasses connection does, for the settings (see GlassesService); null while it is off */
+    val glassesStatus = MutableStateFlow<String?>(null)
 
     /** the word lists for replacing words under a translation; start lists in assets/words */
     val wordGroups = WordGroupStore(File(app.filesDir, "words")) { code ->

@@ -40,6 +40,7 @@ import ch.madtreasures.fluency.engine.llm.AccelChoice
 import ch.madtreasures.fluency.engine.llm.AccelMode
 import ch.madtreasures.fluency.engine.llm.Processor
 import ch.madtreasures.fluency.engine.llm.TranslationEngine
+import ch.madtreasures.fluency.glasses.Certificates
 import ch.madtreasures.fluency.settings.AppSettings
 import ch.madtreasures.fluency.ui.components.SectionTitle
 import ch.madtreasures.fluency.ui.text.ModelOption
@@ -51,6 +52,8 @@ data class SettingsUiState(
     val asrModels: List<ModelOption> = emptyList(),
     val versionInfo: String = "",
     val accel: AccelUi = AccelUi(),
+    /** what the connection to the glasses does (GlassesService); null while it does not run */
+    val glassesStatus: String? = null,
 )
 
 /** CPU/GPU/NPU state as text lines for the settings screen. */
@@ -100,6 +103,8 @@ fun SettingsScreen(
     onRemeasure: () -> Unit = {},
     onUnblock: (Processor) -> Unit = {},
     onOpenWords: () -> Unit = {},
+    onGlasses: (Boolean) -> Unit = {},
+    onForgetCertificate: () -> Unit = {},
 ) {
     val s = state.settings
     Column(modifier.fillMaxSize()) {
@@ -195,6 +200,30 @@ fun SettingsScreen(
             SectionTitle("Anzeige")
             Toggle("Latenz anzeigen", s.showLatency) { v -> onChange { it.copy(showLatency = v) } }
             Toggle("Bildschirm während Aufnahme anlassen", s.keepScreenOn) { v -> onChange { it.copy(keepScreenOn = v) } }
+
+            SectionTitle("Brille (G2 Watch)")
+            Toggle("Für die Brille bereit", s.glasses, onGlasses)
+            Text(
+                if (s.glasses) state.glassesStatus ?: "Startet …" else "Aus",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (s.glasses) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "Die App „Fluency“ auf der Brille Even G2 (gesteuert von der Uhr-App G2 Watch) zeigt die Übersetzung als " +
+                    "Untertitel. Den Ton nimmt das Mikrofon der Uhr oder das des Handys; übersetzt wird hier, mit den Modellen " +
+                    "und Einstellungen von oben. Auf dem Handy braucht es dazu „G2 Handy“. Solange der Schalter an ist, zeigt " +
+                    "Android eine Mitteilung.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (s.glassesCert.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "G2 Handy, Zertifikat ${Certificates.short(s.glassesCert)}", Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = onForgetCertificate) { Text("Vergessen") }
+                }
+            }
 
             SectionTitle("Über Fluency")
             Text(

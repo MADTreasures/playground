@@ -5,14 +5,12 @@ import androidx.lifecycle.viewModelScope
 import ch.madtreasures.fluency.AppContainer
 import ch.madtreasures.fluency.core.Language
 import ch.madtreasures.fluency.core.Languages
-import ch.madtreasures.fluency.engine.asr.SherpaVad
 import ch.madtreasures.fluency.engine.audio.MicrophoneSource
 import ch.madtreasures.fluency.engine.llm.TranslationEngine.Role
 import ch.madtreasures.fluency.models.ModelCatalog
 import ch.madtreasures.fluency.models.ModelKind
 import ch.madtreasures.fluency.pipeline.LivePipeline
 import ch.madtreasures.fluency.pipeline.PipelineState
-import ch.madtreasures.fluency.pipeline.SileroDetector
 import ch.madtreasures.fluency.pipeline.Utterance
 import ch.madtreasures.fluency.settings.AUTO
 import ch.madtreasures.fluency.words.WordGroups
@@ -32,7 +30,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
 data class LiveUiState(
@@ -124,36 +121,11 @@ abstract class PipelineHost(protected val c: AppContainer) : ViewModel() {
         preparing.value = true
         viewModelScope.launch {
             try {
-                val s = c.settings
-                val asrInfo = c.asrManager.pickModel(config.source)
-                    ?: error("Kein Spracherkennungsmodell für ${config.source?.nameDe ?: "die Sprache"} installiert – siehe „Modelle“")
-                val vadPath = c.asrManager.vadModelPath() ?: error("Silero VAD fehlt – bitte unter „Modelle“ laden")
-                val live = c.translationEngine.pickModel(Role.LIVE, config.source, config.target)
-                    ?: error("Kein Übersetzungsmodell für ${config.target.nameDe} installiert – siehe „Modelle“")
-                val final = c.translationEngine.pickModel(Role.FINAL, config.source, config.target)
-                val (asr, vad) = withContext(Dispatchers.IO) {
-                    c.translationEngine.ensureBackends()
-                    c.asrManager.engine(asrInfo) to SherpaVad(vadPath, minSilenceSeconds = s.endSilenceMs / 1000f)
-                }
-                withContext(Dispatchers.IO) { c.translationEngine.preload(setOfNotNull(live.id, final?.id)) }
-                val p = LivePipeline(
-                    config = config.copy(
-                        partialIntervalMs = s.partialIntervalMs.toLong(),
-                        muteWhileSpeaking = s.muteMicWhileSpeaking,
-                    ),
-                    audio = MicrophoneSource(),
-                    vad = SileroDetector(vad),
-                    asr = asr,
-                    translator = c.translator,
-                    speaker = c.speaker,
-                    scope = pipelineScope,
-                    state = pipelineState,
-                    speakEnabled = { speakEnabled() },
-                )
+                val ready = c.pipelines.build(config, MicrophoneSource(), pipelineScope, pipelineState) { speakEnabled() }
+                val p = ready.pipeline
                 pipeline = p
                 p.start()
-                val on = c.translationEngine.processorOf(live.id)?.let { " ($it)" }.orEmpty()
-                pipelineState.update { it.copy(status = "${asr.name} · ${live.name}$on") }
+                pipelineState.update { it.copy(status = ready.models) }
                 launch {
                     // forget the pipeline once it stopped by itself (auto-stop, error)
                     pipelineState.first { !it.running }
