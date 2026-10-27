@@ -20,7 +20,7 @@ falschen Übersetzungen im Live-Bild („bank“, „news“) sind von Hand gese
 
 **Neu in 1.9.0: Untertitel auf der Brille** (Funktion 9). Fluency übersetzt für die App „Fluency“ auf
 der Brille Even Realities G2, die von der Uhr-App G2 Watch gesteuert wird; der Ton kommt vom Mikrofon der
-Uhr oder des Handys. Die Gegenstücke sind gebaut: G2 Watch 0.10.0 mit der Handy-App „G2 Handy“ und das Paket
+Uhr oder des Handys. Die Gegenstücke sind gebaut: G2 Watch ab 0.10.0 mit der Handy-App „G2 Handy“ und das Paket
 Fluency 1.1.0 im Repo [MADTreasures/ER-G2-custom](https://github.com/MADTreasures/ER-G2-custom); wie man alles
 einrichtet, steht dort im README unter „Apps auf dem Handy“. Alles ist nur mit Tests geprüft, nicht auf
 Hardware.
